@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+db.sqlite3
+*.log
+
+# Node.js
+node_modules/
+dist/
+.env.local
+
+# OS
+.DS_Store
+
+tests
+GEMINI.md
+TEST_INFRA.md
+TEST_READY.md
+.agents
+
+.cache/
+backend/.cache/
