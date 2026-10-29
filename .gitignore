@@ -8,7 +8,14 @@ db.sqlite3
 # Node.js
 node_modules/
 dist/
-.env.local
+
+# Environment variables
+.env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 
 # OS
 .DS_Store
