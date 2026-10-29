@@ -137,7 +137,7 @@ export default function ShadowingWorkspacePage() {
         updateVideoProgress(video.id, {
           current_segment_index: currentSegmentIndex,
           ratings: { [String(segmentKey)]: statusValue },
-        }).catch(() => {});
+        }).catch(() => { });
       }
     },
     [user, video, currentSegmentIndex]
@@ -149,7 +149,7 @@ export default function ShadowingWorkspacePage() {
 
   if (isLoading) {
     return (
-      <main className="max-w-5xl w-full mx-auto px-3 sm:px-6 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
+      <main className="w-full mx-auto px-3 sm:px-6 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
         <Skeleton variant="shadowing-workspace" />
       </main>
     );
@@ -157,7 +157,7 @@ export default function ShadowingWorkspacePage() {
 
   if (error || !video) {
     return (
-      <main className="max-w-5xl w-full mx-auto px-3 sm:px-6 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
+      <main className="w-full mx-auto px-3 sm:px-6 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
         <EmptyState
           title="Không tìm thấy bài học Shadowing"
           description={error || 'Video này có thể đã bị xóa hoặc bạn không có quyền truy cập.'}
@@ -169,7 +169,7 @@ export default function ShadowingWorkspacePage() {
   }
 
   return (
-    <main className="max-w-5xl w-full mx-auto px-3 sm:px-6 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
+    <main className="w-full mx-auto px-3 sm:px-6 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
       {/* 1. Top Header Toolbar (synchronized with FilterBar on HomePage) */}
       <Card
         rounded="xl"
@@ -217,11 +217,10 @@ export default function ShadowingWorkspacePage() {
                   setActiveMode(mode.id);
                   player.pause();
                 }}
-                className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${
-                  isActive
+                className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${isActive
                     ? 'bg-sky-600 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span className="truncate">{mode.label}</span>
@@ -238,9 +237,8 @@ export default function ShadowingWorkspacePage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start flex-1">
             {/* Left Video Player & Subtitles Stage (lg:col-span-8) */}
             <div
-              className={`flex flex-col gap-3 transition-all duration-150 ${
-                isTranscriptOpen ? 'lg:col-span-8' : 'lg:col-span-12'
-              }`}
+              className={`flex flex-col gap-3 transition-all duration-150 ${isTranscriptOpen ? 'lg:col-span-8' : 'lg:col-span-12'
+                }`}
             >
               <ShadowingModeStage
                 video={video}
