@@ -48,16 +48,19 @@ export default function Skeleton({ variant = 'flashcard', count = 6 }) {
       >
         {/* 1. Resume Hero Card Skeleton */}
         <Card rounded="2xl" className="rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5">
-          <div className="flex items-center justify-between">
-            <div className="h-4 w-32 bg-slate-100 rounded animate-pulse" />
-            <div className="h-5 w-16 bg-slate-100 rounded-full animate-pulse" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-36 bg-slate-100 rounded animate-pulse" />
+              <div className="hidden sm:block h-5 w-10 bg-slate-100 rounded-md animate-pulse" />
+              <div className="hidden sm:block h-5 w-16 bg-slate-100 rounded-md animate-pulse" />
+            </div>
+            <div className="h-8 sm:h-9 w-32 bg-slate-100 rounded-lg animate-pulse shrink-0" />
           </div>
           <div className="flex items-center gap-3.5 sm:gap-4">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-slate-100 animate-pulse shrink-0" />
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-slate-100 animate-pulse shrink-0" />
             <div className="flex-1 min-w-0 flex flex-col gap-2">
               <div className="h-5 w-3/4 bg-slate-100 rounded-md animate-pulse" />
               <div className="h-4 w-1/2 bg-slate-100 rounded animate-pulse" />
-              <div className="w-full h-1.5 bg-slate-100 rounded-full animate-pulse" />
             </div>
           </div>
           <div className="w-full min-h-10 sm:min-h-11 rounded-xl bg-slate-200 animate-pulse" />
@@ -212,7 +215,14 @@ export default function Skeleton({ variant = 'flashcard', count = 6 }) {
       >
         {/* 1. Recent Course Hero Card Skeleton */}
         <Card rounded="2xl" className="p-4 sm:p-5 flex flex-col gap-3.5">
-          <div className="h-4 w-24 bg-slate-100 rounded animate-pulse" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-36 bg-slate-100 rounded animate-pulse" />
+              <div className="hidden sm:block h-5 w-10 bg-slate-100 rounded-md animate-pulse" />
+              <div className="hidden sm:block h-5 w-16 bg-slate-100 rounded-md animate-pulse" />
+            </div>
+            <div className="h-8 sm:h-9 w-28 bg-slate-100 rounded-lg animate-pulse shrink-0" />
+          </div>
           <div className="flex items-center gap-3.5 sm:gap-4">
             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-slate-100 animate-pulse shrink-0" />
             <div className="flex-1 min-w-0 flex flex-col gap-2">
