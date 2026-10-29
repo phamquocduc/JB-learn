@@ -15,6 +15,7 @@ import {
   EllipsisHorizontalIcon,
 } from '@heroicons/react/24/outline';
 import Card from '../components/ui/Card';
+import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
 import Skeleton from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
@@ -340,29 +341,7 @@ export default function CoursesPage() {
       : 0;
 
   return (
-    <main className="w-full mx-auto px-3 sm:px-6 pt-4 pb-16 flex flex-col gap-5">
-      {/* Top Action Bar (Mobile Menu / Create Course) */}
-      {((!isGuest && user) || openSidebar) && (
-        <div className="flex items-center justify-end gap-2">
-          {!isGuest && user && (
-            <Button variant="secondary" size="sm" onClick={handleOpenCreate}>
-              <PlusIcon className="w-4 h-4" aria-hidden="true" />
-              <span>Tạo khoá học</span>
-            </Button>
-          )}
-          {openSidebar && (
-            <button
-              type="button"
-              onClick={openSidebar}
-              aria-label="Mở menu điều hướng"
-              className="lg:hidden w-9 h-9 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center cursor-pointer transition-colors duration-150"
-            >
-              <EllipsisHorizontalIcon className="w-6 h-6" aria-hidden="true" />
-            </button>
-          )}
-        </div>
-      )}
-
+    <main className="w-full mx-auto px-3 sm:px-6 pt-3 pb-16 flex flex-col gap-5">
       {/* Create / Edit Course Modal */}
       {!isGuest && isFormOpen && (
         <div
@@ -542,15 +521,57 @@ export default function CoursesPage() {
         <EmptyState
           title="Chưa có khoá học nào"
           description="Hãy tạo khoá học đầu tiên để nhóm các thẻ học theo chủ đề."
+          actionLabel={!isGuest && user ? 'Tạo khoá học' : undefined}
+          onAction={!isGuest && user ? handleOpenCreate : undefined}
         />
       ) : (
         <div className="flex flex-col gap-5">
-          {/* 1. TIẾP TỤC HỌC — Most Recently Accessed Course Card */}
+          {/* 1. TIẾP TỤC HỌC — Most Recently Accessed Course Card (with integrated Create Course & Mobile Menu buttons) */}
           {recentCourse && (
-            <Card rounded="2xl" className="p-4 sm:p-5 flex flex-col gap-3.5">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Tiếp tục học
-              </span>
+            <Card
+              rounded="2xl"
+              className="p-4 sm:p-5 flex flex-col gap-3.5 bg-white border border-sky-200/90 shadow-sm"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="flex h-2 w-2 rounded-full bg-sky-600 animate-pulse shrink-0" />
+                  <span className="text-xs font-bold text-sky-800 uppercase tracking-wider truncate">
+                    Tiếp tục tiến độ học tập
+                  </span>
+                  <div className="hidden sm:flex items-center gap-1.5 ml-1 shrink-0">
+                    <Badge variant="level">{recentCourse.level || 'N3'}</Badge>
+                    <Badge variant="secondary">
+                      {CARD_TYPE_LABELS[recentCourse.card_type] ||
+                        recentCourse.card_type}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {!isGuest && user && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleOpenCreate}
+                      className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-lg text-xs font-semibold"
+                    >
+                      <PlusIcon className="w-4 h-4" aria-hidden="true" />
+                      <span>Tạo khoá học</span>
+                    </Button>
+                  )}
+
+                  {openSidebar && (
+                    <button
+                      type="button"
+                      onClick={openSidebar}
+                      aria-label="Mở menu điều hướng"
+                      className="lg:hidden w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center cursor-pointer transition-colors duration-150"
+                    >
+                      <EllipsisHorizontalIcon className="w-5 h-5" aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              </div>
 
               <div className="flex items-center gap-3.5 sm:gap-4">
                 <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-sky-100/80 text-sky-700 flex items-center justify-center shrink-0">
