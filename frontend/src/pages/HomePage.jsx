@@ -130,7 +130,7 @@ export default function HomePage({ defaultScope = 'all' }) {
           setCourses(data);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
       ignore = true;
@@ -342,7 +342,7 @@ export default function HomePage({ defaultScope = 'all' }) {
 
   if (defaultScope === 'mine' && !authLoading && isGuest) {
     return (
-      <main className="max-w-5xl w-full mx-auto px-4 sm:px-6 py-8">
+      <main className="w-full mx-auto px-4 sm:px-6 py-8">
         <Card className="p-10 text-center flex flex-col items-center gap-4">
           <h2 className="text-lg font-bold text-slate-900">
             Đăng nhập để quản lý bộ thẻ cá nhân
@@ -369,7 +369,7 @@ export default function HomePage({ defaultScope = 'all' }) {
 
   return (
     <>
-      <main className="max-w-5xl w-full mx-auto px-3 sm:px-6 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
+      <main className="w-full mx-auto px-3 sm:px-6 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
         {/* Filter & Mode Toolbar */}
         <FilterBar
           activeTab={activeTab}

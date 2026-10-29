@@ -129,7 +129,7 @@ export default function ShadowingLibraryPage() {
   };
 
   return (
-    <main className="max-w-5xl w-full mx-auto px-3 sm:px-6 pt-4 pb-16 flex flex-col gap-5">
+    <main className="w-full mx-auto px-3 sm:px-6 pt-4 pb-16 flex flex-col gap-5">
       {/* 1. Top Action Bar (Mobile Menu & Add Video) */}
       <div className="flex items-center justify-end gap-2">
         <Button
@@ -202,11 +202,10 @@ export default function ShadowingLibraryPage() {
                 key={tab.value}
                 type="button"
                 onClick={() => setSelectedTopic(tab.value)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer shrink-0 ${
-                  selectedTopic === tab.value
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer shrink-0 ${selectedTopic === tab.value
                     ? 'bg-sky-600 text-white border-sky-600'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -258,11 +257,10 @@ export default function ShadowingLibraryPage() {
               key={lvl.value}
               type="button"
               onClick={() => setSelectedLevel(lvl.value)}
-              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer shrink-0 ${
-                selectedLevel === lvl.value
+              className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer shrink-0 ${selectedLevel === lvl.value
                   ? 'bg-sky-600 text-white border-sky-600'
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-              }`}
+                }`}
             >
               {lvl.label}
             </button>
