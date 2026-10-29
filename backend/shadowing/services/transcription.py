@@ -302,7 +302,7 @@ def transcribe_audio_offline(file_path_or_buffer) -> list:
     Decodes audio via built-in PyAV with zero external ffmpeg binary dependency.
     Returns structured list of segments with Furigana and tokenized words.
     """
-    model = get_whisper_model(model_size="base")
+    model = get_whisper_model(model_size=getattr(settings, "WHISPER_MODEL_SIZE", "base"))
     segments_gen, info = model.transcribe(
         file_path_or_buffer,
         language="ja",
