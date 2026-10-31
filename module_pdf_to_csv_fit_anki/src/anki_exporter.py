@@ -76,7 +76,7 @@ class AnkiExporter:
                 grammar_clean = TextCleaner.clean_grammar(r.get("grammar", ""))
                 meaning_clean = TextCleaner.clean_meaning(r.get("meaning", ""))
                 conj_clean = TextCleaner.clean_general(r.get("conjugation", "")).replace("\n", "<br>")
-                usage_clean = TextCleaner.clean_general(r.get("usage", "")).replace("\n", "<br>")
+                usage_clean = TextCleaner.clean_usage(r).replace("\n", "<br>")
                 ex_clean = TextCleaner.get_enriched_examples(r).replace("\n", "<br>")
                 
                 lesson_tag = r.get("lesson", "").replace(" ", "_").replace("-", "_")
@@ -111,7 +111,7 @@ class AnkiExporter:
                     TextCleaner.clean_grammar(r.get("grammar", "")),
                     TextCleaner.clean_meaning(r.get("meaning", "")),
                     TextCleaner.clean_general(r.get("conjugation", "")),
-                    TextCleaner.clean_general(r.get("usage", "")),
+                    TextCleaner.clean_usage(r),
                     TextCleaner.get_enriched_examples(r),
                     f"{r.get('source_file', '')} (Trang {r.get('page', '')})"
                 ])

@@ -23,4 +23,4 @@ USER appuser
 EXPOSE 7860
 
 # shortcut: local container media dir resets on container rebuild, switch to S3/R2 when persistent user uploads are needed
-CMD ["sh", "-c", "python backend/manage.py migrate --noinput && python backend/manage.py collectstatic --noinput && gunicorn --chdir backend core.wsgi:application --bind 0.0.0.0:${PORT:-7860} --workers 1 --threads 2 --timeout 180"]
+CMD ["sh", "-c", "python backend/manage.py migrate --noinput && python backend/manage.py sync_cards && python backend/manage.py collectstatic --noinput && gunicorn --chdir backend core.wsgi:application --bind 0.0.0.0:${PORT:-7860} --workers 1 --threads 2 --timeout 180"]
