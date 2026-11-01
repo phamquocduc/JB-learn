@@ -71,6 +71,7 @@ export default function PracticeView({
   const isAnswered = typeof selectedIdx === 'number';
   const frontText = currentCard.front_text || currentCard.grammar;
   const reading = currentCard.extra_data?.reading || '';
+  const isKanjiCard = currentCard.card_type === 'kanji';
   const currentStatus = statusMap[String(currentCard.id)] || 'unseen';
   const examples = parseExamples(currentCard.examples);
 
@@ -130,17 +131,25 @@ export default function PracticeView({
         {/* Prompt & Listening Section */}
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-6 flex flex-col items-center text-center gap-2.5 sm:gap-4">
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            Nghe và chọn ý nghĩa đúng
+            {isKanjiCard ? 'Chọn ý nghĩa đúng của Hán tự' : 'Nghe và chọn ý nghĩa đúng'}
           </span>
-          <div className="text-2xl sm:text-3xl font-bold text-slate-900">
-            <RubyText text={frontText} reading={reading} />
-          </div>
-          {currentCard.conjugation && (
-            <div className="text-sm text-sky-800 font-medium font-jp">
-              {currentCard.conjugation}
+          {isKanjiCard && !isAnswered ? (
+            <div className="text-3xl sm:text-5xl font-bold text-slate-900 font-jp py-2">
+              {frontText}
             </div>
+          ) : (
+            <>
+              <div className="text-2xl sm:text-3xl font-bold text-slate-900">
+                <RubyText text={frontText} reading={reading} />
+              </div>
+              {currentCard.conjugation && (
+                <div className="text-sm text-sky-800 font-medium font-jp">
+                  {currentCard.conjugation}
+                </div>
+              )}
+              <AudioPlayer text={frontText} />
+            </>
           )}
-          <AudioPlayer text={frontText} />
         </div>
 
         {/* Options */}

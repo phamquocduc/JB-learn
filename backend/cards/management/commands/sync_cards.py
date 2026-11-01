@@ -4,7 +4,11 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from cards.models import Card
-from cards.services import convert_pdfs_to_csv, sync_cards_from_csv
+from cards.services import (
+    convert_pdfs_to_csv,
+    export_kanji_n3_to_csv,
+    sync_cards_from_csv,
+)
 from shadowing.services.seeding import sync_shadowing_seed_videos
 
 
@@ -55,12 +59,25 @@ class Command(BaseCommand):
                 card_type=card_type,
                 level=level,
             )
+            kanji_count = 0
+            if (
+                csv_path.resolve() == settings.GRAMMAR_CSV_PATH.resolve()
+                and card_type == Card.CardType.GRAMMAR
+            ):
+                if not settings.KANJI_CSV_PATH.exists():
+                    export_kanji_n3_to_csv()
+                kanji_count = sync_cards_from_csv(
+                    csv_path=settings.KANJI_CSV_PATH,
+                    card_type=Card.CardType.KANJI,
+                    level=level,
+                )
             shadowing_count = sync_shadowing_seed_videos()
         except FileNotFoundError as exc:
             raise CommandError(str(exc)) from exc
 
+        kanji_msg = f", {kanji_count} thẻ Kanji N3" if kanji_count else ""
         self.stdout.write(
             self.style.SUCCESS(
-                f"Đã đồng bộ {count} thẻ ({card_type} - {level}) và {shadowing_count} video Shadowing mẫu vào cơ sở dữ liệu."
+                f"Đã đồng bộ {count} thẻ ({card_type} - {level}){kanji_msg} và {shadowing_count} video Shadowing mẫu vào cơ sở dữ liệu."
             )
         )
