@@ -116,6 +116,35 @@ class LegacyCardAPITestCase(APITestCase):
                 Card.objects.by_type(Card.CardType.VOCABULARY).count(), 1
             )
 
+    def test_sync_kanji_cards_creates_kanji_course_and_extra_data(self):
+        with TemporaryDirectory() as tmp_dir:
+            csv_file = Path(tmp_dir) / "kanji_sample.csv"
+            csv_file.write_text(
+                '"STT","Bài","Hán Tự","Từ Vựng","Hán Việt","Ý Nghĩa","Cách Đọc / Âm Hán Việt","Ghi Chú","Nguồn"\n'
+                '"1","Bài 1","涙","なみだ","LỆ","Nước mắt","なみだ • LỆ","Âm Hán Việt: LỆ — Từ vựng / Cách đọc: なみだ","kanji-n3 (Trang 1)"\n',
+                encoding="utf-8-sig",
+            )
+            out = StringIO()
+            call_command(
+                "sync_cards",
+                csv=str(csv_file),
+                type=Card.CardType.KANJI,
+                level=Card.JLPTLevel.N3,
+                stdout=out,
+            )
+            kanji_cards = Card.objects.by_type(Card.CardType.KANJI)
+            self.assertEqual(kanji_cards.count(), 1)
+            synced = kanji_cards.first()
+            self.assertEqual(synced.front_text, "涙")
+            self.assertEqual(synced.meaning, "Nước mắt")
+            self.assertEqual(synced.conjugation, "なみだ • LỆ")
+            self.assertEqual(synced.extra_data["reading"], "なみだ")
+            self.assertEqual(synced.extra_data["han_viet"], "LỆ")
+            self.assertEqual(
+                synced.course.title, "Tổng hợp Hán tự & Từ vựng Kanji N3"
+            )
+            self.assertEqual(synced.course.card_type, Card.CardType.KANJI)
+
 
 class AuthAPITestCase(APITestCase):
     def setUp(self):

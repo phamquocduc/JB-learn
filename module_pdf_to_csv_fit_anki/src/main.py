@@ -2,6 +2,7 @@ import os
 import sys
 from .pdf_parser import ShinkanzenN3PdfParser
 from .anki_exporter import AnkiExporter
+from .kanji_n3_data import get_kanji_n3_records
 
 def main():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -57,11 +58,14 @@ def main():
     # 3. Export to output folder
     exporter = AnkiExporter(output_dir=output_dir)
     paths = exporter.export_all(all_records)
+    kanji_records = get_kanji_n3_records(deduplicate=False)
+    kanji_paths = exporter.export_kanji_all(kanji_records)
     
-    print("\n💾 ĐÃ XUẤT THÀNH CÔNG 3 ĐỊNH DẠNG FILE CSV TẠI FOLDER OUTPUT:")
-    print(f"   1. [Anki Thẻ Chuẩn 2 Mặt (Basic Front/Back)]:\n      -> {paths['basic_anki']}")
-    print(f"   2. [Anki Nhiều Cột Chi Tiết (Multi-Field Note Type)]:\n      -> {paths['detailed_anki']}")
-    print(f"   3. [Bảng Tra Cứu Excel / Google Sheets]:\n      -> {paths['table_csv']}")
+    print("\n💾 ĐÃ XUẤT THÀNH CÔNG FILE CSV NGỮ PHÁP & KANJI N3 TẠI FOLDER OUTPUT:")
+    print(f"   1. [Anki Ngữ Pháp 2 Mặt]:\n      -> {paths['basic_anki']}")
+    print(f"   2. [Anki Ngữ Pháp Chi Tiết]:\n      -> {paths['detailed_anki']}")
+    print(f"   3. [Bảng Ngữ Pháp N3]:\n      -> {paths['table_csv']}")
+    print(f"   4. [Bảng Hán Tự & Từ Vựng Kanji N3 ({len(kanji_records)} thẻ)]:\n      -> {kanji_paths['kanji_table_csv']}")
     print("=" * 65)
 
 if __name__ == "__main__":

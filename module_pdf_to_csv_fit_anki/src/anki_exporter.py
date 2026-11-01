@@ -117,3 +117,103 @@ class AnkiExporter:
                 ])
                 
         return filepath
+
+    def export_kanji_all(self, records: List[Dict[str, Any]]) -> Dict[str, str]:
+        """
+        Exports Kanji N3 records into 3 CSV formats (basic Anki, detailed Anki, and table CSV).
+        """
+        basic_path = self.export_kanji_basic_cards(records)
+        detailed_path = self.export_kanji_detailed_cards(records)
+        table_path = self.export_kanji_table_csv(records)
+        return {
+            "kanji_basic_anki": basic_path,
+            "kanji_detailed_anki": detailed_path,
+            "kanji_table_csv": table_path,
+        }
+
+    def export_kanji_basic_cards(self, records: List[Dict[str, Any]], filename: str = "kanji_n3_anki_basic.csv") -> str:
+        filepath = os.path.join(self.output_dir, filename)
+        with open(filepath, mode="w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+            writer.writerow(["Front", "Back", "Tags"])
+            for r in records:
+                kanji = r.get("kanji", "").strip()
+                if not kanji:
+                    continue
+                reading = r.get("reading", "").strip()
+                han_viet = r.get("han_viet", "").strip()
+                meaning = r.get("meaning", "").strip()
+                lesson = r.get("lesson", "").strip()
+                lesson_tag = lesson.replace(" ", "_").replace("-", "_")
+                tag_str = f"JLPT_N3 Kanji_N3 {lesson_tag}"
+                front_html = (
+                    f'<div style="font-size: 2em; font-weight: bold; text-align: center; color: #1a202c; padding: 12px;">'
+                    f'{kanji}'
+                    f'</div>'
+                )
+                back_html = (
+                    f'<div style="text-align: left; line-height: 1.6; font-size: 15px;">'
+                    f'<div style="font-size: 1.5em; font-weight: bold; color: #0f172a; margin-bottom: 6px;">'
+                    f'<ruby>{kanji}<rt>{reading}</rt></ruby> <span style="font-size: 0.65em; color: #64748b;">[{lesson}]</span>'
+                    f'</div>'
+                    f'<p style="margin: 4px 0;"><b style="color: #0369a1;">Cách đọc (Từ vựng):</b> {reading}</p>'
+                    f'<p style="margin: 4px 0;"><b style="color: #0f766e;">Âm Hán Việt:</b> {han_viet}</p>'
+                    f'<p style="margin: 4px 0;"><b style="color: #b91c1c;">Ý nghĩa:</b> {meaning}</p>'
+                    f'</div>'
+                )
+                writer.writerow([front_html, back_html, tag_str])
+        return filepath
+
+    def export_kanji_detailed_cards(self, records: List[Dict[str, Any]], filename: str = "kanji_n3_anki_detailed.csv") -> str:
+        filepath = os.path.join(self.output_dir, filename)
+        with open(filepath, mode="w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+            writer.writerow(["Lesson", "Kanji", "Reading", "Han_Viet", "Meaning", "Tags"])
+            for r in records:
+                lesson = r.get("lesson", "").strip()
+                lesson_tag = lesson.replace(" ", "_").replace("-", "_")
+                tag_str = f"JLPT_N3 Kanji_N3 {lesson_tag}"
+                writer.writerow([
+                    lesson,
+                    r.get("kanji", "").strip(),
+                    r.get("reading", "").strip(),
+                    r.get("han_viet", "").strip(),
+                    r.get("meaning", "").strip(),
+                    tag_str,
+                ])
+        return filepath
+
+    def export_kanji_table_csv(self, records: List[Dict[str, Any]], filename: str = "kanji_n3_table.csv") -> str:
+        filepath = os.path.join(self.output_dir, filename)
+        with open(filepath, mode="w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+            writer.writerow([
+                "STT",
+                "Bài",
+                "Hán Tự",
+                "Từ Vựng",
+                "Hán Việt",
+                "Ý Nghĩa",
+                "Cách Đọc / Âm Hán Việt",
+                "Ghi Chú",
+                "Nguồn",
+            ])
+            for idx, r in enumerate(records, start=1):
+                kanji = r.get("kanji", "").strip()
+                reading = r.get("reading", "").strip()
+                han_viet = r.get("han_viet", "").strip()
+                meaning = r.get("meaning", "").strip()
+                conj = f"{reading} • {han_viet}" if reading and han_viet else (reading or han_viet)
+                notes = f"Âm Hán Việt: {han_viet} — Từ vựng / Cách đọc: {reading}"
+                writer.writerow([
+                    idx,
+                    r.get("lesson", "").strip(),
+                    kanji,
+                    reading,
+                    han_viet,
+                    meaning,
+                    conj,
+                    notes,
+                    r.get("source", "").strip(),
+                ])
+        return filepath

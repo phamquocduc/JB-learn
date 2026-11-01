@@ -152,6 +152,7 @@ export default function FlashcardView({
   const currentCard = cards[activeIndex] || cards[0];
   const frontText = currentCard.front_text || currentCard.grammar;
   const reading = currentCard.extra_data?.reading || '';
+  const isKanjiCard = currentCard.card_type === 'kanji';
   const currentStatus = statusMap[String(currentCard.id)] || 'unseen';
   const examples = parseExamples(currentCard.examples);
 
@@ -253,17 +254,25 @@ export default function FlashcardView({
             {renderCardHeader()}
 
             <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center text-center py-4 sm:py-6 gap-4">
-              <div className="text-2xl sm:text-4xl font-bold text-slate-900 leading-tight">
-                <RubyText text={frontText} reading={reading} />
-              </div>
-
-              {currentCard.conjugation && (
-                <div className="inline-block bg-slate-50 border border-slate-200 px-4 py-2 rounded-lg text-sky-800 text-sm sm:text-base font-medium font-jp">
-                  {currentCard.conjugation}
+              {isKanjiCard ? (
+                <div className="text-4xl sm:text-6xl font-bold text-slate-900 leading-tight font-jp">
+                  {frontText}
                 </div>
-              )}
+              ) : (
+                <>
+                  <div className="text-2xl sm:text-4xl font-bold text-slate-900 leading-tight">
+                    <RubyText text={frontText} reading={reading} />
+                  </div>
 
-              <AudioPlayer text={frontText} />
+                  {currentCard.conjugation && (
+                    <div className="inline-block bg-slate-50 border border-slate-200 px-4 py-2 rounded-lg text-sky-800 text-sm sm:text-base font-medium font-jp">
+                      {currentCard.conjugation}
+                    </div>
+                  )}
+
+                  <AudioPlayer text={frontText} />
+                </>
+              )}
             </div>
           </Card>
 
@@ -279,11 +288,17 @@ export default function FlashcardView({
 
             <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3.5 sm:gap-4 my-3 sm:my-4 pr-1">
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="text-xl font-bold text-slate-900">
+                <div className="text-2xl sm:text-3xl font-bold text-slate-900">
                   <RubyText text={frontText} reading={reading} />
                 </div>
                 <AudioPlayer text={frontText} />
               </div>
+
+              {currentCard.conjugation && (
+                <div className="inline-block self-start bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg text-sky-800 text-sm sm:text-base font-medium font-jp">
+                  {currentCard.conjugation}
+                </div>
+              )}
 
               <div className="bg-sky-50 border border-sky-200 rounded-xl p-3.5 sm:p-4 text-sky-900 font-semibold text-base">
                 {currentCard.meaning}
@@ -292,7 +307,7 @@ export default function FlashcardView({
               {currentCard.usage_notes && (
                 <div className="bg-slate-50 border border-slate-200 border-l-4 border-l-sky-700 p-3.5 sm:p-4 text-sm text-slate-700 rounded-lg">
                   <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                    Cách dùng & Chú ý
+                    {isKanjiCard ? 'Chi tiết Hán tự' : 'Cách dùng & Chú ý'}
                   </span>
                   <div>{currentCard.usage_notes}</div>
                 </div>
