@@ -5,7 +5,13 @@ from django.db.models import Q
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
 
-from .models import Card, Course
+from .anki import (
+    format_interval_vi,
+    get_interval_previews,
+    is_card_due,
+    normalize_rating,
+)
+from .models import Card, CardReview, Course
 
 User = get_user_model()
 
@@ -216,3 +222,55 @@ class CardSerializer(serializers.ModelSerializer):
                     "Không thể thêm thẻ vào khoá học riêng tư của người khác."
                 )
         return course
+
+
+class CardReviewSerializer(serializers.ModelSerializer):
+    is_due = serializers.SerializerMethodField()
+    interval_display = serializers.SerializerMethodField()
+    next_intervals = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CardReview
+        fields = [
+            "id",
+            "card",
+            "state",
+            "status",
+            "step_index",
+            "interval",
+            "learning_minutes",
+            "ease_factor",
+            "repetitions",
+            "lapses",
+            "due_at",
+            "last_reviewed_at",
+            "last_rating",
+            "is_due",
+            "interval_display",
+            "next_intervals",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def get_is_due(self, obj: CardReview) -> bool:
+        return is_card_due(obj.to_srs_dict())
+
+    def get_interval_display(self, obj: CardReview) -> str:
+        if obj.state == CardReview.ReviewState.NEW:
+            return "Chưa học"
+        return format_interval_vi(obj.state, obj.interval, obj.learning_minutes)
+
+    def get_next_intervals(self, obj: CardReview) -> dict:
+        return get_interval_previews(obj.to_srs_dict())
+
+
+class CardReviewInputSerializer(serializers.Serializer):
+    rating = serializers.JSONField(required=True)
+    current_state = serializers.DictField(required=False, allow_null=True)
+
+    def validate_rating(self, value) -> int:
+        try:
+            return normalize_rating(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc))
+

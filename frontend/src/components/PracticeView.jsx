@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -15,21 +15,104 @@ import EmptyState from './ui/EmptyState';
 import {
   CARD_TYPE_LABELS,
   STUDY_STATUS_LABELS,
+  getEffectiveCardStatus,
   parseExamples,
 } from '../constants/cards';
+import {
+  getNextStudyCardIndex,
+  isCardDue,
+} from '../services/ankiScheduler';
 
 export default function PracticeView({
   cards = [],
   currentIndex = 0,
   onIndexChange,
   statusMap = {},
+  srsMap = {},
   onStatusChange,
+  initialReturnCardId = null,
 }) {
   const [selectedAnswerByCard, setSelectedAnswerByCard] = useState({});
+  const pendingNextCardIdRef = useRef(null);
+  const returnCardIdRef = useRef(initialReturnCardId);
+  const prevDueLearningIdsRef = useRef(null);
+
+  useEffect(() => {
+    if (initialReturnCardId != null) {
+      returnCardIdRef.current = initialReturnCardId;
+    }
+  }, [initialReturnCardId]);
 
   const activeIndex =
     cards.length === 0 ? 0 : Math.min(currentIndex, cards.length - 1);
   const currentCard = cards[activeIndex] || cards[0];
+
+  useEffect(() => {
+    if (pendingNextCardIdRef.current != null) {
+      const targetId = pendingNextCardIdRef.current;
+      pendingNextCardIdRef.current = null;
+      const idx = cards.findIndex((c) => String(c.id) === String(targetId));
+      if (idx >= 0) {
+        onIndexChange?.(idx);
+      } else if (cards.length > 0) {
+        onIndexChange?.(0);
+      }
+    }
+  }, [cards, statusMap, srsMap, onIndexChange]);
+
+  const cardKey = currentCard ? String(currentCard.id || activeIndex) : '';
+  const selectedIdx = cardKey ? selectedAnswerByCard[cardKey] : undefined;
+  const isAnswered = typeof selectedIdx === 'number';
+
+  useEffect(() => {
+    const currentDueLearningIds = new Set();
+    for (const c of cards) {
+      const s = srsMap[c.id] || srsMap[String(c.id)];
+      if (
+        s &&
+        (s.state === 'learning' || s.state === 'relearning') &&
+        (s.is_due || isCardDue(s))
+      ) {
+        currentDueLearningIds.add(String(c.id));
+      }
+    }
+
+    if (prevDueLearningIdsRef.current === null) {
+      prevDueLearningIdsRef.current = currentDueLearningIds;
+      return;
+    }
+
+    const newlyDueIds = [...currentDueLearningIds].filter(
+      (id) => !prevDueLearningIdsRef.current.has(id)
+    );
+    if (newlyDueIds.length === 0) {
+      prevDueLearningIdsRef.current = currentDueLearningIds;
+      return;
+    }
+
+    if (isAnswered || !currentCard) {
+      return;
+    }
+
+    prevDueLearningIdsRef.current = currentDueLearningIds;
+
+    if (!newlyDueIds.includes(String(currentCard.id))) {
+      const { nextIndex, resumeCardId } = getNextStudyCardIndex(
+        cards,
+        srsMap,
+        activeIndex,
+        currentCard.id,
+        {
+          returnCardId: returnCardIdRef.current,
+          isCurrentCardUnrated: true,
+        }
+      );
+      if (nextIndex !== activeIndex) {
+        returnCardIdRef.current = resumeCardId;
+        onIndexChange?.(nextIndex);
+      }
+    }
+  }, [cards, srsMap, isAnswered, currentCard, activeIndex, onIndexChange]);
 
   const options = useMemo(() => {
     if (!currentCard || cards.length === 0) return [];
@@ -66,39 +149,38 @@ export default function PracticeView({
     );
   }
 
-  const cardKey = String(currentCard.id || activeIndex);
-  const selectedIdx = selectedAnswerByCard[cardKey];
-  const isAnswered = typeof selectedIdx === 'number';
   const frontText = currentCard.front_text || currentCard.grammar;
   const reading = currentCard.extra_data?.reading || '';
   const isKanjiCard = currentCard.card_type === 'kanji';
-  const currentStatus = statusMap[String(currentCard.id)] || 'unseen';
+  const currentSrs = srsMap[String(currentCard.id)] || null;
+  const currentStatus =
+    statusMap[String(currentCard.id)] || currentSrs?.status || 'unseen';
+  const displayStatus = getEffectiveCardStatus(currentStatus, currentSrs);
+  const isCurrentDue = Boolean(
+    currentSrs &&
+      currentSrs.state !== 'new' &&
+      (currentSrs.is_due || isCardDue(currentSrs))
+  );
   const examples = parseExamples(currentCard.examples);
 
-  const handleSelectOption = (idx, option) => {
+  const handleSelectOption = (idx) => {
     if (isAnswered) return;
     setSelectedAnswerByCard((prev) => ({
       ...prev,
       [cardKey]: idx,
     }));
-
-    if (option.isCorrect && currentCard.id) {
-      if (currentStatus === 'unseen') {
-        onStatusChange?.(currentCard.id, 'learned');
-      } else if (currentStatus === 'learned') {
-        onStatusChange?.(currentCard.id, 'remembered');
-      }
-    }
   };
 
   const handlePrev = () => {
     if (cards.length === 0) return;
+    returnCardIdRef.current = null;
     const prevIdx = activeIndex - 1 >= 0 ? activeIndex - 1 : cards.length - 1;
     onIndexChange?.(prevIdx);
   };
 
   const handleNext = () => {
     if (cards.length === 0) return;
+    returnCardIdRef.current = null;
     const nextIdx = activeIndex + 1 < cards.length ? activeIndex + 1 : 0;
     onIndexChange?.(nextIdx);
   };
@@ -118,9 +200,16 @@ export default function PracticeView({
                 {CARD_TYPE_LABELS[currentCard.card_type]}
               </Badge>
             )}
-            <Badge variant={currentStatus}>
-              {STUDY_STATUS_LABELS[currentStatus] || 'Chưa học'}
+            <Badge variant={displayStatus}>
+              {STUDY_STATUS_LABELS[displayStatus] || 'Chưa học'}
             </Badge>
+            {currentSrs && currentSrs.state !== 'new' && (
+              <Badge variant={isCurrentDue ? 'due' : 'srs'}>
+                {isCurrentDue
+                  ? 'Đến hạn ôn'
+                  : `Chu kỳ: ${currentSrs.interval_display}`}
+              </Badge>
+            )}
           </div>
 
           <span className="text-sm font-semibold text-slate-600">
@@ -199,10 +288,31 @@ export default function PracticeView({
 
             <ReviewRating
               currentStatus={currentStatus}
+              srsState={currentSrs}
+              showIntervals
               onRate={(nextStatus) => {
-                onStatusChange?.(currentCard.id, nextStatus);
-                if (nextStatus && nextStatus !== 'unseen') {
-                  handleNext();
+                setSelectedAnswerByCard((prev) => {
+                  const next = { ...prev };
+                  delete next[cardKey];
+                  return next;
+                });
+                const result = onStatusChange?.(currentCard.id, nextStatus);
+                const latestSrsMap = result?.srsMap || srsMap;
+                if (nextStatus && nextStatus !== 'unseen' && cards.length > 0) {
+                  const { nextCardId, resumeCardId } = getNextStudyCardIndex(
+                    cards,
+                    latestSrsMap,
+                    activeIndex,
+                    currentCard.id,
+                    {
+                      returnCardId: returnCardIdRef.current,
+                      isCurrentCardUnrated: false,
+                    }
+                  );
+                  returnCardIdRef.current = resumeCardId;
+                  if (nextCardId != null) {
+                    pendingNextCardIdRef.current = nextCardId;
+                  }
                 }
               }}
             />

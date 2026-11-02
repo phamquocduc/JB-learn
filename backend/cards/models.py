@@ -258,3 +258,127 @@ class Course(models.Model):
 
     def __str__(self) -> str:
         return f"[{self.level} - {self.get_card_type_display()}] {self.title}"
+
+
+class CardReview(models.Model):
+    """Stores per-user Anki Spaced Repetition (SM-2 / v2) state for a study card."""
+
+    class ReviewState(models.TextChoices):
+        NEW = "new", "Thẻ mới"
+        LEARNING = "learning", "Đang học"
+        REVIEW = "review", "Ôn tập"
+        RELEARNING = "relearning", "Học lại"
+
+    class StudyStatus(models.TextChoices):
+        UNSEEN = "unseen", "Chưa học"
+        LEARNED = "learned", "Đã học"
+        REMEMBERED = "remembered", "Đã nhớ"
+        MASTERED = "mastered", "Thành thạo"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="card_reviews",
+        verbose_name="Người học",
+    )
+    card = models.ForeignKey(
+        Card,
+        on_delete=models.CASCADE,
+        related_name="reviews",
+        verbose_name="Thẻ học",
+    )
+    state = models.CharField(
+        max_length=20,
+        choices=ReviewState.choices,
+        default=ReviewState.NEW,
+        db_index=True,
+        verbose_name="Trạng thái SRS",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=StudyStatus.choices,
+        default=StudyStatus.UNSEEN,
+        db_index=True,
+        verbose_name="Trạng thái học tập",
+    )
+    step_index = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="Bước học hiện tại",
+    )
+    interval = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Chu kỳ ôn tập (ngày)",
+    )
+    learning_minutes = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Chu kỳ bước học (phút)",
+    )
+    ease_factor = models.FloatField(
+        default=2.5,
+        verbose_name="Hệ số dễ (Ease Factor)",
+    )
+    repetitions = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Số lần ôn tập",
+    )
+    lapses = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Số lần quên",
+    )
+    due_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name="Thời điểm đến hạn",
+    )
+    last_reviewed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Lần ôn tập gần nhất",
+    )
+    last_rating = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Đánh giá gần nhất (1-4)",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Lịch ôn tập thẻ (SRS)"
+        verbose_name_plural = "Danh sách lịch ôn tập thẻ (SRS)"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "card"],
+                name="unique_user_card_review",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["user", "due_at"],
+                name="card_review_user_due_idx",
+            ),
+            models.Index(
+                fields=["user", "state"],
+                name="card_review_user_state_idx",
+            ),
+        ]
+
+    def to_srs_dict(self) -> dict:
+        return {
+            "state": self.state,
+            "status": self.status,
+            "step_index": self.step_index,
+            "interval": self.interval,
+            "learning_minutes": self.learning_minutes,
+            "ease_factor": self.ease_factor,
+            "repetitions": self.repetitions,
+            "lapses": self.lapses,
+            "due_at": self.due_at,
+            "last_reviewed_at": self.last_reviewed_at,
+            "last_rating": self.last_rating,
+        }
+
+    def __str__(self) -> str:
+        return f"{self.user} - Card #{self.card_id} [{self.state} / ivl={self.interval}d]"
+

@@ -13,12 +13,15 @@ import ReviewRating from './ui/ReviewRating';
 import {
   CARD_TYPE_LABELS,
   STUDY_STATUS_LABELS,
+  getEffectiveCardStatus,
   parseExamples,
 } from '../constants/cards';
+import { isCardDue } from '../services/ankiScheduler';
 
 export default function DetailModal({
   card,
   status = 'unseen',
+  srsState = null,
   onStatusChange,
   onClose,
   onEditCard,
@@ -39,6 +42,12 @@ export default function DetailModal({
 
   const frontText = card.front_text || card.grammar;
   const reading = card.extra_data?.reading || '';
+  const displayStatus = getEffectiveCardStatus(status, srsState);
+  const isDue = Boolean(
+    srsState &&
+      srsState.state !== 'new' &&
+      (srsState.is_due || isCardDue(srsState))
+  );
   const examples = parseExamples(card.examples);
 
   return (
@@ -60,9 +69,14 @@ export default function DetailModal({
             {card.card_type && CARD_TYPE_LABELS[card.card_type] && (
               <Badge variant="type">{CARD_TYPE_LABELS[card.card_type]}</Badge>
             )}
-            <Badge variant={status}>
-              {STUDY_STATUS_LABELS[status] || 'Chưa học'}
+            <Badge variant={displayStatus}>
+              {STUDY_STATUS_LABELS[displayStatus] || 'Chưa học'}
             </Badge>
+            {srsState && srsState.state !== 'new' && (
+              <Badge variant={isDue ? 'due' : 'srs'}>
+                {isDue ? 'Đến hạn ôn' : `Chu kỳ: ${srsState.interval_display}`}
+              </Badge>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -159,6 +173,8 @@ export default function DetailModal({
         <div className="px-6 pb-4 shrink-0">
           <ReviewRating
             currentStatus={status}
+            srsState={srsState}
+            showIntervals
             onRate={(nextStatus) => onStatusChange?.(card.id, nextStatus)}
           />
         </div>

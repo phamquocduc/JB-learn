@@ -667,3 +667,334 @@ class CardAPITestCaseExtended(APITestCase):
             self.assertEqual(
                 Course.objects.filter(title="Shinkanzen Master N3 - Ngữ pháp").count(), 1
             )
+
+
+class AnkiSpacedRepetitionTestCase(APITestCase):
+    """Unit and API integration tests for Anki SM-2 / v2 Spaced Repetition Algorithm."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="anki_learner",
+            email="anki@example.com",
+            password="StrongPassword123!",
+        )
+        self.other_user = User.objects.create_user(
+            username="other_learner",
+            email="other@example.com",
+            password="StrongPassword123!",
+        )
+        self.card1 = Card.objects.create(
+            card_type=Card.CardType.GRAMMAR,
+            level=Card.JLPTLevel.N3,
+            lesson="Bài 1",
+            front_text="~うちに",
+            meaning="Nhân lúc",
+            is_public=True,
+        )
+        self.card2 = Card.objects.create(
+            card_type=Card.CardType.VOCABULARY,
+            level=Card.JLPTLevel.N3,
+            lesson="Bài 1",
+            front_text="約束",
+            meaning="Lời hứa",
+            is_public=True,
+        )
+        self.private_other_card = Card.objects.create(
+            card_type=Card.CardType.GRAMMAR,
+            level=Card.JLPTLevel.N2,
+            lesson="Bài 2",
+            front_text="~っこない",
+            meaning="Không thể nào",
+            is_public=False,
+            created_by=self.other_user,
+        )
+
+    def test_anki_scheduler_learning_graduation_and_sm2_math(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from .anki import get_interval_previews, schedule_card_review
+
+        t0 = timezone.now()
+
+        # 1. Initial previews on a new card: 1m, 6m, 10m, 4d
+        previews_new = get_interval_previews(None, now=t0)
+        self.assertEqual(previews_new["again"], "1 phút")
+        self.assertEqual(previews_new["hard"], "6 phút")
+        self.assertEqual(previews_new["good"], "10 phút")
+        self.assertEqual(previews_new["easy"], "4 ngày")
+
+        # 2. Press Good (3) on new card -> advances to step 1 (10m) in learning
+        s1 = schedule_card_review(None, "good", now=t0)
+        self.assertEqual(s1["state"], "learning")
+        self.assertEqual(s1["step_index"], 1)
+        self.assertEqual(s1["learning_minutes"], 10)
+        self.assertEqual(s1["interval"], 0)
+        self.assertEqual(s1["status"], "remembered")
+
+        # 3. Press Good (3) on step 1 -> graduates to review with 1-day interval
+        t1 = t0 + timedelta(minutes=10)
+        s2 = schedule_card_review(s1, "good", now=t1)
+        self.assertEqual(s2["state"], "review")
+        self.assertEqual(s2["interval"], 1)
+        self.assertAlmostEqual(s2["ease_factor"], 2.5)
+        self.assertEqual(s2["status"], "remembered")
+
+        # 4. Review on time with Good (3): 1d * 2.5 = 2.5 -> rounds to 2 or 3 days (min hard_ivl=2)
+        t2 = t1 + timedelta(days=1)
+        s3 = schedule_card_review(s2, "good", now=t2)
+        self.assertEqual(s3["state"], "review")
+        self.assertGreaterEqual(s3["interval"], 2)
+        self.assertAlmostEqual(s3["ease_factor"], 2.5)
+
+        # 5. Review with Easy (4): ease increases by +0.15 to 2.65, status becomes mastered
+        t3 = t2 + timedelta(days=s3["interval"])
+        s4 = schedule_card_review(s3, "easy", now=t3)
+        self.assertEqual(s4["state"], "review")
+        self.assertAlmostEqual(s4["ease_factor"], 2.65)
+        self.assertEqual(s4["status"], "mastered")
+        self.assertGreater(s4["interval"], s3["interval"])
+
+        # 6. Lapse with Again (1): enters relearning (10m), lapses=1, ease drops by 0.20 to 2.45, interval halved
+        t4 = t3 + timedelta(days=s4["interval"])
+        s5 = schedule_card_review(s4, "again", now=t4)
+        self.assertEqual(s5["state"], "relearning")
+        self.assertEqual(s5["lapses"], 1)
+        self.assertAlmostEqual(s5["ease_factor"], 2.45)
+        self.assertEqual(s5["learning_minutes"], 10)
+        self.assertEqual(s5["status"], "learned")
+        self.assertEqual(s5["interval"], max(1, int(round(s4["interval"] * 0.5))))
+
+        # 6b. In relearning, Hard (2) uses 1.5x single step (15m), distinct from Again (10m)
+        relearn_previews = get_interval_previews(s5, now=t4)
+        self.assertEqual(relearn_previews["again"], "10 phút")
+        self.assertEqual(relearn_previews["hard"], "15 phút")
+
+        # 7. Graduate from relearning with Good (3) -> returns to review with post-lapse interval
+        t5 = t4 + timedelta(minutes=10)
+        s6 = schedule_card_review(s5, "good", now=t5)
+        self.assertEqual(s6["state"], "review")
+        self.assertEqual(s6["interval"], s5["interval"])
+
+    def test_ease_factor_floor_and_overdue_bonus_and_validation(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from .anki import normalize_rating, schedule_card_review
+
+        now = timezone.now()
+        state = {
+            "state": "review",
+            "status": "remembered",
+            "step_index": 0,
+            "interval": 10,
+            "learning_minutes": 0,
+            "ease_factor": 1.35,
+            "repetitions": 5,
+            "lapses": 2,
+            "due_at": now - timedelta(days=10),  # 10 days overdue
+        }
+        # Hard rating reduces ease by 0.15, clamped at 1.30 minimum
+        after_hard = schedule_card_review(state, "hard", now=now)
+        self.assertEqual(after_hard["ease_factor"], 1.3)
+        self.assertEqual(after_hard["interval"], 12)  # 10 * 1.2
+
+        # Good rating on 10-day overdue card gets overdue bonus: round((10 + 10/2) * 1.35) = 20 days
+        after_good = schedule_card_review(state, "good", now=now)
+        self.assertEqual(after_good["interval"], 20)
+
+        # Reset rating returns default unseen state
+        after_reset = schedule_card_review(state, "unseen", now=now)
+        self.assertEqual(after_reset["state"], "new")
+        self.assertEqual(after_reset["status"], "unseen")
+
+        # Invalid ratings raise ValueError
+        for bad in (None, True, False, "invalid", 99, -1):
+            with self.assertRaises(ValueError):
+                normalize_rating(bad)
+
+    def test_review_endpoint_authenticated_and_guest_and_due_filtering(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from .models import CardReview
+
+        review_url = reverse("cards:card-review", kwargs={"pk": self.card1.pk})
+
+        # 1. Guest review calculates statelessly without creating DB rows
+        guest_res = self.client.post(review_url, {"rating": "good"}, format="json")
+        self.assertEqual(guest_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(guest_res.data["state"], "learning")
+        self.assertEqual(guest_res.data["learning_minutes"], 10)
+        self.assertEqual(CardReview.objects.count(), 0)
+
+        # 2. Authenticated review persists CardReview in DB
+        self.client.force_authenticate(user=self.user)
+        r1 = self.client.post(review_url, {"rating": "learned"}, format="json")
+        self.assertEqual(r1.status_code, status.HTTP_200_OK)
+        self.assertEqual(r1.data["state"], "learning")
+        self.assertEqual(r1.data["status"], "learned")
+        self.assertIn("next_intervals", r1.data)
+        self.assertEqual(CardReview.objects.filter(user=self.user).count(), 1)
+
+        # 3. Easy rating graduates card immediately to 4-day review
+        r2 = self.client.post(review_url, {"rating": "mastered"}, format="json")
+        self.assertEqual(r2.status_code, status.HTTP_200_OK)
+        self.assertEqual(r2.data["state"], "review")
+        self.assertEqual(r2.data["interval"], 4)
+        self.assertEqual(r2.data["status"], "mastered")
+
+        # 4. Card is due in 4 days -> ?due=true returns 0 cards right now
+        list_url = reverse("cards:card-list")
+        due_now_res = self.client.get(list_url, {"due": "true"})
+        self.assertEqual(due_now_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(due_now_res.data["total"], 0)
+
+        # 5. Move due_at into the past -> ?due=true returns card1 and srs_summary.due_count == 1
+        # Also create a CardReview(state='new') for other_user on card1 to verify no cross-user ORM join exclusion
+        CardReview.objects.create(
+            user=self.other_user,
+            card=self.card1,
+            state=CardReview.ReviewState.NEW,
+            status=CardReview.StudyStatus.UNSEEN,
+        )
+        CardReview.objects.filter(user=self.user, card=self.card1).update(
+            due_at=timezone.now() - timedelta(hours=2)
+        )
+        all_res = self.client.get(list_url)
+        self.assertEqual(all_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(all_res.data["srs_summary"]["due_count"], 1)
+        self.assertTrue(all_res.data["srs_states"][str(self.card1.pk)]["is_due"])
+
+        # Add a due learning review on card2 and verify ?due=true orders learning due before review due
+        CardReview.objects.create(
+            user=self.user,
+            card=self.card2,
+            state=CardReview.ReviewState.LEARNING,
+            status=CardReview.StudyStatus.LEARNED,
+            learning_minutes=10,
+            due_at=timezone.now() - timedelta(minutes=5),
+        )
+        due_past_res = self.client.get(list_url, {"due": "true"})
+        self.assertEqual(due_past_res.data["total"], 2)
+        self.assertEqual(
+            [c["id"] for c in due_past_res.data["results"]],
+            [self.card2.pk, self.card1.pk],
+        )
+
+        # Verify ?srs_state=new returns 0 cards for self.user even though other_user has state='new' on card1
+        new_state_res = self.client.get(list_url, {"srs_state": "new"})
+        self.assertEqual(new_state_res.data["total"], 0)
+
+        # 6. Resetting cards with 'unseen' deletes the CardReview rows
+        CardReview.objects.filter(user=self.user, card=self.card2).delete()
+        reset_res = self.client.post(review_url, {"rating": "unseen"}, format="json")
+        self.assertEqual(reset_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(reset_res.data["state"], "new")
+        self.assertEqual(CardReview.objects.filter(user=self.user).count(), 0)
+
+    def test_sync_reviews_endpoint_and_privacy_isolation(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from .models import CardReview
+
+        sync_url = reverse("cards:card-sync-reviews")
+        self.client.force_authenticate(user=self.user)
+        now = timezone.now()
+
+        payload = {
+            "reviews": {
+                str(self.card1.pk): {
+                    "state": "review",
+                    "status": "mastered",
+                    "step_index": 0,
+                    "interval": 12,
+                    "learning_minutes": 0,
+                    "ease_factor": 2.65,
+                    "repetitions": 4,
+                    "lapses": 0,
+                    "last_reviewed_at": (now - timedelta(days=1)).isoformat(),
+                },
+                str(self.card2.pk): "remembered",
+                # Attempt to sync another user's private card (must be ignored)
+                str(self.private_other_card.pk): "mastered",
+            }
+        }
+        res = self.client.post(sync_url, payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["synced"], 2)
+        self.assertEqual(CardReview.objects.filter(user=self.user).count(), 2)
+        self.assertFalse(
+            CardReview.objects.filter(
+                user=self.user, card=self.private_other_card
+            ).exists()
+        )
+
+        # Untimestamped legacy backfill must not overwrite existing DB review with real last_reviewed_at
+        res2 = self.client.post(
+            sync_url,
+            {"reviews": {str(self.card1.pk): "learned"}},
+            format="json",
+        )
+        self.assertEqual(res2.status_code, status.HTTP_200_OK)
+        self.assertEqual(res2.data["synced"], 0)
+        self.assertEqual(
+            CardReview.objects.get(user=self.user, card=self.card1).interval,
+            12,
+        )
+
+    def test_relearning_due_logic_and_null_due_at_consistency(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from .anki import normalize_srs_state, serialize_srs_state
+        from .models import CardReview
+
+        # 1. normalize_srs_state defaults learning_minutes when <= 0 for learning and relearning
+        norm_relearn = normalize_srs_state({"state": "relearning", "learning_minutes": 0, "step_index": 0})
+        self.assertEqual(norm_relearn["learning_minutes"], 10)
+        self.assertEqual(serialize_srs_state(norm_relearn)["interval_display"], "10 phút")
+
+        norm_learn_step0 = normalize_srs_state({"state": "learning", "learning_minutes": 0, "step_index": 0})
+        self.assertEqual(norm_learn_step0["learning_minutes"], 1)
+        norm_learn_step1 = normalize_srs_state({"state": "learning", "learning_minutes": 0, "step_index": 1})
+        self.assertEqual(norm_learn_step1["learning_minutes"], 10)
+
+        # 2. Card rated 'again' (1 minute) is not due immediately, then becomes due after 1 minute
+        self.client.force_authenticate(user=self.user)
+        review_url = reverse("cards:card-review", kwargs={"pk": self.card1.pk})
+        list_url = reverse("cards:card-list")
+
+        r_again = self.client.post(review_url, {"rating": "again"}, format="json")
+        self.assertEqual(r_again.status_code, status.HTTP_200_OK)
+        self.assertEqual(r_again.data["state"], "learning")
+        self.assertEqual(r_again.data["last_rating"], 1)
+        self.assertEqual(r_again.data["learning_minutes"], 1)
+        self.assertFalse(r_again.data["is_due"])
+
+        # Before 1 minute expires: due=true returns 0
+        res_before = self.client.get(list_url, {"due": "true"})
+        self.assertEqual(res_before.data["total"], 0)
+
+        # After 1 minute expires: due=true returns card1 and srs_states marks is_due=True
+        CardReview.objects.filter(user=self.user, card=self.card1).update(
+            due_at=timezone.now() - timedelta(seconds=5)
+        )
+        res_after = self.client.get(list_url, {"due": "1"})
+        self.assertEqual(res_after.data["total"], 1)
+        self.assertEqual(res_after.data["results"][0]["id"], self.card1.pk)
+        self.assertTrue(res_after.data["srs_states"][str(self.card1.pk)]["is_due"])
+        self.assertEqual(res_after.data["srs_summary"]["due_count"], 1)
+
+        # 3. CardReview in relearning with due_at=None is treated as due by both srs_summary and ?due=true
+        CardReview.objects.create(
+            user=self.user,
+            card=self.card2,
+            state=CardReview.ReviewState.RELEARNING,
+            status=CardReview.StudyStatus.LEARNED,
+            learning_minutes=10,
+            due_at=None,
+            last_rating=1,
+        )
+        res_null_due = self.client.get(list_url, {"due": "true"})
+        self.assertEqual(res_null_due.data["total"], 2)
+        self.assertEqual(res_null_due.data["srs_summary"]["due_count"], 2)
+        self.assertTrue(res_null_due.data["srs_states"][str(self.card2.pk)]["is_due"])
+
+

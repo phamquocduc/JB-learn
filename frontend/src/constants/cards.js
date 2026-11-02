@@ -30,12 +30,70 @@ export const STUDY_STATUSES = [
   },
 ];
 
+export const ANKI_RATINGS = [
+  {
+    value: 'again',
+    rating: 1,
+    status: 'learned',
+    label: 'Học lại',
+    previewKey: 'again',
+    shortcut: '1',
+  },
+  {
+    value: 'learned',
+    rating: 2,
+    status: 'learned',
+    label: 'Đã học',
+    previewKey: 'hard',
+    shortcut: '2',
+  },
+  {
+    value: 'remembered',
+    rating: 3,
+    status: 'remembered',
+    label: 'Đã nhớ',
+    previewKey: 'good',
+    shortcut: '3',
+  },
+  {
+    value: 'mastered',
+    rating: 4,
+    status: 'mastered',
+    label: 'Thành thạo',
+    previewKey: 'easy',
+    shortcut: '4',
+  },
+];
+
 export const STUDY_STATUS_LABELS = {
   unseen: 'Chưa học',
+  due: 'Cần ôn tập',
+  again: 'Học lại',
   learned: 'Đã học',
   remembered: 'Đã nhớ',
   mastered: 'Thành thạo',
 };
+
+export const SRS_STATE_LABELS = {
+  new: 'Thẻ mới',
+  learning: 'Đang học',
+  review: 'Ôn tập',
+  relearning: 'Học lại',
+};
+
+export function getEffectiveCardStatus(status, srsState) {
+  if (srsState && srsState.state !== 'new') {
+    const rawRating = srsState.last_rating ?? srsState.rating;
+    const ratingNum = Number(rawRating);
+    if (
+      ratingNum === 1 ||
+      (srsState.state === 'relearning' && !Number.isFinite(ratingNum))
+    ) {
+      return 'again';
+    }
+  }
+  return status || srsState?.status || 'unseen';
+}
 
 const JP_CHAR_REGEX = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/;
 const VD_PREFIX_REGEX = /^VD\d*\s*[:：]\s*/i;

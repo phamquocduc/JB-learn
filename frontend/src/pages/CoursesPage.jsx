@@ -31,6 +31,7 @@ import {
 } from '../services/api';
 import {
   getCardStatusMap,
+  mergeServerSrsMap,
   getLastStudySession,
   saveLastStudySession,
 } from '../services/studyProgress';
@@ -69,6 +70,7 @@ export default function CoursesPage() {
 
   const [courses, setCourses] = useState([]);
   const [cards, setCards] = useState([]);
+  const [statusByScope, setStatusByScope] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -84,7 +86,11 @@ export default function CoursesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
-  const statusMap = useMemo(() => getCardStatusMap(user), [user]);
+  const userStorageKey = user?.id ? `user_${user.id}` : 'guest';
+  const statusMap = useMemo(
+    () => statusByScope[userStorageKey] ?? getCardStatusMap(user),
+    [statusByScope, userStorageKey, user]
+  );
   const lastSession = useMemo(() => getLastStudySession(user), [user]);
 
   const reloadCourses = useCallback(async () => {
@@ -94,28 +100,55 @@ export default function CoursesPage() {
     try {
       const [coursesData, cardsData] = await Promise.all([
         fetchCourses(),
-        fetchCards().catch(() => ({ cards: [] })),
+        fetchCards().catch(() => ({ results: [] })),
       ]);
       setCourses(Array.isArray(coursesData) ? coursesData : []);
-      setCards(Array.isArray(cardsData?.cards) ? cardsData.cards : []);
+      const loadedCards = Array.isArray(cardsData?.results)
+        ? cardsData.results
+        : Array.isArray(cardsData?.cards)
+          ? cardsData.cards
+          : [];
+      setCards(loadedCards);
+      if (cardsData?.srs_states && typeof cardsData.srs_states === 'object') {
+        const merged = mergeServerSrsMap(user, cardsData.srs_states);
+        setStatusByScope((prev) => ({
+          ...prev,
+          [userStorageKey]: merged.statusMap,
+        }));
+      }
     } catch {
       setError('Không thể tải danh sách khoá học.');
     } finally {
       setLoading(false);
     }
-  }, [authLoading]);
+  }, [authLoading, user, userStorageKey]);
 
   useEffect(() => {
     if (authLoading) return;
     let ignore = false;
     Promise.all([
       fetchCourses(),
-      fetchCards().catch(() => ({ cards: [] })),
+      fetchCards().catch(() => ({ results: [] })),
     ])
       .then(([coursesData, cardsData]) => {
         if (!ignore) {
           setCourses(Array.isArray(coursesData) ? coursesData : []);
-          setCards(Array.isArray(cardsData?.cards) ? cardsData.cards : []);
+          const loadedCards = Array.isArray(cardsData?.results)
+            ? cardsData.results
+            : Array.isArray(cardsData?.cards)
+              ? cardsData.cards
+              : [];
+          setCards(loadedCards);
+          if (
+            cardsData?.srs_states &&
+            typeof cardsData.srs_states === 'object'
+          ) {
+            const merged = mergeServerSrsMap(user, cardsData.srs_states);
+            setStatusByScope((prev) => ({
+              ...prev,
+              [userStorageKey]: merged.statusMap,
+            }));
+          }
           setError(null);
         }
       })
@@ -133,7 +166,7 @@ export default function CoursesPage() {
     return () => {
       ignore = true;
     };
-  }, [authLoading, user]);
+  }, [authLoading, user, userStorageKey]);
 
   // Compute per-course studied card counts and overall stats
   const courseProgressMap = useMemo(() => {

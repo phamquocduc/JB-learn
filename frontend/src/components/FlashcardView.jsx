@@ -18,12 +18,18 @@ import EmptyState from './ui/EmptyState';
 import {
   CARD_TYPE_LABELS,
   STUDY_STATUS_LABELS,
+  getEffectiveCardStatus,
   parseExamples,
 } from '../constants/cards';
+import {
+  getNextStudyCardIndex,
+  isCardDue,
+} from '../services/ankiScheduler';
 
 const SLIDE_CLASS_MAP = {
   'out-left': 'flashcard-slide-out-left',
   'in-right': 'flashcard-slide-in-right',
+  'out-second': 'flashcard-slide-out-right',
   'out-right': 'flashcard-slide-out-right',
   'in-left': 'flashcard-slide-in-left',
 };
@@ -33,19 +39,39 @@ export default function FlashcardView({
   currentIndex = 0,
   onIndexChange,
   statusMap = {},
+  srsMap = {},
   onStatusChange,
   onEditCard,
   onDeleteCard,
   disabledShortcuts = false,
+  initialReturnCardId = null,
 }) {
   const [isFlipped, setIsFlipped] = useState(false);
   const [suppressFlipTransition, setSuppressFlipTransition] = useState(false);
   const [slidePhase, setSlidePhase] = useState(null);
   const slideOutTimerRef = useRef(null);
   const slideInTimerRef = useRef(null);
+  const returnCardIdRef = useRef(initialReturnCardId);
+  const srsMapRef = useRef(srsMap);
+  const prevDueLearningIdsRef = useRef(null);
+
+  useEffect(() => {
+    srsMapRef.current = srsMap;
+  }, [srsMap]);
+
+  useEffect(() => {
+    if (initialReturnCardId != null) {
+      returnCardIdRef.current = initialReturnCardId;
+    }
+  }, [initialReturnCardId]);
 
   const activeIndex =
     cards.length === 0 ? 0 : Math.min(currentIndex, cards.length - 1);
+  const currentCard = cards[activeIndex] || cards[0] || null;
+  const cardsRef = useRef(cards);
+  useEffect(() => {
+    cardsRef.current = cards;
+  }, [cards]);
 
   const clearSlideTimers = useCallback(() => {
     if (slideOutTimerRef.current) {
@@ -66,8 +92,8 @@ export default function FlashcardView({
   }, []);
 
   const triggerSlideToIndex = useCallback(
-    (targetIdx, direction = 'next') => {
-      if (cards.length === 0) return;
+    (targetIdxOrResolver, direction = 'next') => {
+      if (cardsRef.current.length === 0) return;
       clearSlideTimers();
 
       const outPhase = direction === 'prev' ? 'out-right' : 'out-left';
@@ -78,7 +104,16 @@ export default function FlashcardView({
       slideOutTimerRef.current = setTimeout(() => {
         setSuppressFlipTransition(true);
         setIsFlipped(false);
-        onIndexChange?.(targetIdx);
+        const latestCards = cardsRef.current;
+        if (latestCards.length > 0) {
+          const resolvedIdx =
+            typeof targetIdxOrResolver === 'function'
+              ? targetIdxOrResolver(latestCards)
+              : targetIdxOrResolver;
+          onIndexChange?.(
+            Math.max(0, Math.min(resolvedIdx, latestCards.length - 1))
+          );
+        }
         setSlidePhase(inPhase);
 
         slideInTimerRef.current = setTimeout(() => {
@@ -87,26 +122,134 @@ export default function FlashcardView({
         }, 220);
       }, 140);
     },
-    [cards.length, clearSlideTimers, onIndexChange]
+    [clearSlideTimers, onIndexChange]
   );
 
   const handleNext = useCallback(() => {
     if (cards.length === 0) return;
+    returnCardIdRef.current = null;
     const nextIdx = activeIndex + 1 < cards.length ? activeIndex + 1 : 0;
     triggerSlideToIndex(nextIdx, 'next');
   }, [cards.length, activeIndex, triggerSlideToIndex]);
 
   const handlePrev = useCallback(() => {
     if (cards.length === 0) return;
+    returnCardIdRef.current = null;
     const prevIdx = activeIndex - 1 >= 0 ? activeIndex - 1 : cards.length - 1;
     triggerSlideToIndex(prevIdx, 'prev');
   }, [cards.length, activeIndex, triggerSlideToIndex]);
 
   const handleShuffle = useCallback(() => {
     if (cards.length <= 1) return;
+    returnCardIdRef.current = null;
     const randomIndex = Math.floor(Math.random() * cards.length);
     triggerSlideToIndex(randomIndex, 'next');
   }, [cards.length, triggerSlideToIndex]);
+
+  const currentCardId = currentCard?.id;
+
+  const handleRate = useCallback(
+    (nextRating) => {
+      if (slidePhase) return;
+      if (currentCardId) {
+        setSuppressFlipTransition(true);
+        setIsFlipped(false);
+        const preRateCards = cards;
+        const result = onStatusChange?.(currentCardId, nextRating);
+        const latestSrsMap = result?.srsMap || srsMapRef.current || srsMap;
+        if (nextRating && nextRating !== 'unseen' && preRateCards.length > 0) {
+          const { nextIndex, nextCardId, resumeCardId } = getNextStudyCardIndex(
+            preRateCards,
+            latestSrsMap,
+            activeIndex,
+            currentCardId,
+            {
+              returnCardId: returnCardIdRef.current,
+              isCurrentCardUnrated: false,
+            }
+          );
+          returnCardIdRef.current = resumeCardId;
+          triggerSlideToIndex((latestCards) => {
+            if (nextCardId != null) {
+              const foundIdx = latestCards.findIndex(
+                (c) => String(c.id) === String(nextCardId)
+              );
+              if (foundIdx >= 0) return foundIdx;
+            }
+            return Math.min(nextIndex, Math.max(0, latestCards.length - 1));
+          }, 'next');
+        }
+      }
+    },
+    [
+      slidePhase,
+      currentCardId,
+      cards,
+      activeIndex,
+      onStatusChange,
+      srsMap,
+      triggerSlideToIndex,
+    ]
+  );
+
+  useEffect(() => {
+    const currentDueLearningIds = new Set();
+    for (const c of cards) {
+      const s = srsMap[c.id] || srsMap[String(c.id)];
+      if (
+        s &&
+        (s.state === 'learning' || s.state === 'relearning') &&
+        (s.is_due || isCardDue(s))
+      ) {
+        currentDueLearningIds.add(String(c.id));
+      }
+    }
+
+    if (prevDueLearningIdsRef.current === null) {
+      prevDueLearningIdsRef.current = currentDueLearningIds;
+      return;
+    }
+
+    const newlyDueIds = [...currentDueLearningIds].filter(
+      (id) => !prevDueLearningIdsRef.current.has(id)
+    );
+    if (newlyDueIds.length === 0) {
+      prevDueLearningIdsRef.current = currentDueLearningIds;
+      return;
+    }
+
+    if (isFlipped || slidePhase || disabledShortcuts || !currentCard) {
+      return;
+    }
+
+    prevDueLearningIdsRef.current = currentDueLearningIds;
+
+    if (!newlyDueIds.includes(String(currentCard.id))) {
+      const { nextIndex, resumeCardId } = getNextStudyCardIndex(
+        cards,
+        srsMap,
+        activeIndex,
+        currentCard.id,
+        {
+          returnCardId: returnCardIdRef.current,
+          isCurrentCardUnrated: true,
+        }
+      );
+      if (nextIndex !== activeIndex) {
+        returnCardIdRef.current = resumeCardId;
+        triggerSlideToIndex(nextIndex, 'next');
+      }
+    }
+  }, [
+    cards,
+    srsMap,
+    isFlipped,
+    slidePhase,
+    disabledShortcuts,
+    currentCard,
+    activeIndex,
+    triggerSlideToIndex,
+  ]);
 
   useEffect(() => {
     if (disabledShortcuts) return;
@@ -133,12 +276,33 @@ export default function FlashcardView({
         handleNext();
       } else if (e.code === 'ArrowLeft') {
         handlePrev();
+      } else if (isFlipped) {
+        if (e.key === '1') {
+          e.preventDefault();
+          handleRate('again');
+        } else if (e.key === '2') {
+          e.preventDefault();
+          handleRate('learned');
+        } else if (e.key === '3') {
+          e.preventDefault();
+          handleRate('remembered');
+        } else if (e.key === '4') {
+          e.preventDefault();
+          handleRate('mastered');
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleNext, handlePrev, handleToggleFlip, disabledShortcuts]);
+  }, [
+    handleNext,
+    handlePrev,
+    handleToggleFlip,
+    handleRate,
+    isFlipped,
+    disabledShortcuts,
+  ]);
 
   if (!cards || cards.length === 0) {
     return (
@@ -149,21 +313,19 @@ export default function FlashcardView({
     );
   }
 
-  const currentCard = cards[activeIndex] || cards[0];
   const frontText = currentCard.front_text || currentCard.grammar;
   const reading = currentCard.extra_data?.reading || '';
   const isKanjiCard = currentCard.card_type === 'kanji';
-  const currentStatus = statusMap[String(currentCard.id)] || 'unseen';
+  const currentSrs = srsMap[String(currentCard.id)] || null;
+  const currentStatus =
+    statusMap[String(currentCard.id)] || currentSrs?.status || 'unseen';
+  const displayStatus = getEffectiveCardStatus(currentStatus, currentSrs);
+  const isCurrentDue = Boolean(
+    currentSrs &&
+      currentSrs.state !== 'new' &&
+      (currentSrs.is_due || isCardDue(currentSrs))
+  );
   const examples = parseExamples(currentCard.examples);
-
-  const handleRate = (nextStatus) => {
-    if (currentCard?.id) {
-      onStatusChange?.(currentCard.id, nextStatus);
-      if (nextStatus && nextStatus !== 'unseen') {
-        handleNext();
-      }
-    }
-  };
 
   const renderCardHeader = () => (
     <div className="flex items-center justify-between gap-2 flex-wrap shrink-0">
@@ -175,9 +337,16 @@ export default function FlashcardView({
             {CARD_TYPE_LABELS[currentCard.card_type]}
           </Badge>
         )}
-        <Badge variant={currentStatus}>
-          {STUDY_STATUS_LABELS[currentStatus] || 'Chưa học'}
+        <Badge variant={displayStatus}>
+          {STUDY_STATUS_LABELS[displayStatus] || 'Chưa học'}
         </Badge>
+        {currentSrs && currentSrs.state !== 'new' && (
+          <Badge variant={isCurrentDue ? 'due' : 'srs'}>
+            {isCurrentDue
+              ? 'Đến hạn ôn'
+              : `Chu kỳ: ${currentSrs.interval_display}`}
+          </Badge>
+        )}
         {!currentCard.is_public && <Badge variant="private">Riêng tư</Badge>}
       </div>
 
@@ -333,6 +502,8 @@ export default function FlashcardView({
             <div className="shrink-0">
               <ReviewRating
                 currentStatus={currentStatus}
+                srsState={currentSrs}
+                showIntervals
                 onRate={handleRate}
               />
             </div>
