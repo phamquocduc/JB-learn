@@ -155,6 +155,8 @@ export async function fetchCards(params = {}) {
   if (params.course) query.append('course', params.course);
   if (params.search) query.append('search', params.search);
   if (params.mine) query.append('mine', 'true');
+  if (params.due) query.append('due', 'true');
+  if (params.srs_state) query.append('srs_state', params.srs_state);
 
   const queryString = query.toString();
   return request(`/cards/${queryString ? `?${queryString}` : ''}`, {
@@ -181,3 +183,29 @@ export async function deleteCard(id) {
     method: 'DELETE',
   });
 }
+
+export async function reviewCardApi(id, { rating, current_state = null } = {}) {
+  return request(`/cards/${id}/review/`, {
+    method: 'POST',
+    body: JSON.stringify({ rating, current_state }),
+  });
+}
+
+export async function fetchCardReviews(params = {}) {
+  const query = new URLSearchParams();
+  if (params.type) query.append('type', params.type);
+  if (params.level) query.append('level', params.level);
+  if (params.course) query.append('course', params.course);
+  const queryString = query.toString();
+  return request(`/cards/reviews/${queryString ? `?${queryString}` : ''}`, {
+    method: 'GET',
+  });
+}
+
+export async function syncCardReviews(reviews = {}) {
+  return request('/cards/sync_reviews/', {
+    method: 'POST',
+    body: JSON.stringify({ reviews }),
+  });
+}
+

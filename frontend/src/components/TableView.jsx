@@ -6,11 +6,16 @@ import Badge from './ui/Badge';
 import RubyText from './ui/RubyText';
 import AudioPlayer from './ui/AudioPlayer';
 import EmptyState from './ui/EmptyState';
-import { STUDY_STATUS_LABELS } from '../constants/cards';
+import {
+  STUDY_STATUS_LABELS,
+  getEffectiveCardStatus,
+} from '../constants/cards';
+import { isCardDue } from '../services/ankiScheduler';
 
 export default function TableView({
   cards = [],
   statusMap = {},
+  srsMap = {},
   onSelectCard,
   onEditCard,
   onDeleteCard,
@@ -41,7 +46,7 @@ export default function TableView({
             <th className="py-3.5 px-4 text-xs font-semibold text-slate-600 w-44">
               Cách chia / Đọc
             </th>
-            <th className="py-3.5 px-4 text-xs font-semibold text-slate-600 w-32 text-center">
+            <th className="py-3.5 px-4 text-xs font-semibold text-slate-600 w-36 text-center">
               Trạng thái
             </th>
             <th className="py-3.5 px-4 text-xs font-semibold text-slate-600 w-40 text-right">
@@ -53,7 +58,15 @@ export default function TableView({
           {cards.map((card) => {
             const frontText = card.front_text || card.grammar;
             const reading = card.extra_data?.reading || '';
-            const status = statusMap[String(card.id)] || 'unseen';
+            const cardSrs = srsMap[String(card.id)] || null;
+            const status =
+              statusMap[String(card.id)] || cardSrs?.status || 'unseen';
+            const displayStatus = getEffectiveCardStatus(status, cardSrs);
+            const isDue = Boolean(
+              cardSrs &&
+                cardSrs.state !== 'new' &&
+                (cardSrs.is_due || isCardDue(cardSrs))
+            );
 
             return (
               <tr
@@ -81,9 +94,20 @@ export default function TableView({
                   {card.conjugation || '—'}
                 </td>
                 <td className="py-3.5 px-4 align-middle text-center">
-                  <Badge variant={status}>
-                    {STUDY_STATUS_LABELS[status] || 'Chưa học'}
-                  </Badge>
+                  <div className="inline-flex flex-col items-center gap-1">
+                    <Badge variant={displayStatus}>
+                      {STUDY_STATUS_LABELS[displayStatus] || 'Chưa học'}
+                    </Badge>
+                    {cardSrs && cardSrs.state !== 'new' && (
+                      <span
+                        className={`text-[11px] font-medium ${
+                          isDue ? 'text-amber-700' : 'text-slate-500'
+                        }`}
+                      >
+                        {isDue ? 'Đến hạn ôn' : cardSrs.interval_display}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="py-3.5 px-4 align-middle text-right">
                   <div

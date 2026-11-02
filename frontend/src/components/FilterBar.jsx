@@ -56,6 +56,7 @@ export default function FilterBar({
   learnedCount = 0,
   rememberedCount = 0,
   masteredCount = 0,
+  dueCount = 0,
   loadingProgress = false,
 }) {
   const { user, isGuest } = useAuth();
@@ -374,6 +375,20 @@ export default function FilterBar({
               Tất cả khoá học
             </span>
           )}
+
+          {dueCount > 0 && selectedStatus !== 'due' && (
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedStatus?.('due');
+                setDraftStatus('due');
+              }}
+              aria-label={`Lọc ${dueCount} thẻ cần ôn tập`}
+              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-semibold cursor-pointer transition-colors duration-150"
+            >
+              <span>Cần ôn tập: {dueCount}</span>
+            </button>
+          )}
         </div>
 
         {/* Row 4: Integrated Progress Bar (or 100% matching Skeleton while loading) */}
@@ -531,6 +546,8 @@ export default function FilterBar({
               className="w-full h-11 sm:h-10 px-3 rounded-xl border border-slate-200 bg-slate-100/70 text-slate-900 text-sm font-medium cursor-pointer transition-colors duration-150 focus:bg-white focus:border-sky-700"
             >
               <option value="">Mọi trạng thái</option>
+              <option value="due">Cần ôn tập</option>
+              <option value="again">Học lại</option>
               <option value="unseen">Chưa học</option>
               {STUDY_STATUSES.map((st) => (
                 <option key={st.value} value={st.value}>

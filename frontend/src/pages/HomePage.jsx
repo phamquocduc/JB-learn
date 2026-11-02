@@ -13,20 +13,37 @@ import Skeleton from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
 import { useAuth } from '../context/useAuth';
 import { useToast } from '../context/useToast';
-import { STUDY_STATUS_LABELS } from '../constants/cards';
+import {
+  STUDY_STATUS_LABELS,
+  getEffectiveCardStatus,
+} from '../constants/cards';
 import {
   fetchCards,
   fetchCourses,
   createCard,
   updateCard,
   deleteCard,
+  reviewCardApi,
+  syncCardReviews,
 } from '../services/api';
 import {
   getCardStatusMap,
-  saveCardStatus,
+  getCardSrsMap,
+  saveCardSrsState,
+  persistSrsMap,
+  reviewCardWithAnki,
+  mergeServerSrsMap,
   getLastStudySession,
   saveLastStudySession,
 } from '../services/studyProgress';
+import {
+  computeAnkiQueueSummary,
+  findInitialDueStudyIndex,
+  getEarliestUpcomingDueTime,
+  isCardDue,
+  refreshSrsMapDueStates,
+  sortCardsByAnkiPriority,
+} from '../services/ankiScheduler';
 
 export default function HomePage({ defaultScope = 'all' }) {
   const outletContext = useOutletContext() || {};
@@ -38,16 +55,23 @@ export default function HomePage({ defaultScope = 'all' }) {
 
   const userStorageKey = user?.id ? `user_${user.id}` : 'guest';
 
-  // Study Progress (works for all users)
+  // Study Progress & Anki Spaced Repetition State (works for all users)
   const [statusByScope, setStatusByScope] = useState({});
+  const [srsByScope, setSrsByScope] = useState({});
   const statusMap = useMemo(
     () => statusByScope[userStorageKey] ?? getCardStatusMap(user),
     [statusByScope, userStorageKey, user]
   );
+  const srsMap = useMemo(
+    () => srsByScope[userStorageKey] ?? getCardSrsMap(user),
+    [srsByScope, userStorageKey, user]
+  );
 
   const [activeTab, setActiveTab] = useState('flashcards');
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [initialReturnCardId, setInitialReturnCardId] = useState(null);
   const hasAutoRestoredRef = useRef(false);
+  const syncedUserIdRef = useRef(null);
 
   // Filters
   const [scope, setScope] = useState(defaultScope);
@@ -166,12 +190,23 @@ export default function HomePage({ defaultScope = 'all' }) {
       if (Array.isArray(data.lessons)) {
         setLessons(data.lessons);
       }
+      if (data.srs_states && typeof data.srs_states === 'object') {
+        const merged = mergeServerSrsMap(user, data.srs_states);
+        setSrsByScope((prev) => ({
+          ...prev,
+          [userStorageKey]: merged.srsMap,
+        }));
+        setStatusByScope((prev) => ({
+          ...prev,
+          [userStorageKey]: merged.statusMap,
+        }));
+      }
     } catch {
       setError('Không thể tải dữ liệu thẻ học. Vui lòng thử lại.');
     } finally {
       setLoadingCards(false);
     }
-  }, [authLoading, buildCardParams]);
+  }, [authLoading, buildCardParams, user, userStorageKey]);
 
   // Reactive card loader with race-condition protection & silent resume of last studied card
   useEffect(() => {
@@ -186,19 +221,56 @@ export default function HomePage({ defaultScope = 'all' }) {
           if (Array.isArray(data.lessons)) {
             setLessons(data.lessons);
           }
+          let effectiveSrsMap = getCardSrsMap(user);
+          if (data.srs_states && typeof data.srs_states === 'object') {
+            const merged = mergeServerSrsMap(user, data.srs_states);
+            effectiveSrsMap = merged.srsMap;
+            setSrsByScope((prev) => ({
+              ...prev,
+              [userStorageKey]: merged.srsMap,
+            }));
+            setStatusByScope((prev) => ({
+              ...prev,
+              [userStorageKey]: merged.statusMap,
+            }));
+          }
           setError(null);
 
-          // Silently restore exact card index on initial page load
+          // Silently sync local SRS progress once when authenticated user loads
+          if (user?.id && syncedUserIdRef.current !== user.id) {
+            syncedUserIdRef.current = user.id;
+            const localSrs = getCardSrsMap(user);
+            if (Object.keys(localSrs).length > 0) {
+              syncCardReviews(localSrs)
+                .then((res) => {
+                  if (!ignore && res?.srs_states) {
+                    const synced = mergeServerSrsMap(user, res.srs_states);
+                    setSrsByScope((prev) => ({
+                      ...prev,
+                      [userStorageKey]: synced.srsMap,
+                    }));
+                    setStatusByScope((prev) => ({
+                      ...prev,
+                      [userStorageKey]: synced.statusMap,
+                    }));
+                  }
+                })
+                .catch(() => {});
+            }
+          }
+
+          // Silently restore card index on initial page load, prioritizing any due learning/relearning cards
           if (!hasAutoRestoredRef.current && loadedCards.length > 0) {
             hasAutoRestoredRef.current = true;
             const saved = getLastStudySession(user);
-            if (saved?.cardId) {
-              const foundIdx = loadedCards.findIndex(
-                (c) => String(c.id) === String(saved.cardId)
-              );
-              if (foundIdx >= 0) {
-                setCurrentIndex(foundIdx);
-              }
+            const { index: initialIdx, returnCardId } = findInitialDueStudyIndex(
+              loadedCards,
+              effectiveSrsMap,
+              saved?.cardId ?? null
+            );
+            setCurrentIndex(initialIdx);
+            if (returnCardId != null) {
+              setInitialReturnCardId(returnCardId);
             }
           }
         }
@@ -217,35 +289,116 @@ export default function HomePage({ defaultScope = 'all' }) {
     return () => {
       ignore = true;
     };
-  }, [authLoading, user, buildCardParams]);
+  }, [authLoading, user, userStorageKey, buildCardParams]);
 
-  // Client-side filter by study status (unseen / learned / remembered / mastered)
+  // Live timer: automatically flip is_due to true as soon as any learning/relearning card's due_at arrives
+  useEffect(() => {
+    const earliestDueMs = getEarliestUpcomingDueTime(srsMap);
+    if (earliestDueMs === null) return undefined;
+
+    const delayMs = Math.min(
+      2147483647,
+      Math.max(150, earliestDueMs - Date.now() + 50)
+    );
+    const timer = setTimeout(() => {
+      setSrsByScope((prev) => {
+        const hadScoped = Boolean(prev[userStorageKey]);
+        const current = prev[userStorageKey] ?? getCardSrsMap(user);
+        const evalNow = new Date(Math.max(Date.now(), earliestDueMs));
+        const { changed, srsMap: refreshed } = refreshSrsMapDueStates(
+          current,
+          evalNow
+        );
+        if (!changed && hadScoped) return prev;
+        persistSrsMap(user, refreshed);
+        return {
+          ...prev,
+          [userStorageKey]: refreshed,
+        };
+      });
+    }, delayMs);
+
+    return () => clearTimeout(timer);
+  }, [srsMap, user, userStorageKey]);
+
+  // Also refresh expired due states when browser tab regains focus/visibility
+  useEffect(() => {
+    const refreshIfDue = () => {
+      setSrsByScope((prev) => {
+        const hadScoped = Boolean(prev[userStorageKey]);
+        const current = prev[userStorageKey] ?? getCardSrsMap(user);
+        const { changed, srsMap: refreshed } = refreshSrsMapDueStates(current);
+        if (!changed && hadScoped) return prev;
+        persistSrsMap(user, refreshed);
+        return {
+          ...prev,
+          [userStorageKey]: refreshed,
+        };
+      });
+    };
+
+    window.addEventListener('focus', refreshIfDue);
+    document.addEventListener('visibilitychange', refreshIfDue);
+    return () => {
+      window.removeEventListener('focus', refreshIfDue);
+      document.removeEventListener('visibilitychange', refreshIfDue);
+    };
+  }, [user, userStorageKey]);
+
+  // Client-side filter by study status (due / again / unseen / learned / remembered / mastered)
   const filteredCards = useMemo(() => {
     if (!selectedStatus) return cards;
+    if (selectedStatus === 'due') {
+      const dueCards = cards.filter((card) =>
+        isCardDue(srsMap[String(card.id)])
+      );
+      return sortCardsByAnkiPriority(dueCards, srsMap);
+    }
+    if (selectedStatus === 'again') {
+      const againCards = cards.filter((card) => {
+        const srs = srsMap[String(card.id)];
+        const st = statusMap[String(card.id)] || srs?.status || 'unseen';
+        return getEffectiveCardStatus(st, srs) === 'again';
+      });
+      return sortCardsByAnkiPriority(againCards, srsMap);
+    }
     return cards.filter((card) => {
-      const st = statusMap[String(card.id)] || 'unseen';
-      return st === selectedStatus;
+      const srs = srsMap[String(card.id)];
+      const st =
+        statusMap[String(card.id)] ||
+        srs?.status ||
+        'unseen';
+      return getEffectiveCardStatus(st, srs) === selectedStatus;
     });
-  }, [cards, selectedStatus, statusMap]);
+  }, [cards, selectedStatus, statusMap, srsMap]);
 
   const safeIndex =
     filteredCards.length === 0
       ? 0
       : Math.min(currentIndex, filteredCards.length - 1);
 
-  // Compute progress counts across current card set
+  // Compute progress counts & Anki due queue count across current card set
   const progressStats = useMemo(() => {
     let learnedCount = 0;
     let rememberedCount = 0;
     let masteredCount = 0;
+    const cardIds = [];
     for (const card of cards) {
-      const st = statusMap[String(card.id)];
+      cardIds.push(card.id);
+      const st =
+        statusMap[String(card.id)] || srsMap[String(card.id)]?.status;
       if (st === 'learned') learnedCount += 1;
       else if (st === 'remembered') rememberedCount += 1;
       else if (st === 'mastered') masteredCount += 1;
     }
-    return { learnedCount, rememberedCount, masteredCount };
-  }, [cards, statusMap]);
+    const queueSummary = computeAnkiQueueSummary(cardIds, srsMap);
+    return {
+      learnedCount,
+      rememberedCount,
+      masteredCount,
+      dueCount: queueSummary.due_count,
+    };
+  }, [cards, statusMap, srsMap]);
 
   // Silently persist last study position for both Guests and Authenticated Users
   const recordStudySession = useCallback(
@@ -278,24 +431,93 @@ export default function HomePage({ defaultScope = 'all' }) {
   );
 
   const handleStatusChange = useCallback(
-    (cardId, nextStatus) => {
-      const nextMap = saveCardStatus(user, cardId, nextStatus);
+    (cardId, ratingOrStatus) => {
+      const prevSrs = srsMap[String(cardId)] || null;
+      const {
+        srsMap: nextSrsMap,
+        statusMap: nextStatusMap,
+        cardSrs,
+      } = reviewCardWithAnki(user, cardId, ratingOrStatus);
+
+      setSrsByScope((prev) => ({
+        ...prev,
+        [userStorageKey]: nextSrsMap,
+      }));
       setStatusByScope((prev) => ({
         ...prev,
-        [userStorageKey]: nextMap,
+        [userStorageKey]: nextStatusMap,
       }));
+
+      const localReviewedAt = cardSrs?.last_reviewed_at
+        ? new Date(cardSrs.last_reviewed_at).getTime()
+        : Date.now();
+
+      if (!isGuest && user?.id) {
+        reviewCardApi(cardId, {
+          rating: ratingOrStatus,
+          current_state: prevSrs,
+        })
+          .then((serverReview) => {
+            if (serverReview && typeof serverReview === 'object') {
+              const currentMap = getCardSrsMap(user);
+              const latestLocal = currentMap[String(cardId)];
+              const latestLocalTs = latestLocal?.last_reviewed_at
+                ? new Date(latestLocal.last_reviewed_at).getTime()
+                : 0;
+              if (latestLocalTs > localReviewedAt + 500) {
+                return;
+              }
+              const saved = saveCardSrsState(user, cardId, serverReview);
+              setSrsByScope((prev) => ({
+                ...prev,
+                [userStorageKey]: saved.srsMap,
+              }));
+              setStatusByScope((prev) => ({
+                ...prev,
+                [userStorageKey]: saved.statusMap,
+              }));
+            }
+          })
+          .catch(() => {});
+      }
+
       const targetCard = filteredCards.find(
         (c) => String(c.id) === String(cardId)
       );
       if (targetCard) {
         recordStudySession(targetCard, safeIndex);
       }
-      showToast(
-        `Đã đánh dấu: ${STUDY_STATUS_LABELS[nextStatus] || 'Chưa học'}`,
-        'success'
-      );
+
+      if (cardSrs && cardSrs.state !== 'new') {
+        const effectiveStatus = getEffectiveCardStatus(
+          cardSrs.status,
+          cardSrs
+        );
+        const label = STUDY_STATUS_LABELS[effectiveStatus] || 'Đã học';
+        showToast(
+          `Đã đánh dấu: ${label} · Ôn lại sau ${cardSrs.interval_display}`,
+          'success'
+        );
+      } else {
+        showToast('Đã đặt lại trạng thái: Chưa học', 'info');
+      }
+
+      return {
+        srsMap: nextSrsMap,
+        statusMap: nextStatusMap,
+        cardSrs,
+      };
     },
-    [user, userStorageKey, filteredCards, safeIndex, recordStudySession, showToast]
+    [
+      user,
+      isGuest,
+      userStorageKey,
+      srsMap,
+      filteredCards,
+      safeIndex,
+      recordStudySession,
+      showToast,
+    ]
   );
 
   const handleSaveCard = async (payload, id) => {
@@ -416,6 +638,7 @@ export default function HomePage({ defaultScope = 'all' }) {
           learnedCount={progressStats.learnedCount}
           rememberedCount={progressStats.rememberedCount}
           masteredCount={progressStats.masteredCount}
+          dueCount={progressStats.dueCount}
           loadingProgress={Boolean((loadingCards || authLoading) && cards.length === 0)}
         />
 
@@ -436,12 +659,14 @@ export default function HomePage({ defaultScope = 'all' }) {
               currentIndex={safeIndex}
               onIndexChange={handleIndexChange}
               statusMap={statusMap}
+              srsMap={srsMap}
               onStatusChange={handleStatusChange}
               onEditCard={handleOpenEditCard}
               onDeleteCard={handleDeleteCard}
               disabledShortcuts={Boolean(
                 selectedDetailCard || isCardModalOpen || isAuthModalOpen
               )}
+              initialReturnCardId={initialReturnCardId}
             />
           ) : activeTab === 'practice' ? (
             <PracticeView
@@ -449,12 +674,15 @@ export default function HomePage({ defaultScope = 'all' }) {
               currentIndex={safeIndex}
               onIndexChange={handleIndexChange}
               statusMap={statusMap}
+              srsMap={srsMap}
               onStatusChange={handleStatusChange}
+              initialReturnCardId={initialReturnCardId}
             />
           ) : (
             <TableView
               cards={filteredCards}
               statusMap={statusMap}
+              srsMap={srsMap}
               onSelectCard={(card) => {
                 setSelectedDetailCard(card);
                 const idx = filteredCards.findIndex((c) => c.id === card.id);
@@ -473,7 +701,12 @@ export default function HomePage({ defaultScope = 'all' }) {
       {selectedDetailCard && (
         <DetailModal
           card={selectedDetailCard}
-          status={statusMap[String(selectedDetailCard.id)] || 'unseen'}
+          status={
+            statusMap[String(selectedDetailCard.id)] ||
+            srsMap[String(selectedDetailCard.id)]?.status ||
+            'unseen'
+          }
+          srsState={srsMap[String(selectedDetailCard.id)] || null}
           onStatusChange={handleStatusChange}
           onClose={() => setSelectedDetailCard(null)}
           onEditCard={handleOpenEditCard}
