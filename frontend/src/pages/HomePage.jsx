@@ -38,7 +38,6 @@ import {
 } from '../services/studyProgress';
 import {
   computeAnkiQueueSummary,
-  findInitialDueStudyIndex,
   getEarliestUpcomingDueTime,
   isCardDue,
   refreshSrsMapDueStates,
@@ -69,9 +68,14 @@ export default function HomePage({ defaultScope = 'all' }) {
 
   const [activeTab, setActiveTab] = useState('flashcards');
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [initialReturnCardId, setInitialReturnCardId] = useState(null);
+  const [currentCardId, setCurrentCardId] = useState(null);
   const hasAutoRestoredRef = useRef(false);
   const syncedUserIdRef = useRef(null);
+
+  const resetCardPosition = useCallback(() => {
+    setCurrentIndex(0);
+    setCurrentCardId(null);
+  }, []);
 
   // Filters
   const [scope, setScope] = useState(defaultScope);
@@ -123,7 +127,7 @@ export default function HomePage({ defaultScope = 'all' }) {
     (courseId) => {
       setSelectedCourse(courseId);
       setSelectedLesson('');
-      setCurrentIndex(0);
+      resetCardPosition();
       const nextParams = new URLSearchParams(searchParams);
       if (courseId) {
         nextParams.set('course', courseId);
@@ -132,7 +136,7 @@ export default function HomePage({ defaultScope = 'all' }) {
       }
       setSearchParams(nextParams, { replace: true });
     },
-    [searchParams, setSearchParams]
+    [resetCardPosition, searchParams, setSearchParams]
   );
 
   // Load courses
@@ -221,10 +225,8 @@ export default function HomePage({ defaultScope = 'all' }) {
           if (Array.isArray(data.lessons)) {
             setLessons(data.lessons);
           }
-          let effectiveSrsMap = getCardSrsMap(user);
           if (data.srs_states && typeof data.srs_states === 'object') {
             const merged = mergeServerSrsMap(user, data.srs_states);
-            effectiveSrsMap = merged.srsMap;
             setSrsByScope((prev) => ({
               ...prev,
               [userStorageKey]: merged.srsMap,
@@ -259,19 +261,21 @@ export default function HomePage({ defaultScope = 'all' }) {
             }
           }
 
-          // Silently restore card index on initial page load, prioritizing any due learning/relearning cards
+          // Silently restore exact last studied card position on initial page load
           if (!hasAutoRestoredRef.current && loadedCards.length > 0) {
             hasAutoRestoredRef.current = true;
             const saved = getLastStudySession(user);
-            const { index: initialIdx, returnCardId } = findInitialDueStudyIndex(
-              loadedCards,
-              effectiveSrsMap,
-              saved?.cardId ?? null
-            );
+            const savedIdx =
+              saved?.cardId != null
+                ? loadedCards.findIndex(
+                    (c) => String(c.id) === String(saved.cardId)
+                  )
+                : -1;
+            const initialIdx = savedIdx >= 0 ? savedIdx : 0;
             setCurrentIndex(initialIdx);
-            if (returnCardId != null) {
-              setInitialReturnCardId(returnCardId);
-            }
+            setCurrentCardId(loadedCards[initialIdx]?.id ?? null);
+          } else if (loadedCards.length > 0) {
+            setCurrentCardId((prev) => prev ?? loadedCards[0].id);
           }
         }
       })
@@ -298,7 +302,7 @@ export default function HomePage({ defaultScope = 'all' }) {
 
     const delayMs = Math.min(
       2147483647,
-      Math.max(150, earliestDueMs - Date.now() + 50)
+      Math.max(10, earliestDueMs - Date.now() + 10)
     );
     const timer = setTimeout(() => {
       setSrsByScope((prev) => {
@@ -345,37 +349,50 @@ export default function HomePage({ defaultScope = 'all' }) {
     };
   }, [user, userStorageKey]);
 
-  // Client-side filter by study status (due / again / unseen / learned / remembered / mastered)
-  const filteredCards = useMemo(() => {
-    if (!selectedStatus) return cards;
-    if (selectedStatus === 'due') {
-      const dueCards = cards.filter((card) =>
-        isCardDue(srsMap[String(card.id)])
-      );
-      return sortCardsByAnkiPriority(dueCards, srsMap);
-    }
-    if (selectedStatus === 'again') {
-      const againCards = cards.filter((card) => {
+  const filterCardsByStatus = useCallback(
+    (cardList, statusFilter) => {
+      if (!statusFilter) return cardList;
+      if (statusFilter === 'due') {
+        const dueCards = cardList.filter((card) =>
+          isCardDue(srsMap[String(card.id)])
+        );
+        return sortCardsByAnkiPriority(dueCards, srsMap);
+      }
+      if (statusFilter === 'again') {
+        const againCards = cardList.filter((card) => {
+          const srs = srsMap[String(card.id)];
+          const st = statusMap[String(card.id)] || srs?.status || 'unseen';
+          return getEffectiveCardStatus(st, srs) === 'again';
+        });
+        return sortCardsByAnkiPriority(againCards, srsMap);
+      }
+      return cardList.filter((card) => {
         const srs = srsMap[String(card.id)];
         const st = statusMap[String(card.id)] || srs?.status || 'unseen';
-        return getEffectiveCardStatus(st, srs) === 'again';
+        return getEffectiveCardStatus(st, srs) === statusFilter;
       });
-      return sortCardsByAnkiPriority(againCards, srsMap);
-    }
-    return cards.filter((card) => {
-      const srs = srsMap[String(card.id)];
-      const st =
-        statusMap[String(card.id)] ||
-        srs?.status ||
-        'unseen';
-      return getEffectiveCardStatus(st, srs) === selectedStatus;
-    });
-  }, [cards, selectedStatus, statusMap, srsMap]);
+    },
+    [statusMap, srsMap]
+  );
 
-  const safeIndex =
-    filteredCards.length === 0
-      ? 0
-      : Math.min(currentIndex, filteredCards.length - 1);
+  // Client-side filter by study status (due / again / unseen / learned / remembered / mastered)
+  const filteredCards = useMemo(
+    () => filterCardsByStatus(cards, selectedStatus),
+    [cards, selectedStatus, filterCardsByStatus]
+  );
+
+  const safeIndex = useMemo(() => {
+    if (filteredCards.length === 0) return 0;
+    if (currentCardId != null) {
+      const idxById = filteredCards.findIndex(
+        (c) => String(c.id) === String(currentCardId)
+      );
+      if (idxById >= 0) {
+        return idxById;
+      }
+    }
+    return Math.min(currentIndex, filteredCards.length - 1);
+  }, [filteredCards, currentCardId, currentIndex]);
 
   // Compute progress counts & Anki due queue count across current card set
   const progressStats = useMemo(() => {
@@ -420,14 +437,19 @@ export default function HomePage({ defaultScope = 'all' }) {
   );
 
   const handleIndexChange = useCallback(
-    (nextIdx) => {
+    (nextIdx, nextCardId = null) => {
       setCurrentIndex(nextIdx);
-      const targetCard = filteredCards[nextIdx];
+      const targetCard =
+        nextCardId != null
+          ? filteredCards.find((c) => String(c.id) === String(nextCardId)) ||
+            cards.find((c) => String(c.id) === String(nextCardId))
+          : filteredCards[nextIdx];
+      setCurrentCardId(targetCard ? targetCard.id : nextCardId);
       if (targetCard) {
         recordStudySession(targetCard, nextIdx);
       }
     },
-    [filteredCards, recordStudySession]
+    [filteredCards, cards, recordStudySession]
   );
 
   const handleStatusChange = useCallback(
@@ -601,34 +623,36 @@ export default function HomePage({ defaultScope = 'all' }) {
           searchQuery={searchQuery}
           setSearchQuery={(val) => {
             setSearchQuery(val);
-            setCurrentIndex(0);
+            resetCardPosition();
           }}
           selectedType={selectedType}
           setSelectedType={(val) => {
             setSelectedType(val);
-            setCurrentIndex(0);
+            resetCardPosition();
           }}
           selectedLevel={selectedLevel}
           setSelectedLevel={(val) => {
             setSelectedLevel(val);
-            setCurrentIndex(0);
+            resetCardPosition();
           }}
           selectedCourse={effectiveCourse}
           setSelectedCourse={handleSelectCourse}
           selectedLesson={selectedLesson}
           setSelectedLesson={(val) => {
             setSelectedLesson(val);
-            setCurrentIndex(0);
+            resetCardPosition();
           }}
           selectedStatus={selectedStatus}
           setSelectedStatus={(val) => {
+            const nextFiltered = filterCardsByStatus(cards, val);
             setSelectedStatus(val);
             setCurrentIndex(0);
+            setCurrentCardId(nextFiltered[0]?.id ?? null);
           }}
           scope={effectiveScope}
           setScope={(val) => {
             setScope(val);
-            setCurrentIndex(0);
+            resetCardPosition();
           }}
           courses={courses}
           lessons={lessons}
@@ -666,7 +690,6 @@ export default function HomePage({ defaultScope = 'all' }) {
               disabledShortcuts={Boolean(
                 selectedDetailCard || isCardModalOpen || isAuthModalOpen
               )}
-              initialReturnCardId={initialReturnCardId}
             />
           ) : activeTab === 'practice' ? (
             <PracticeView
@@ -676,7 +699,6 @@ export default function HomePage({ defaultScope = 'all' }) {
               statusMap={statusMap}
               srsMap={srsMap}
               onStatusChange={handleStatusChange}
-              initialReturnCardId={initialReturnCardId}
             />
           ) : (
             <TableView
@@ -688,6 +710,7 @@ export default function HomePage({ defaultScope = 'all' }) {
                 const idx = filteredCards.findIndex((c) => c.id === card.id);
                 if (idx >= 0) {
                   setCurrentIndex(idx);
+                  setCurrentCardId(card.id);
                   recordStudySession(card, idx, 'table');
                 }
               }}

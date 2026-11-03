@@ -498,21 +498,31 @@ export function computeAnkiQueueSummary(cardIds = [], srsMap = {}, now = new Dat
   };
 }
 
+export function isValidStudyRating(rating) {
+  try {
+    const num = normalizeRating(rating);
+    return num >= 1 && num <= 4;
+  } catch {
+    return false;
+  }
+}
+
 export function getActiveSessionCutoffMs(srsMap = {}, now = new Date()) {
   if (!srsMap || typeof srsMap !== 'object') return null;
   const nowDt = toDate(now) || new Date();
   const nowMs = nowDt.getTime();
   const MAX_IDLE_SINCE_LAST_REVIEW_MS = 30 * 60 * 1000;
-  const SESSION_GAP_MS = 5 * 60 * 1000;
+  const SESSION_GAP_MS = 15 * 60 * 1000;
 
   const reviewedTimes = [];
   for (const raw of Object.values(srsMap)) {
     if (!raw || typeof raw !== 'object') continue;
     const revDt = toDate(raw.last_reviewed_at);
-    if (!revDt) continue;
-    const ms = revDt.getTime();
-    if (Number.isFinite(ms) && ms <= nowMs + 60000) {
-      reviewedTimes.push(ms);
+    if (revDt) {
+      const ms = revDt.getTime();
+      if (Number.isFinite(ms) && ms <= nowMs + 60000) {
+        reviewedTimes.push(ms);
+      }
     }
   }
 
@@ -644,6 +654,7 @@ export function getNextStudyCardIndex(
       nextIndex: 0,
       nextCardId: null,
       isDueInterruption: false,
+      hasDueLearningCard: false,
       resumeCardId: null,
     };
   }
@@ -651,10 +662,17 @@ export function getNextStudyCardIndex(
   const {
     returnCardId = null,
     isCurrentCardUnrated = false,
+    excludedDueCardIds = null,
     now = new Date(),
   } = options;
   const nowDt = toDate(now) || new Date();
   const cutoffMs = getActiveSessionCutoffMs(srsMap, nowDt);
+  const excludedSet =
+    excludedDueCardIds instanceof Set
+      ? excludedDueCardIds
+      : Array.isArray(excludedDueCardIds)
+        ? new Set(excludedDueCardIds.map(String))
+        : null;
 
   let resolvedCurrentIdx = -1;
   if (currentCardId != null) {
@@ -682,6 +700,7 @@ export function getNextStudyCardIndex(
 
   const isUnseenOrDue = (card) => {
     if (isUnseen(card)) return true;
+    if (excludedSet && excludedSet.has(String(card?.id))) return false;
     const s = getCardSrs(card);
     return isCardDue(s, nowDt);
   };
@@ -720,34 +739,36 @@ export function getNextStudyCardIndex(
     }
   }
 
+  // Prefer cards not waiting on a pending learning timer before wrapping sequentially
   if (normalNextIndex < 0) {
-    // If all other cards are already studied and not yet due, pick the earliest upcoming learning/relearning card
-    let earliestPendingIdx = -1;
-    let earliestPendingMs = Infinity;
     for (let offset = 1; offset < cards.length; offset += 1) {
       const idx = (resolvedCurrentIdx + offset) % cards.length;
       const s = getCardSrs(cards[idx]);
-      if (s && (s.state === 'learning' || s.state === 'relearning')) {
-        const dueMs = toDate(s.due_at)?.getTime() ?? Infinity;
-        if (dueMs < earliestPendingMs) {
-          earliestPendingMs = dueMs;
-          earliestPendingIdx = idx;
-        }
+      const isPendingLearning =
+        s &&
+        (s.state === 'learning' || s.state === 'relearning') &&
+        !isCardDue(s, nowDt);
+      if (!isPendingLearning) {
+        normalNextIndex = idx;
+        break;
       }
     }
-    normalNextIndex =
-      earliestPendingIdx >= 0
-        ? earliestPendingIdx
-        : (resolvedCurrentIdx + 1) % cards.length;
+  }
+
+  if (normalNextIndex < 0) {
+    normalNextIndex = (resolvedCurrentIdx + 1) % cards.length;
   }
 
   // 2. Check for due learning / relearning ("Học lại") cards that should be reviewed now
   const dueLearningCandidates = [];
   for (let idx = 0; idx < cards.length; idx += 1) {
-    if (!isCurrentCardUnrated && cards.length > 1 && idx === resolvedCurrentIdx) {
+    if (cards.length > 1 && idx === resolvedCurrentIdx) {
       continue;
     }
     const card = cards[idx];
+    if (excludedSet && excludedSet.has(String(card?.id))) {
+      continue;
+    }
     const s = getCardSrs(card);
     if (!s) continue;
     if (
@@ -777,10 +798,7 @@ export function getNextStudyCardIndex(
 
   const eligibleDueCandidates = dueLearningCandidates.filter((item) => {
     if (item.isActiveSession) return true;
-    if (cutoffMs !== null) {
-      return !hasUnseenInCurrentLesson && item.sameLesson;
-    }
-    return item.sameLesson || !hasUnseenInCurrentLesson;
+    return !hasUnseenInCurrentLesson && (item.sameLesson || !currentLesson);
   });
 
   if (eligibleDueCandidates.length > 0) {
@@ -801,7 +819,6 @@ export function getNextStudyCardIndex(
       : cards[normalNextIndex]?.id ?? null;
 
     if (
-      !isCurrentCardUnrated &&
       fallbackResumeId != null &&
       String(fallbackResumeId) === String(topDue.card.id)
     ) {
@@ -825,6 +842,7 @@ export function getNextStudyCardIndex(
       nextIndex: topDue.idx,
       nextCardId: topDue.card.id,
       isDueInterruption: topDue.idx !== normalNextIndex,
+      hasDueLearningCard: true,
       resumeCardId,
     };
   }
@@ -833,7 +851,261 @@ export function getNextStudyCardIndex(
     nextIndex: normalNextIndex,
     nextCardId: cards[normalNextIndex]?.id ?? null,
     isDueInterruption: false,
+    hasDueLearningCard: false,
     resumeCardId: null,
+  };
+}
+
+function normalizeExcludedIds(excludedDueCardIds) {
+  if (!excludedDueCardIds) return [];
+  if (excludedDueCardIds instanceof Set) {
+    return Array.from(excludedDueCardIds, String);
+  }
+  if (Array.isArray(excludedDueCardIds)) {
+    return excludedDueCardIds.map(String);
+  }
+  return [];
+}
+
+export function precomputeNextStudyPlan(
+  cards = [],
+  srsMap = {},
+  currentIndex = 0,
+  currentCardId = null,
+  options = {}
+) {
+  const nowDt = toDate(options.now) || new Date();
+  const returnCardId = options.returnCardId ?? null;
+  const rawExcluded = normalizeExcludedIds(options.excludedDueCardIds);
+  const inputExcludedKey = rawExcluded.join(',');
+
+  if (!Array.isArray(cards) || cards.length === 0) {
+    return {
+      currentCardId: null,
+      currentIndex: 0,
+      returnCardId,
+      inputExcludedKey,
+      rateIndex: 0,
+      rateCardId: null,
+      rateResumeCardId: null,
+      rateIsDueInterruption: false,
+      rateHasDueLearningCard: false,
+      nextIndex: 0,
+      nextCardId: null,
+      prevIndex: 0,
+      prevCardId: null,
+      shuffleIndex: 0,
+      shuffleCardId: null,
+      isDueInterruption: false,
+      hasDueLearningCard: false,
+      resumeCardId: null,
+      nextSkippedDueIds: [],
+      computedAtMs: nowDt.getTime(),
+      earliestUpcomingDueMs: null,
+    };
+  }
+
+  let resolvedCurrentIdx = -1;
+  if (currentCardId != null) {
+    resolvedCurrentIdx = cards.findIndex(
+      (c) => String(c.id) === String(currentCardId)
+    );
+  }
+  if (resolvedCurrentIdx < 0) {
+    resolvedCurrentIdx = Math.max(0, Math.min(currentIndex, cards.length - 1));
+  }
+  const resolvedCardId = cards[resolvedCurrentIdx]?.id ?? null;
+
+  const curRawSrs =
+    resolvedCardId != null
+      ? srsMap[resolvedCardId] || srsMap[String(resolvedCardId)]
+      : null;
+  const curNormSrs =
+    curRawSrs && typeof curRawSrs === 'object'
+      ? normalizeSrsState(curRawSrs)
+      : null;
+  const isCurLearningDue = Boolean(
+    curNormSrs &&
+      (curNormSrs.state === 'learning' || curNormSrs.state === 'relearning') &&
+      isCardDue(curNormSrs, nowDt)
+  );
+
+  const manualExcludedDueIds =
+    isCurLearningDue &&
+    resolvedCardId != null &&
+    !rawExcluded.includes(String(resolvedCardId))
+      ? [...rawExcluded, String(resolvedCardId)]
+      : rawExcluded;
+
+  // Pre-compute target when user rates the current card with one of the 4 study statuses
+  const rateStudyNext = getNextStudyCardIndex(
+    cards,
+    srsMap,
+    resolvedCurrentIdx,
+    resolvedCardId,
+    {
+      ...options,
+      returnCardId,
+      excludedDueCardIds: [],
+      isCurrentCardUnrated: false,
+      now: nowDt,
+    }
+  );
+
+  // Pre-compute target when user clicks manual navigation buttons (Next / Prev / Shuffle)
+  const manualStudyNext =
+    manualExcludedDueIds.length === 0
+      ? rateStudyNext
+      : getNextStudyCardIndex(
+          cards,
+          srsMap,
+          resolvedCurrentIdx,
+          resolvedCardId,
+          {
+            ...options,
+            returnCardId,
+            excludedDueCardIds: manualExcludedDueIds,
+            isCurrentCardUnrated: false,
+            now: nowDt,
+          }
+        );
+
+  const sequentialPrevIdx =
+    resolvedCurrentIdx - 1 >= 0 ? resolvedCurrentIdx - 1 : cards.length - 1;
+
+  let randomIdx = resolvedCurrentIdx;
+  if (cards.length > 1) {
+    const offset = 1 + Math.floor(Math.random() * (cards.length - 1));
+    randomIdx = (resolvedCurrentIdx + offset) % cards.length;
+  }
+
+  const prevIndex = manualStudyNext.hasDueLearningCard
+    ? manualStudyNext.nextIndex
+    : sequentialPrevIdx;
+  const prevCardId = cards[prevIndex]?.id ?? null;
+
+  const shuffleIndex = manualStudyNext.hasDueLearningCard
+    ? manualStudyNext.nextIndex
+    : randomIdx;
+  const shuffleCardId = cards[shuffleIndex]?.id ?? null;
+
+  return {
+    currentCardId: resolvedCardId,
+    currentIndex: resolvedCurrentIdx,
+    returnCardId,
+    inputExcludedKey,
+    rateIndex: rateStudyNext.nextIndex,
+    rateCardId: rateStudyNext.nextCardId,
+    rateResumeCardId: rateStudyNext.resumeCardId,
+    rateIsDueInterruption: rateStudyNext.isDueInterruption,
+    rateHasDueLearningCard: rateStudyNext.hasDueLearningCard,
+    nextIndex: manualStudyNext.nextIndex,
+    nextCardId: manualStudyNext.nextCardId,
+    prevIndex,
+    prevCardId,
+    shuffleIndex,
+    shuffleCardId,
+    isDueInterruption: manualStudyNext.isDueInterruption,
+    hasDueLearningCard: manualStudyNext.hasDueLearningCard,
+    resumeCardId: manualStudyNext.resumeCardId,
+    nextSkippedDueIds: manualExcludedDueIds,
+    computedAtMs: nowDt.getTime(),
+    earliestUpcomingDueMs: getEarliestUpcomingDueTime(srsMap, nowDt),
+  };
+}
+
+export function resolveStudyTransition(
+  precomputedPlan,
+  actionType = 'next',
+  cards = [],
+  srsMap = {},
+  currentIndex = 0,
+  currentCardId = null,
+  options = {}
+) {
+  const nowMs = Date.now();
+  const hasNewlyArrivedDue =
+    precomputedPlan?.earliestUpcomingDueMs != null &&
+    nowMs >= precomputedPlan.earliestUpcomingDueMs;
+  const returnCardMismatch =
+    options.returnCardId !== undefined &&
+    String(precomputedPlan?.returnCardId ?? '') !==
+      String(options.returnCardId ?? '');
+  const excludedMismatch =
+    actionType !== 'rate' &&
+    options.excludedDueCardIds !== undefined &&
+    precomputedPlan?.inputExcludedKey !== undefined &&
+    normalizeExcludedIds(options.excludedDueCardIds).join(',') !==
+      precomputedPlan.inputExcludedKey;
+
+  const isPlanStale =
+    !precomputedPlan ||
+    String(precomputedPlan.currentCardId ?? '') !==
+      String(currentCardId ?? '') ||
+    returnCardMismatch ||
+    excludedMismatch ||
+    hasNewlyArrivedDue;
+
+  const plan = isPlanStale
+    ? precomputeNextStudyPlan(cards, srsMap, currentIndex, currentCardId, {
+        ...options,
+        now: new Date(nowMs),
+      })
+    : precomputedPlan;
+
+  if (actionType === 'rate') {
+    return {
+      targetIndex: plan.rateIndex ?? plan.nextIndex,
+      targetCardId: plan.rateCardId ?? plan.nextCardId,
+      resumeCardId:
+        plan.rateResumeCardId !== undefined
+          ? plan.rateResumeCardId
+          : plan.resumeCardId,
+      isDueInterruption:
+        plan.rateIsDueInterruption !== undefined
+          ? plan.rateIsDueInterruption
+          : plan.isDueInterruption,
+      hasDueLearningCard:
+        plan.rateHasDueLearningCard !== undefined
+          ? plan.rateHasDueLearningCard
+          : plan.hasDueLearningCard,
+      nextSkippedDueIds: [],
+    };
+  }
+
+  if (actionType === 'prev') {
+    return {
+      targetIndex: plan.prevIndex,
+      targetCardId: plan.prevCardId,
+      resumeCardId: plan.hasDueLearningCard ? plan.resumeCardId : null,
+      isDueInterruption: plan.hasDueLearningCard
+        ? plan.isDueInterruption
+        : false,
+      hasDueLearningCard: plan.hasDueLearningCard,
+      nextSkippedDueIds: plan.nextSkippedDueIds ?? [],
+    };
+  }
+
+  if (actionType === 'shuffle') {
+    return {
+      targetIndex: plan.shuffleIndex,
+      targetCardId: plan.shuffleCardId,
+      resumeCardId: plan.hasDueLearningCard ? plan.resumeCardId : null,
+      isDueInterruption: plan.hasDueLearningCard
+        ? plan.isDueInterruption
+        : false,
+      hasDueLearningCard: plan.hasDueLearningCard,
+      nextSkippedDueIds: plan.nextSkippedDueIds ?? [],
+    };
+  }
+
+  return {
+    targetIndex: plan.nextIndex,
+    targetCardId: plan.nextCardId,
+    resumeCardId: plan.resumeCardId,
+    isDueInterruption: plan.isDueInterruption,
+    hasDueLearningCard: plan.hasDueLearningCard,
+    nextSkippedDueIds: plan.nextSkippedDueIds ?? [],
   };
 }
 

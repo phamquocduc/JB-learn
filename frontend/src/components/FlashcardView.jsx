@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -22,8 +22,10 @@ import {
   parseExamples,
 } from '../constants/cards';
 import {
-  getNextStudyCardIndex,
   isCardDue,
+  isValidStudyRating,
+  precomputeNextStudyPlan,
+  resolveStudyTransition,
 } from '../services/ankiScheduler';
 
 const SLIDE_CLASS_MAP = {
@@ -49,35 +51,72 @@ export default function FlashcardView({
   const [isFlipped, setIsFlipped] = useState(false);
   const [suppressFlipTransition, setSuppressFlipTransition] = useState(false);
   const [slidePhase, setSlidePhase] = useState(null);
-  const slideOutTimerRef = useRef(null);
+  const [returnCardId, setReturnCardId] = useState(initialReturnCardId);
+  const [skippedDueIds, setSkippedDueIds] = useState([]);
   const slideInTimerRef = useRef(null);
   const returnCardIdRef = useRef(initialReturnCardId);
+  const skippedDueIdsRef = useRef([]);
+  const pendingNextCardIdRef = useRef(null);
   const srsMapRef = useRef(srsMap);
-  const prevDueLearningIdsRef = useRef(null);
 
   useEffect(() => {
     srsMapRef.current = srsMap;
   }, [srsMap]);
 
   useEffect(() => {
-    if (initialReturnCardId != null) {
+    if (initialReturnCardId != null && returnCardIdRef.current == null) {
       returnCardIdRef.current = initialReturnCardId;
     }
   }, [initialReturnCardId]);
 
+  const effectiveReturnCardId = returnCardId ?? initialReturnCardId;
   const activeIndex =
     cards.length === 0 ? 0 : Math.min(currentIndex, cards.length - 1);
   const currentCard = cards[activeIndex] || cards[0] || null;
+  const currentCardId = currentCard?.id ?? null;
   const cardsRef = useRef(cards);
   useEffect(() => {
     cardsRef.current = cards;
   }, [cards]);
 
-  const clearSlideTimers = useCallback(() => {
-    if (slideOutTimerRef.current) {
-      clearTimeout(slideOutTimerRef.current);
-      slideOutTimerRef.current = null;
+  // Pre-compute the next study card plan in advance whenever deck, SRS state, or current position updates
+  const precomputedPlan = useMemo(
+    () =>
+      precomputeNextStudyPlan(
+        cards,
+        srsMap,
+        activeIndex,
+        currentCardId,
+        {
+          returnCardId: effectiveReturnCardId,
+          excludedDueCardIds: skippedDueIds,
+        }
+      ),
+    [cards, srsMap, activeIndex, currentCardId, effectiveReturnCardId, skippedDueIds]
+  );
+  const precomputedPlanRef = useRef(precomputedPlan);
+  useEffect(() => {
+    precomputedPlanRef.current = precomputedPlan;
+  }, [precomputedPlan]);
+
+  // Keep index aligned with target card ID if a status filter removes the rated card from `cards`
+  useEffect(() => {
+    if (pendingNextCardIdRef.current != null) {
+      const targetId = pendingNextCardIdRef.current;
+      pendingNextCardIdRef.current = null;
+      if (
+        cards.length > 0 &&
+        String(cards[activeIndex]?.id) !== String(targetId)
+      ) {
+        const idx = cards.findIndex((c) => String(c.id) === String(targetId));
+        if (idx >= 0) {
+          onIndexChange?.(idx, targetId);
+        }
+      }
     }
+  }, [cards, activeIndex, onIndexChange]);
+
+  const clearSlideTimers = useCallback(() => {
     if (slideInTimerRef.current) {
       clearTimeout(slideInTimerRef.current);
       slideInTimerRef.current = null;
@@ -91,165 +130,175 @@ export default function FlashcardView({
     setIsFlipped((prev) => !prev);
   }, []);
 
-  const triggerSlideToIndex = useCallback(
-    (targetIdxOrResolver, direction = 'next') => {
-      if (cardsRef.current.length === 0) return;
+  // Immediately bring up the next card on screen without any pre-change delay
+  const applyImmediateCardChange = useCallback(
+    (targetIndex, targetCardId = null, direction = 'next') => {
+      const latestCards = cardsRef.current;
+      if (!latestCards || latestCards.length === 0) return;
       clearSlideTimers();
 
-      const outPhase = direction === 'prev' ? 'out-right' : 'out-left';
-      const inPhase = direction === 'prev' ? 'in-left' : 'in-right';
-
-      setSlidePhase(outPhase);
-
-      slideOutTimerRef.current = setTimeout(() => {
-        setSuppressFlipTransition(true);
-        setIsFlipped(false);
-        const latestCards = cardsRef.current;
-        if (latestCards.length > 0) {
-          const resolvedIdx =
-            typeof targetIdxOrResolver === 'function'
-              ? targetIdxOrResolver(latestCards)
-              : targetIdxOrResolver;
-          onIndexChange?.(
-            Math.max(0, Math.min(resolvedIdx, latestCards.length - 1))
-          );
+      let resolvedIdx = targetIndex;
+      if (targetCardId != null) {
+        const foundIdx = latestCards.findIndex(
+          (c) => String(c.id) === String(targetCardId)
+        );
+        if (foundIdx >= 0) {
+          resolvedIdx = foundIdx;
         }
-        setSlidePhase(inPhase);
+      }
+      resolvedIdx = Math.max(0, Math.min(resolvedIdx, latestCards.length - 1));
 
-        slideInTimerRef.current = setTimeout(() => {
-          setSlidePhase(null);
-          setSuppressFlipTransition(false);
-        }, 220);
-      }, 140);
+      pendingNextCardIdRef.current = targetCardId;
+      setSuppressFlipTransition(true);
+      setIsFlipped(false);
+      onIndexChange?.(resolvedIdx, targetCardId);
+
+      const inPhase = direction === 'prev' ? 'in-left' : 'in-right';
+      setSlidePhase(inPhase);
+
+      slideInTimerRef.current = setTimeout(() => {
+        setSlidePhase(null);
+        setSuppressFlipTransition(false);
+      }, 180);
     },
     [clearSlideTimers, onIndexChange]
   );
 
   const handleNext = useCallback(() => {
     if (cards.length === 0) return;
-    returnCardIdRef.current = null;
-    const nextIdx = activeIndex + 1 < cards.length ? activeIndex + 1 : 0;
-    triggerSlideToIndex(nextIdx, 'next');
-  }, [cards.length, activeIndex, triggerSlideToIndex]);
+    const transition = resolveStudyTransition(
+      precomputedPlan,
+      'next',
+      cards,
+      srsMapRef.current,
+      activeIndex,
+      currentCardId,
+      {
+        returnCardId: returnCardIdRef.current,
+        excludedDueCardIds: skippedDueIdsRef.current,
+      }
+    );
+    skippedDueIdsRef.current = transition.nextSkippedDueIds;
+    setSkippedDueIds(transition.nextSkippedDueIds);
+    returnCardIdRef.current = transition.resumeCardId;
+    setReturnCardId(transition.resumeCardId);
+    applyImmediateCardChange(
+      transition.targetIndex,
+      transition.targetCardId,
+      'next'
+    );
+  }, [
+    cards,
+    activeIndex,
+    currentCardId,
+    precomputedPlan,
+    applyImmediateCardChange,
+  ]);
 
   const handlePrev = useCallback(() => {
     if (cards.length === 0) return;
-    returnCardIdRef.current = null;
-    const prevIdx = activeIndex - 1 >= 0 ? activeIndex - 1 : cards.length - 1;
-    triggerSlideToIndex(prevIdx, 'prev');
-  }, [cards.length, activeIndex, triggerSlideToIndex]);
+    const transition = resolveStudyTransition(
+      precomputedPlan,
+      'prev',
+      cards,
+      srsMapRef.current,
+      activeIndex,
+      currentCardId,
+      {
+        returnCardId: returnCardIdRef.current,
+        excludedDueCardIds: skippedDueIdsRef.current,
+      }
+    );
+    skippedDueIdsRef.current = transition.nextSkippedDueIds;
+    setSkippedDueIds(transition.nextSkippedDueIds);
+    returnCardIdRef.current = transition.resumeCardId;
+    setReturnCardId(transition.resumeCardId);
+    applyImmediateCardChange(
+      transition.targetIndex,
+      transition.targetCardId,
+      transition.hasDueLearningCard ? 'next' : 'prev'
+    );
+  }, [
+    cards,
+    activeIndex,
+    currentCardId,
+    precomputedPlan,
+    applyImmediateCardChange,
+  ]);
 
   const handleShuffle = useCallback(() => {
     if (cards.length <= 1) return;
-    returnCardIdRef.current = null;
-    const randomIndex = Math.floor(Math.random() * cards.length);
-    triggerSlideToIndex(randomIndex, 'next');
-  }, [cards.length, triggerSlideToIndex]);
-
-  const currentCardId = currentCard?.id;
+    const transition = resolveStudyTransition(
+      precomputedPlan,
+      'shuffle',
+      cards,
+      srsMapRef.current,
+      activeIndex,
+      currentCardId,
+      {
+        returnCardId: returnCardIdRef.current,
+        excludedDueCardIds: skippedDueIdsRef.current,
+      }
+    );
+    skippedDueIdsRef.current = transition.nextSkippedDueIds;
+    setSkippedDueIds(transition.nextSkippedDueIds);
+    returnCardIdRef.current = transition.resumeCardId;
+    setReturnCardId(transition.resumeCardId);
+    applyImmediateCardChange(
+      transition.targetIndex,
+      transition.targetCardId,
+      'next'
+    );
+  }, [
+    cards,
+    activeIndex,
+    currentCardId,
+    precomputedPlan,
+    applyImmediateCardChange,
+  ]);
 
   const handleRate = useCallback(
     (nextRating) => {
-      if (slidePhase) return;
-      if (currentCardId) {
-        setSuppressFlipTransition(true);
-        setIsFlipped(false);
-        const preRateCards = cards;
-        const result = onStatusChange?.(currentCardId, nextRating);
-        const latestSrsMap = result?.srsMap || srsMapRef.current || srsMap;
-        if (nextRating && nextRating !== 'unseen' && preRateCards.length > 0) {
-          const { nextIndex, nextCardId, resumeCardId } = getNextStudyCardIndex(
-            preRateCards,
-            latestSrsMap,
-            activeIndex,
-            currentCardId,
-            {
-              returnCardId: returnCardIdRef.current,
-              isCurrentCardUnrated: false,
-            }
-          );
-          returnCardIdRef.current = resumeCardId;
-          triggerSlideToIndex((latestCards) => {
-            if (nextCardId != null) {
-              const foundIdx = latestCards.findIndex(
-                (c) => String(c.id) === String(nextCardId)
-              );
-              if (foundIdx >= 0) return foundIdx;
-            }
-            return Math.min(nextIndex, Math.max(0, latestCards.length - 1));
-          }, 'next');
-        }
+      if (!currentCardId) return;
+      const preRatePlan = precomputedPlanRef.current || precomputedPlan;
+      const result = onStatusChange?.(currentCardId, nextRating);
+      const latestSrsMap = result?.srsMap || srsMapRef.current || srsMap;
+      srsMapRef.current = latestSrsMap;
+
+      if (isValidStudyRating(nextRating) && cards.length > 0) {
+        const transition = resolveStudyTransition(
+          preRatePlan,
+          'rate',
+          cards,
+          latestSrsMap,
+          activeIndex,
+          currentCardId,
+          {
+            returnCardId: returnCardIdRef.current,
+            excludedDueCardIds: [],
+          }
+        );
+        skippedDueIdsRef.current = [];
+        setSkippedDueIds([]);
+        returnCardIdRef.current = transition.resumeCardId;
+        setReturnCardId(transition.resumeCardId);
+        applyImmediateCardChange(
+          transition.targetIndex,
+          transition.targetCardId,
+          'next'
+        );
       }
     },
     [
-      slidePhase,
       currentCardId,
       cards,
       activeIndex,
+      precomputedPlan,
       onStatusChange,
       srsMap,
-      triggerSlideToIndex,
+      applyImmediateCardChange,
     ]
   );
-
-  useEffect(() => {
-    const currentDueLearningIds = new Set();
-    for (const c of cards) {
-      const s = srsMap[c.id] || srsMap[String(c.id)];
-      if (
-        s &&
-        (s.state === 'learning' || s.state === 'relearning') &&
-        (s.is_due || isCardDue(s))
-      ) {
-        currentDueLearningIds.add(String(c.id));
-      }
-    }
-
-    if (prevDueLearningIdsRef.current === null) {
-      prevDueLearningIdsRef.current = currentDueLearningIds;
-      return;
-    }
-
-    const newlyDueIds = [...currentDueLearningIds].filter(
-      (id) => !prevDueLearningIdsRef.current.has(id)
-    );
-    if (newlyDueIds.length === 0) {
-      prevDueLearningIdsRef.current = currentDueLearningIds;
-      return;
-    }
-
-    if (isFlipped || slidePhase || disabledShortcuts || !currentCard) {
-      return;
-    }
-
-    prevDueLearningIdsRef.current = currentDueLearningIds;
-
-    if (!newlyDueIds.includes(String(currentCard.id))) {
-      const { nextIndex, resumeCardId } = getNextStudyCardIndex(
-        cards,
-        srsMap,
-        activeIndex,
-        currentCard.id,
-        {
-          returnCardId: returnCardIdRef.current,
-          isCurrentCardUnrated: true,
-        }
-      );
-      if (nextIndex !== activeIndex) {
-        returnCardIdRef.current = resumeCardId;
-        triggerSlideToIndex(nextIndex, 'next');
-      }
-    }
-  }, [
-    cards,
-    srsMap,
-    isFlipped,
-    slidePhase,
-    disabledShortcuts,
-    currentCard,
-    activeIndex,
-    triggerSlideToIndex,
-  ]);
 
   useEffect(() => {
     if (disabledShortcuts) return;
@@ -262,7 +311,6 @@ export default function FlashcardView({
         (target.tagName === 'INPUT' ||
           target.tagName === 'SELECT' ||
           target.tagName === 'TEXTAREA' ||
-          target.tagName === 'BUTTON' ||
           target.tagName === 'A' ||
           target.closest?.('[role="dialog"]'))
       ) {
@@ -270,11 +318,14 @@ export default function FlashcardView({
       }
 
       if (e.code === 'Space') {
+        if (target?.tagName === 'BUTTON') return;
         e.preventDefault();
         handleToggleFlip();
       } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
         handleNext();
       } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
         handlePrev();
       } else if (isFlipped) {
         if (e.key === '1') {
