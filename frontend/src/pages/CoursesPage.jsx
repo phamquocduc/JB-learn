@@ -17,6 +17,7 @@ import {
 import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Button from '../components/ui/Button';
+import Dropdown from '../components/ui/Dropdown';
 import Skeleton from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
 import { useAuth } from '../context/useAuth';
@@ -167,6 +168,23 @@ export default function CoursesPage() {
       ignore = true;
     };
   }, [authLoading, user, userStorageKey]);
+
+  useEffect(() => {
+    if (!isFormOpen) return undefined;
+    const handleKeyDown = (e) => {
+      if (
+        e.defaultPrevented ||
+        document.querySelector('[data-dropdown-open="true"]')
+      ) {
+        return;
+      }
+      if (e.key === 'Escape' && !submitting) {
+        setIsFormOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFormOpen, submitting]);
 
   // Compute per-course studied card counts and overall stats
   const courseProgressMap = useMemo(() => {
@@ -379,26 +397,31 @@ export default function CoursesPage() {
       {!isGuest && isFormOpen && (
         <div
           className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4 animate-backdrop-in"
-          onClick={() => setIsFormOpen(false)}
+          onClick={() => {
+            if (!submitting) setIsFormOpen(false);
+          }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="course-modal-title"
         >
           <div
-            className="bg-white border border-slate-200 rounded-2xl shadow-lg max-w-lg w-full overflow-hidden flex flex-col animate-popup-in"
+            className="bg-white border border-slate-200 rounded-2xl shadow-lg max-w-lg w-full max-h-[90vh] flex flex-col animate-popup-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-50 border-b border-slate-200 rounded-t-2xl flex items-center justify-between">
               <h2
                 id="course-modal-title"
-                className="text-lg font-bold text-slate-900"
+                className="text-base sm:text-lg font-bold text-slate-900"
               >
                 {editingCourse ? 'Chỉnh sửa khoá học' : 'Tạo khoá học mới'}
               </h2>
               <Button
                 variant="secondary"
                 size="icon"
-                onClick={() => setIsFormOpen(false)}
+                disabled={submitting}
+                onClick={() => {
+                  if (!submitting) setIsFormOpen(false);
+                }}
                 aria-label="Đóng biểu mẫu"
               >
                 <XMarkIcon className="w-5 h-5" aria-hidden="true" />
@@ -407,11 +430,11 @@ export default function CoursesPage() {
 
             <form
               onSubmit={handleSubmitCourse}
-              className="p-6 flex flex-col gap-4"
+              className="p-4 sm:p-6 overflow-y-auto flex flex-col gap-4"
             >
               {formError && (
                 <div
-                  className="bg-red-50 border border-red-200 text-red-800 text-sm rounded-lg p-3"
+                  className="bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm rounded-lg p-3"
                   role="alert"
                 >
                   {formError}
@@ -421,7 +444,7 @@ export default function CoursesPage() {
               <div>
                 <label
                   htmlFor="course-title-input"
-                  className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5"
+                  className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
                 >
                   Tên khoá học / Bộ thẻ *
                 </label>
@@ -431,7 +454,6 @@ export default function CoursesPage() {
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Ví dụ: Tổng hợp Từ vựng N3"
                   className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
                 />
               </div>
@@ -440,50 +462,38 @@ export default function CoursesPage() {
                 <div>
                   <label
                     htmlFor="course-type-select"
-                    className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5"
+                    className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
                   >
                     Loại thẻ
                   </label>
-                  <select
+                  <Dropdown
                     id="course-type-select"
                     value={cardType}
-                    onChange={(e) => setCardType(e.target.value)}
-                    className="w-full min-h-10 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm font-medium focus:bg-white focus:border-sky-700"
-                  >
-                    {CARD_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setCardType}
+                    options={CARD_TYPES}
+                  />
                 </div>
 
                 <div>
                   <label
                     htmlFor="course-level-select"
-                    className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5"
+                    className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
                   >
                     Trình độ JLPT
                   </label>
-                  <select
+                  <Dropdown
                     id="course-level-select"
                     value={level}
-                    onChange={(e) => setLevel(e.target.value)}
-                    className="w-full min-h-10 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm font-medium focus:bg-white focus:border-sky-700"
-                  >
-                    {JLPT_LEVELS.map((lvl) => (
-                      <option key={lvl} value={lvl}>
-                        {lvl}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setLevel}
+                    options={JLPT_LEVELS}
+                  />
                 </div>
               </div>
 
               <div>
                 <label
                   htmlFor="course-desc-input"
-                  className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5"
+                  className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
                 >
                   Mô tả
                 </label>
@@ -492,33 +502,36 @@ export default function CoursesPage() {
                   rows={2}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Mô tả ngắn về nội dung khoá học..."
-                  className="w-full px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700"
+                  className="w-full px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 resize-y"
                 />
               </div>
 
               <div>
-                <span className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
+                <span className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
                   Quyền hiển thị
                 </span>
                 <div className="flex bg-slate-100 border border-slate-200 rounded-lg p-1 gap-1">
                   <button
                     type="button"
+                    aria-pressed={Boolean(isPublic)}
                     onClick={() => setIsPublic(true)}
-                    className={`flex-1 min-h-9 text-xs sm:text-sm font-semibold rounded-md cursor-pointer transition-colors duration-150 ${isPublic
-                        ? 'bg-sky-700 text-white'
+                    className={`flex-1 min-h-9 text-xs sm:text-sm font-semibold rounded-md cursor-pointer transition-colors duration-150 ${
+                      isPublic
+                        ? 'bg-sky-700 text-white shadow-sm'
                         : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
-                      }`}
+                    }`}
                   >
                     Công khai
                   </button>
                   <button
                     type="button"
+                    aria-pressed={!isPublic}
                     onClick={() => setIsPublic(false)}
-                    className={`flex-1 min-h-9 text-xs sm:text-sm font-semibold rounded-md cursor-pointer transition-colors duration-150 ${!isPublic
-                        ? 'bg-sky-700 text-white'
+                    className={`flex-1 min-h-9 text-xs sm:text-sm font-semibold rounded-md cursor-pointer transition-colors duration-150 ${
+                      !isPublic
+                        ? 'bg-sky-700 text-white shadow-sm'
                         : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
-                      }`}
+                    }`}
                   >
                     Riêng tư
                   </button>
@@ -528,7 +541,10 @@ export default function CoursesPage() {
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
                 <Button
                   variant="secondary"
-                  onClick={() => setIsFormOpen(false)}
+                  disabled={submitting}
+                  onClick={() => {
+                    if (!submitting) setIsFormOpen(false);
+                  }}
                 >
                   Hủy
                 </Button>

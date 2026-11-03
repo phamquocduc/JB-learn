@@ -13,6 +13,7 @@ import {
   BookOpenIcon,
 } from '@heroicons/react/24/outline';
 import Button from './ui/Button';
+import Dropdown from './ui/Dropdown';
 import ProgressBar from './ui/ProgressBar';
 import { useAuth } from '../context/useAuth';
 import {
@@ -74,6 +75,12 @@ export default function FilterBar({
   useEffect(() => {
     if (!isFilterOpen) return;
     const handleKeyDown = (e) => {
+      if (
+        e.defaultPrevented ||
+        document.querySelector('[data-dropdown-open="true"]')
+      ) {
+        return;
+      }
       if (e.key === 'Escape') {
         setIsFilterOpen(false);
       }
@@ -463,143 +470,126 @@ export default function FilterBar({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           {/* Loại thẻ */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <label
               htmlFor="adv-filter-type"
-              className="text-xs font-medium text-slate-600"
+              className="text-xs font-semibold text-slate-700 uppercase tracking-wider"
             >
               Loại thẻ
             </label>
-            <select
+            <Dropdown
               id="adv-filter-type"
               value={draftType}
-              onChange={(e) => setDraftType(e.target.value)}
-              className="w-full h-11 sm:h-10 px-3 rounded-xl border border-slate-200 bg-slate-100/70 text-slate-900 text-sm font-medium cursor-pointer transition-colors duration-150 focus:bg-white focus:border-sky-700"
-            >
-              <option value="">Tất cả loại thẻ</option>
-              {CARD_TYPES.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
+              onChange={setDraftType}
+              options={[
+                { value: '', label: 'Tất cả loại thẻ' },
+                ...CARD_TYPES,
+              ]}
+            />
           </div>
 
           {/* Cấp độ */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <label
               htmlFor="adv-filter-level"
-              className="text-xs font-medium text-slate-600"
+              className="text-xs font-semibold text-slate-700 uppercase tracking-wider"
             >
               Cấp độ
             </label>
-            <select
+            <Dropdown
               id="adv-filter-level"
               value={draftLevel}
-              onChange={(e) => setDraftLevel(e.target.value)}
-              className="w-full h-11 sm:h-10 px-3 rounded-xl border border-slate-200 bg-slate-100/70 text-slate-900 text-sm font-medium cursor-pointer transition-colors duration-150 focus:bg-white focus:border-sky-700"
-            >
-              <option value="">Tất cả cấp độ</option>
-              {JLPT_LEVELS.map((lvl) => (
-                <option key={lvl} value={lvl}>
-                  {lvl}
-                </option>
-              ))}
-            </select>
+              onChange={setDraftLevel}
+              options={[
+                { value: '', label: 'Tất cả cấp độ' },
+                ...JLPT_LEVELS.map((lvl) => ({ value: lvl, label: lvl })),
+              ]}
+            />
           </div>
 
           {/* Bài học */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <label
               htmlFor="adv-filter-lesson"
-              className="text-xs font-medium text-slate-600"
+              className="text-xs font-semibold text-slate-700 uppercase tracking-wider"
             >
               Bài học
             </label>
-            <select
+            <Dropdown
               id="adv-filter-lesson"
               value={draftLesson}
-              onChange={(e) => setDraftLesson(e.target.value)}
-              className="w-full h-11 sm:h-10 px-3 rounded-xl border border-slate-200 bg-slate-100/70 text-slate-900 text-sm font-medium cursor-pointer transition-colors duration-150 focus:bg-white focus:border-sky-700"
-            >
-              <option value="">Tất cả bài học</option>
-              {lessons.map((lesson) => (
-                <option key={lesson} value={lesson}>
-                  {lesson}
-                </option>
-              ))}
-            </select>
+              onChange={setDraftLesson}
+              options={[
+                { value: '', label: 'Tất cả bài học' },
+                ...lessons.map((lesson) => ({ value: lesson, label: lesson })),
+              ]}
+            />
           </div>
 
           {/* Trạng thái */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <label
               htmlFor="adv-filter-status"
-              className="text-xs font-medium text-slate-600"
+              className="text-xs font-semibold text-slate-700 uppercase tracking-wider"
             >
               Trạng thái
             </label>
-            <select
+            <Dropdown
               id="adv-filter-status"
               value={draftStatus}
-              onChange={(e) => setDraftStatus(e.target.value)}
-              className="w-full h-11 sm:h-10 px-3 rounded-xl border border-slate-200 bg-slate-100/70 text-slate-900 text-sm font-medium cursor-pointer transition-colors duration-150 focus:bg-white focus:border-sky-700"
-            >
-              <option value="">Mọi trạng thái</option>
-              <option value="due">Cần ôn tập</option>
-              <option value="again">Học lại</option>
-              <option value="unseen">Chưa học</option>
-              {STUDY_STATUSES.map((st) => (
-                <option key={st.value} value={st.value}>
-                  {st.label}
-                </option>
-              ))}
-            </select>
+              onChange={setDraftStatus}
+              options={[
+                { value: '', label: 'Mọi trạng thái' },
+                { value: 'due', label: 'Cần ôn tập' },
+                { value: 'again', label: 'Học lại' },
+                { value: 'unseen', label: 'Chưa học' },
+                ...STUDY_STATUSES,
+              ]}
+            />
           </div>
 
-          {/* Khoá học (nếu có) */}
+          {/* Khoá học */}
           {courses.length > 0 && (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
               <label
                 htmlFor="adv-filter-course"
-                className="text-xs font-medium text-slate-600"
+                className="text-xs font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Khoá học / Bộ thẻ
               </label>
-              <select
+              <Dropdown
                 id="adv-filter-course"
                 value={draftCourse}
-                onChange={(e) => setDraftCourse(e.target.value)}
-                className="w-full h-11 sm:h-10 px-3 rounded-xl border border-slate-200 bg-slate-100/70 text-slate-900 text-sm font-medium cursor-pointer transition-colors duration-150 focus:bg-white focus:border-sky-700"
-              >
-                <option value="">Tất cả khoá học</option>
-                {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title}
-                  </option>
-                ))}
-              </select>
+                onChange={setDraftCourse}
+                options={[
+                  { value: '', label: 'Tất cả khoá học' },
+                  ...courses.map((c) => ({
+                    value: String(c.id),
+                    label: c.title,
+                  })),
+                ]}
+              />
             </div>
           )}
 
-          {/* Nguồn thẻ (khi đã đăng nhập) */}
+          {/* Nguồn thẻ */}
           {!isGuest && !hideScopeToggle && (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
               <label
                 htmlFor="adv-filter-scope"
-                className="text-xs font-medium text-slate-600"
+                className="text-xs font-semibold text-slate-700 uppercase tracking-wider"
               >
                 Nguồn thẻ
               </label>
-              <select
+              <Dropdown
                 id="adv-filter-scope"
                 value={draftScope}
-                onChange={(e) => setDraftScope(e.target.value)}
-                className="w-full h-11 sm:h-10 px-3 rounded-xl border border-slate-200 bg-slate-100/70 text-slate-900 text-sm font-medium cursor-pointer transition-colors duration-150 focus:bg-white focus:border-sky-700"
-              >
-                <option value="all">Tất cả công khai</option>
-                <option value="mine">Bộ thẻ của tôi</option>
-              </select>
+                onChange={setDraftScope}
+                options={[
+                  { value: 'all', label: 'Tất cả công khai' },
+                  { value: 'mine', label: 'Bộ thẻ của tôi' },
+                ]}
+              />
             </div>
           )}
         </div>

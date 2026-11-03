@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
 import Button from './ui/Button';
+import Dropdown from './ui/Dropdown';
 import { CARD_TYPES, JLPT_LEVELS } from '../constants/cards';
 import { createCourse } from '../services/api';
 
@@ -43,16 +44,38 @@ export default function CardFormModal({
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  const courseOptions = useMemo(
+    () => [
+      { value: '', label: 'Không gán khoá học' },
+      ...courses.map((c) => ({
+        value: String(c.id),
+        label: c.level ? `${c.title} · ${c.level}` : c.title,
+      })),
+    ],
+    [courses]
+  );
+
+  const handleSafeClose = () => {
+    if (submitting || creatingCourse) return;
+    onClose?.();
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        onClose();
+      if (
+        e.defaultPrevented ||
+        document.querySelector('[data-dropdown-open="true"]')
+      ) {
+        return;
+      }
+      if (e.key === 'Escape' && !submitting && !creatingCourse) {
+        onClose?.();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, submitting, creatingCourse, onClose]);
 
   if (!isOpen) return null;
 
@@ -123,7 +146,7 @@ export default function CardFormModal({
   return (
     <div
       className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4 animate-backdrop-in"
-      onClick={onClose}
+      onClick={handleSafeClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="card-form-modal-title"
@@ -132,24 +155,24 @@ export default function CardFormModal({
         className="bg-white border border-slate-200 rounded-2xl shadow-lg max-w-2xl w-full max-h-[90vh] flex flex-col animate-popup-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 rounded-t-2xl flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-50 border-b border-slate-200 rounded-t-2xl flex items-center justify-between">
           <h2
             id="card-form-modal-title"
-            className="text-lg font-bold text-slate-900"
+            className="text-base sm:text-lg font-bold text-slate-900"
           >
             {isEditing ? 'Chỉnh sửa thẻ học' : 'Tạo thẻ học mới'}
           </h2>
           <Button
             variant="secondary"
             size="icon"
-            onClick={onClose}
+            onClick={handleSafeClose}
             aria-label="Đóng biểu mẫu"
           >
             <XMarkIcon className="w-5 h-5" aria-hidden="true" />
           </Button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex flex-col gap-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto flex flex-col gap-4">
           {errorMessage && (
             <div
               className="bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm rounded-lg p-3"
@@ -161,12 +184,13 @@ export default function CardFormModal({
 
           {/* Visibility Toggle */}
           <div>
-            <span className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+            <span className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
               Quyền hiển thị
             </span>
             <div className="flex bg-slate-100 border border-slate-200 rounded-lg p-1 gap-1">
               <button
                 type="button"
+                aria-pressed={Boolean(isPublic)}
                 onClick={() => setIsPublic(true)}
                 className={`flex-1 min-h-9 text-xs sm:text-sm font-semibold rounded-md transition-colors duration-150 cursor-pointer ${
                   isPublic
@@ -174,10 +198,11 @@ export default function CardFormModal({
                     : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
                 }`}
               >
-                Công khai (Mọi người có thể học)
+                Công khai
               </button>
               <button
                 type="button"
+                aria-pressed={!isPublic}
                 onClick={() => setIsPublic(false)}
                 className={`flex-1 min-h-9 text-xs sm:text-sm font-semibold rounded-md transition-colors duration-150 cursor-pointer ${
                   !isPublic
@@ -185,7 +210,7 @@ export default function CardFormModal({
                     : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
                 }`}
               >
-                Riêng tư (Chỉ mình tôi)
+                Riêng tư
               </button>
             </div>
           </div>
@@ -195,49 +220,37 @@ export default function CardFormModal({
             <div>
               <label
                 htmlFor="card-type-select"
-                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
+                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
               >
                 Loại thẻ
               </label>
-              <select
+              <Dropdown
                 id="card-type-select"
                 value={cardType}
-                onChange={(e) => setCardType(e.target.value)}
-                className="w-full min-h-10 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm font-medium transition-colors duration-150 focus:bg-white focus:border-sky-700"
-              >
-                {CARD_TYPES.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
+                onChange={setCardType}
+                options={CARD_TYPES}
+              />
             </div>
 
             <div>
               <label
                 htmlFor="card-level-select"
-                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
+                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
               >
                 Cấp độ JLPT
               </label>
-              <select
+              <Dropdown
                 id="card-level-select"
                 value={level}
-                onChange={(e) => setLevel(e.target.value)}
-                className="w-full min-h-10 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm font-medium transition-colors duration-150 focus:bg-white focus:border-sky-700"
-              >
-                {JLPT_LEVELS.map((lvl) => (
-                  <option key={lvl} value={lvl}>
-                    {lvl}
-                  </option>
-                ))}
-              </select>
+                onChange={setLevel}
+                options={JLPT_LEVELS}
+              />
             </div>
 
             <div>
               <label
                 htmlFor="card-lesson-input"
-                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
+                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
               >
                 Bài học
               </label>
@@ -246,15 +259,14 @@ export default function CardFormModal({
                 type="text"
                 value={lesson}
                 onChange={(e) => setLesson(e.target.value)}
-                placeholder="Ví dụ: Bài 1"
-                className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700"
+                className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
               />
             </div>
           </div>
 
           {/* Course selector + Quick Create Course */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1.5">
               <label
                 htmlFor="card-course-select"
                 className="block text-xs font-semibold text-slate-700 uppercase tracking-wider"
@@ -277,10 +289,16 @@ export default function CardFormModal({
               <div className="flex flex-col sm:flex-row gap-2 p-3 rounded-lg bg-slate-50 border border-slate-200">
                 <input
                   type="text"
+                  aria-label="Tên khoá học mới"
                   value={newCourseTitle}
                   onChange={(e) => setNewCourseTitle(e.target.value)}
-                  placeholder="Nhập tên khoá học / bộ thẻ mới..."
-                  className="flex-1 min-h-10 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm focus:border-sky-700"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleQuickCreateCourse();
+                    }
+                  }}
+                  className="flex-1 min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm transition-colors duration-150 focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
                 />
                 <Button
                   variant="primary"
@@ -291,19 +309,12 @@ export default function CardFormModal({
                 </Button>
               </div>
             ) : (
-              <select
+              <Dropdown
                 id="card-course-select"
                 value={courseId}
-                onChange={(e) => setCourseId(e.target.value)}
-                className="w-full min-h-10 px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm font-medium transition-colors duration-150 focus:bg-white focus:border-sky-700"
-              >
-                <option value="">Không gán khoá học (Chung)</option>
-                {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title} ({c.level})
-                  </option>
-                ))}
-              </select>
+                onChange={setCourseId}
+                options={courseOptions}
+              />
             )}
           </div>
 
@@ -311,9 +322,9 @@ export default function CardFormModal({
           <div>
             <label
               htmlFor="card-front-text"
-              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
+              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
             >
-              Mặt trước (hỗ trợ viết Furigana trong ngoặc: 約束(やくそく)) *
+              Mặt trước *
             </label>
             <input
               id="card-front-text"
@@ -321,8 +332,7 @@ export default function CardFormModal({
               required
               value={frontText}
               onChange={(e) => setFrontText(e.target.value)}
-              placeholder="Ví dụ: 〜に対して hoặc 勉強(べんきょう)"
-              className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm font-jp transition-colors duration-150 focus:bg-white focus:border-sky-700"
+              className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm font-jp transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
             />
           </div>
 
@@ -330,7 +340,7 @@ export default function CardFormModal({
           <div>
             <label
               htmlFor="card-meaning"
-              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
+              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
             >
               Ý nghĩa / Định nghĩa *
             </label>
@@ -340,8 +350,7 @@ export default function CardFormModal({
               required
               value={meaning}
               onChange={(e) => setMeaning(e.target.value)}
-              placeholder="Ví dụ: Đối với..., ngược lại với..."
-              className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700"
+              className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
             />
           </div>
 
@@ -349,7 +358,7 @@ export default function CardFormModal({
           <div>
             <label
               htmlFor="card-conjugation"
-              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
+              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
             >
               Cách chia / Cách đọc / Âm Hán Việt
             </label>
@@ -358,8 +367,7 @@ export default function CardFormModal({
               type="text"
               value={conjugation}
               onChange={(e) => setConjugation(e.target.value)}
-              placeholder="Ví dụ: N + に対して hoặc べんきょう"
-              className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm font-jp transition-colors duration-150 focus:bg-white focus:border-sky-700"
+              className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm font-jp transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
             />
           </div>
 
@@ -367,7 +375,7 @@ export default function CardFormModal({
           <div>
             <label
               htmlFor="card-usage-notes"
-              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
+              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
             >
               Cách dùng / Ghi chú
             </label>
@@ -376,8 +384,7 @@ export default function CardFormModal({
               rows={2}
               value={usageNotes}
               onChange={(e) => setUsageNotes(e.target.value)}
-              placeholder="Lưu ý khi sử dụng, hoàn cảnh diễn đạt..."
-              className="w-full px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700 resize-y"
+              className="w-full px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 resize-y"
             />
           </div>
 
@@ -385,26 +392,33 @@ export default function CardFormModal({
           <div>
             <label
               htmlFor="card-examples"
-              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
+              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
             >
-              Câu ví dụ (mỗi ví dụ 1 dòng, có thể thêm " - nghĩa tiếng Việt")
+              Câu ví dụ
             </label>
             <textarea
               id="card-examples"
               rows={3}
               value={examples}
               onChange={(e) => setExamples(e.target.value)}
-              placeholder="Ví dụ: 日本(にほん)へ行く前に勉強する - Học trước khi đi Nhật"
-              className="w-full px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm font-jp transition-colors duration-150 focus:bg-white focus:border-sky-700 resize-y"
+              className="w-full px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm font-jp transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 resize-y"
             />
           </div>
 
           {/* Action Buttons */}
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
-            <Button variant="secondary" onClick={onClose}>
+            <Button
+              variant="secondary"
+              disabled={submitting || creatingCourse}
+              onClick={handleSafeClose}
+            >
               Hủy
             </Button>
-            <Button variant="primary" type="submit" disabled={submitting}>
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={submitting || creatingCourse}
+            >
               {submitting
                 ? 'Đang lưu...'
                 : isEditing
