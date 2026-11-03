@@ -19,8 +19,10 @@ import {
   parseExamples,
 } from '../constants/cards';
 import {
-  getNextStudyCardIndex,
   isCardDue,
+  isValidStudyRating,
+  precomputeNextStudyPlan,
+  resolveStudyTransition,
 } from '../services/ankiScheduler';
 
 export default function PracticeView({
@@ -33,86 +35,71 @@ export default function PracticeView({
   initialReturnCardId = null,
 }) {
   const [selectedAnswerByCard, setSelectedAnswerByCard] = useState({});
+  const [returnCardId, setReturnCardId] = useState(initialReturnCardId);
+  const [skippedDueIds, setSkippedDueIds] = useState([]);
   const pendingNextCardIdRef = useRef(null);
   const returnCardIdRef = useRef(initialReturnCardId);
-  const prevDueLearningIdsRef = useRef(null);
+  const skippedDueIdsRef = useRef([]);
+  const srsMapRef = useRef(srsMap);
 
   useEffect(() => {
-    if (initialReturnCardId != null) {
+    srsMapRef.current = srsMap;
+  }, [srsMap]);
+
+  useEffect(() => {
+    if (initialReturnCardId != null && returnCardIdRef.current == null) {
       returnCardIdRef.current = initialReturnCardId;
     }
   }, [initialReturnCardId]);
 
+  const effectiveReturnCardId = returnCardId ?? initialReturnCardId;
   const activeIndex =
     cards.length === 0 ? 0 : Math.min(currentIndex, cards.length - 1);
-  const currentCard = cards[activeIndex] || cards[0];
+  const currentCard = cards[activeIndex] || cards[0] || null;
+  const currentCardId = currentCard?.id ?? null;
 
+  // Pre-compute the next study card plan in advance whenever deck, SRS state, or current position updates
+  const precomputedPlan = useMemo(
+    () =>
+      precomputeNextStudyPlan(
+        cards,
+        srsMap,
+        activeIndex,
+        currentCardId,
+        {
+          returnCardId: effectiveReturnCardId,
+          excludedDueCardIds: skippedDueIds,
+        }
+      ),
+    [cards, srsMap, activeIndex, currentCardId, effectiveReturnCardId, skippedDueIds]
+  );
+  const precomputedPlanRef = useRef(precomputedPlan);
+  useEffect(() => {
+    precomputedPlanRef.current = precomputedPlan;
+  }, [precomputedPlan]);
+
+  // Keep index aligned with target card ID if a status filter removes the rated card from `cards`
   useEffect(() => {
     if (pendingNextCardIdRef.current != null) {
       const targetId = pendingNextCardIdRef.current;
       pendingNextCardIdRef.current = null;
-      const idx = cards.findIndex((c) => String(c.id) === String(targetId));
-      if (idx >= 0) {
-        onIndexChange?.(idx);
-      } else if (cards.length > 0) {
-        onIndexChange?.(0);
+      if (
+        cards.length > 0 &&
+        String(cards[activeIndex]?.id) !== String(targetId)
+      ) {
+        const idx = cards.findIndex((c) => String(c.id) === String(targetId));
+        if (idx >= 0) {
+          onIndexChange?.(idx, targetId);
+        } else {
+          onIndexChange?.(0, cards[0]?.id ?? null);
+        }
       }
     }
-  }, [cards, statusMap, srsMap, onIndexChange]);
+  }, [cards, activeIndex, onIndexChange]);
 
   const cardKey = currentCard ? String(currentCard.id || activeIndex) : '';
   const selectedIdx = cardKey ? selectedAnswerByCard[cardKey] : undefined;
   const isAnswered = typeof selectedIdx === 'number';
-
-  useEffect(() => {
-    const currentDueLearningIds = new Set();
-    for (const c of cards) {
-      const s = srsMap[c.id] || srsMap[String(c.id)];
-      if (
-        s &&
-        (s.state === 'learning' || s.state === 'relearning') &&
-        (s.is_due || isCardDue(s))
-      ) {
-        currentDueLearningIds.add(String(c.id));
-      }
-    }
-
-    if (prevDueLearningIdsRef.current === null) {
-      prevDueLearningIdsRef.current = currentDueLearningIds;
-      return;
-    }
-
-    const newlyDueIds = [...currentDueLearningIds].filter(
-      (id) => !prevDueLearningIdsRef.current.has(id)
-    );
-    if (newlyDueIds.length === 0) {
-      prevDueLearningIdsRef.current = currentDueLearningIds;
-      return;
-    }
-
-    if (isAnswered || !currentCard) {
-      return;
-    }
-
-    prevDueLearningIdsRef.current = currentDueLearningIds;
-
-    if (!newlyDueIds.includes(String(currentCard.id))) {
-      const { nextIndex, resumeCardId } = getNextStudyCardIndex(
-        cards,
-        srsMap,
-        activeIndex,
-        currentCard.id,
-        {
-          returnCardId: returnCardIdRef.current,
-          isCurrentCardUnrated: true,
-        }
-      );
-      if (nextIndex !== activeIndex) {
-        returnCardIdRef.current = resumeCardId;
-        onIndexChange?.(nextIndex);
-      }
-    }
-  }, [cards, srsMap, isAnswered, currentCard, activeIndex, onIndexChange]);
 
   const options = useMemo(() => {
     if (!currentCard || cards.length === 0) return [];
@@ -171,18 +158,81 @@ export default function PracticeView({
     }));
   };
 
+  const clearCardAnswers = (extraCardId = null) => {
+    const extraKey = extraCardId != null ? String(extraCardId) : '';
+    if (!cardKey && !extraKey) return;
+    setSelectedAnswerByCard((prev) => {
+      if (!(cardKey in prev) && (!extraKey || !(extraKey in prev))) return prev;
+      const next = { ...prev };
+      if (cardKey) delete next[cardKey];
+      if (extraKey) delete next[extraKey];
+      return next;
+    });
+  };
+
+  const applyImmediatePracticeChange = (targetIndex, targetCardId = null) => {
+    if (cards.length === 0) return;
+    let resolvedIdx = targetIndex;
+    if (targetCardId != null) {
+      const foundIdx = cards.findIndex(
+        (c) => String(c.id) === String(targetCardId)
+      );
+      if (foundIdx >= 0) {
+        resolvedIdx = foundIdx;
+      }
+    }
+    resolvedIdx = Math.max(0, Math.min(resolvedIdx, cards.length - 1));
+    clearCardAnswers(targetCardId ?? cards[resolvedIdx]?.id);
+    pendingNextCardIdRef.current = targetCardId;
+    onIndexChange?.(resolvedIdx, targetCardId);
+  };
+
   const handlePrev = () => {
     if (cards.length === 0) return;
-    returnCardIdRef.current = null;
-    const prevIdx = activeIndex - 1 >= 0 ? activeIndex - 1 : cards.length - 1;
-    onIndexChange?.(prevIdx);
+    const transition = resolveStudyTransition(
+      precomputedPlan,
+      'prev',
+      cards,
+      srsMapRef.current,
+      activeIndex,
+      currentCardId,
+      {
+        returnCardId: returnCardIdRef.current,
+        excludedDueCardIds: skippedDueIdsRef.current,
+      }
+    );
+    skippedDueIdsRef.current = transition.nextSkippedDueIds;
+    setSkippedDueIds(transition.nextSkippedDueIds);
+    returnCardIdRef.current = transition.resumeCardId;
+    setReturnCardId(transition.resumeCardId);
+    applyImmediatePracticeChange(
+      transition.targetIndex,
+      transition.targetCardId
+    );
   };
 
   const handleNext = () => {
     if (cards.length === 0) return;
-    returnCardIdRef.current = null;
-    const nextIdx = activeIndex + 1 < cards.length ? activeIndex + 1 : 0;
-    onIndexChange?.(nextIdx);
+    const transition = resolveStudyTransition(
+      precomputedPlan,
+      'next',
+      cards,
+      srsMapRef.current,
+      activeIndex,
+      currentCardId,
+      {
+        returnCardId: returnCardIdRef.current,
+        excludedDueCardIds: skippedDueIdsRef.current,
+      }
+    );
+    skippedDueIdsRef.current = transition.nextSkippedDueIds;
+    setSkippedDueIds(transition.nextSkippedDueIds);
+    returnCardIdRef.current = transition.resumeCardId;
+    setReturnCardId(transition.resumeCardId);
+    applyImmediatePracticeChange(
+      transition.targetIndex,
+      transition.targetCardId
+    );
   };
 
   return (
@@ -291,28 +341,34 @@ export default function PracticeView({
               srsState={currentSrs}
               showIntervals
               onRate={(nextStatus) => {
-                setSelectedAnswerByCard((prev) => {
-                  const next = { ...prev };
-                  delete next[cardKey];
-                  return next;
-                });
+                const preRatePlan =
+                  precomputedPlanRef.current || precomputedPlan;
                 const result = onStatusChange?.(currentCard.id, nextStatus);
-                const latestSrsMap = result?.srsMap || srsMap;
-                if (nextStatus && nextStatus !== 'unseen' && cards.length > 0) {
-                  const { nextCardId, resumeCardId } = getNextStudyCardIndex(
+                const latestSrsMap =
+                  result?.srsMap || srsMapRef.current || srsMap;
+                srsMapRef.current = latestSrsMap;
+
+                if (isValidStudyRating(nextStatus) && cards.length > 0) {
+                  const transition = resolveStudyTransition(
+                    preRatePlan,
+                    'rate',
                     cards,
                     latestSrsMap,
                     activeIndex,
                     currentCard.id,
                     {
                       returnCardId: returnCardIdRef.current,
-                      isCurrentCardUnrated: false,
+                      excludedDueCardIds: [],
                     }
                   );
-                  returnCardIdRef.current = resumeCardId;
-                  if (nextCardId != null) {
-                    pendingNextCardIdRef.current = nextCardId;
-                  }
+                  skippedDueIdsRef.current = [];
+                  setSkippedDueIds([]);
+                  returnCardIdRef.current = transition.resumeCardId;
+                  setReturnCardId(transition.resumeCardId);
+                  applyImmediatePracticeChange(
+                    transition.targetIndex,
+                    transition.targetCardId
+                  );
                 }
               }}
             />
