@@ -506,48 +506,50 @@ export default function FlashcardView({
           >
             {renderCardHeader()}
 
-            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-3.5 sm:gap-4 my-3 sm:my-4 pr-1">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="text-2xl sm:text-3xl font-bold text-slate-900">
+            <div className="flex-1 min-h-0 overflow-y-auto flex flex-col my-3 sm:my-4 pr-1">
+              <div className="w-full max-w-2xl mx-auto my-auto flex flex-col items-center text-center gap-3.5 sm:gap-4 py-2">
+                <div className="text-3xl sm:text-4xl font-bold text-slate-900 leading-tight font-jp">
                   <RubyText text={frontText} reading={reading} />
                 </div>
-                <AudioPlayer text={frontText} />
-              </div>
 
-              {currentCard.conjugation && (
-                <div className="inline-block self-start bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg text-sky-800 text-sm sm:text-base font-medium font-jp">
-                  {currentCard.conjugation}
+                <div className="flex items-center justify-center gap-2.5 flex-wrap">
+                  {currentCard.conjugation && (
+                    <div className="inline-flex items-center bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-lg text-sky-800 text-sm sm:text-base font-medium font-jp">
+                      {currentCard.conjugation}
+                    </div>
+                  )}
+                  <AudioPlayer text={frontText} />
                 </div>
-              )}
 
-              <div className="bg-sky-50 border border-sky-200 rounded-xl p-3.5 sm:p-4 text-sky-900 font-semibold text-base">
-                {currentCard.meaning}
-              </div>
-
-              {currentCard.usage_notes && (
-                <div className="bg-slate-50 border border-slate-200 border-l-4 border-l-sky-700 p-3.5 sm:p-4 text-sm text-slate-700 rounded-lg">
-                  <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                    {isKanjiCard ? 'Chi tiết Hán tự' : 'Cách dùng & Chú ý'}
-                  </span>
-                  <div>{currentCard.usage_notes}</div>
+                <div className="w-full bg-sky-50 border border-sky-200 rounded-xl px-4 py-3.5 sm:px-6 sm:py-4 text-sky-900 font-bold text-base sm:text-lg text-center">
+                  {currentCard.meaning}
                 </div>
-              )}
 
-              {examples.length > 0 && (
-                <div
-                  className="flex flex-col gap-2"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Ví dụ ({examples.length})
-                  </span>
-                  <div className="flex flex-col gap-2">
-                    {examples.map((ex, idx) => (
-                      <GrammarExample key={idx} example={ex} index={idx} />
-                    ))}
+                {currentCard.usage_notes && (
+                  <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3.5 sm:p-4 text-sm text-slate-700 text-center">
+                    <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                      {isKanjiCard ? 'Chi tiết Hán tự' : 'Cách dùng & Chú ý'}
+                    </span>
+                    <div className="leading-relaxed">{currentCard.usage_notes}</div>
                   </div>
-                </div>
-              )}
+                )}
+
+                {examples.length > 0 && (
+                  <div
+                    className="w-full flex flex-col gap-2 text-left"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="block text-xs font-semibold text-slate-500 uppercase tracking-wider text-center">
+                      Ví dụ ({examples.length})
+                    </span>
+                    <div className="flex flex-col gap-2">
+                      {examples.map((ex, idx) => (
+                        <GrammarExample key={idx} example={ex} index={idx} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="shrink-0">

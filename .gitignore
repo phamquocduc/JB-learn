@@ -4,7 +4,7 @@ __pycache__/
 *.py[cod]
 db.sqlite3
 *.log
-module_pdf_to_csv_fit_anki/upload/kanji-n3
+module_pdf_to_csv_fit_anki/upload/*
 
 # Node.js
 node_modules/
