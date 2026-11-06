@@ -281,11 +281,12 @@ export default function PracticeView({
               <div className="text-2xl sm:text-3xl font-bold text-slate-900">
                 <RubyText text={frontText} reading={reading} />
               </div>
-              {currentCard.conjugation && (
-                <div className="text-sm text-sky-800 font-medium font-jp">
-                  {currentCard.conjugation}
-                </div>
-              )}
+              {currentCard.conjugation &&
+                (isAnswered || currentCard.card_type !== 'vocabulary') && (
+                  <div className="text-sm text-sky-800 font-medium font-jp">
+                    {currentCard.conjugation}
+                  </div>
+                )}
               <AudioPlayer text={frontText} />
             </>
           )}

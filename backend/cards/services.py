@@ -16,8 +16,8 @@ DEFAULT_COURSE_META = {
         "227 từ vựng Hán tự (Kanji) JLPT N3 trọng tâm kèm cách đọc Hiragana, âm Hán Việt và ý nghĩa.",
     ),
     Card.CardType.VOCABULARY: (
-        "Tổng hợp Từ vựng JLPT N3",
-        "Bộ thẻ từ vựng JLPT N3 trọng tâm.",
+        "Từ vựng N3 JLPT",
+        "350 từ vựng JLPT N3 trọng tâm qua các đề thi thực tế kèm cách đọc, từ đồng nghĩa và ý nghĩa.",
     ),
 }
 
@@ -33,8 +33,19 @@ def export_kanji_n3_to_csv() -> int:
     return len(kanji_records)
 
 
+def export_vocab_n3_to_csv() -> int:
+    """Export Vocabulary N3 dataset into CSV files in PDF_OUTPUT_DIR."""
+    from module_pdf_to_csv_fit_anki.src.anki_exporter import AnkiExporter
+    from module_pdf_to_csv_fit_anki.src.vocab_n3_data import get_vocab_n3_records
+
+    vocab_records = get_vocab_n3_records(deduplicate=False)
+    exporter = AnkiExporter(output_dir=str(settings.PDF_OUTPUT_DIR))
+    exporter.export_vocab_all(vocab_records)
+    return len(vocab_records)
+
+
 def convert_pdfs_to_csv() -> int:
-    """Parse source Shinkanzen N3 PDF files and Kanji N3 data and export CSV outputs."""
+    """Parse source Shinkanzen N3 PDF files and Kanji/Vocab N3 data and export CSV outputs."""
     from module_pdf_to_csv_fit_anki.src.anki_exporter import AnkiExporter
     from module_pdf_to_csv_fit_anki.src.pdf_parser import ShinkanzenN3PdfParser
 
@@ -56,6 +67,7 @@ def convert_pdfs_to_csv() -> int:
     exporter = AnkiExporter(output_dir=str(settings.PDF_OUTPUT_DIR))
     exporter.export_all(records)
     export_kanji_n3_to_csv()
+    export_vocab_n3_to_csv()
     return len(records)
 
 
@@ -97,7 +109,13 @@ def sync_cards_from_csv(
             if not front_text:
                 continue
 
-            reading = (row.get("Từ Vựng") or "").strip() if row.get("Hán Tự") else ""
+            reading = (
+                (row.get("Từ Vựng") or "").strip()
+                if row.get("Hán Tự")
+                else (row.get("Cách Đọc") or "").strip()
+            )
+            if reading == front_text:
+                reading = ""
             han_viet = (row.get("Hán Việt") or "").strip()
             conjugation = (
                 row.get("Cách Chia / Nối Thể")

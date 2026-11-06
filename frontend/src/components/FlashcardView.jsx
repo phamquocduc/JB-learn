@@ -484,11 +484,12 @@ export default function FlashcardView({
                     <RubyText text={frontText} reading={reading} />
                   </div>
 
-                  {currentCard.conjugation && (
-                    <div className="inline-block bg-slate-50 border border-slate-200 px-4 py-2 rounded-lg text-sky-800 text-sm sm:text-base font-medium font-jp">
-                      {currentCard.conjugation}
-                    </div>
-                  )}
+                  {currentCard.conjugation &&
+                    currentCard.card_type !== 'vocabulary' && (
+                      <div className="inline-block bg-slate-50 border border-slate-200 px-4 py-2 rounded-lg text-sky-800 text-sm sm:text-base font-medium font-jp">
+                        {currentCard.conjugation}
+                      </div>
+                    )}
 
                   <AudioPlayer text={frontText} />
                 </>

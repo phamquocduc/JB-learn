@@ -217,3 +217,103 @@ class AnkiExporter:
                     r.get("source", "").strip(),
                 ])
         return filepath
+
+    def export_vocab_all(self, records: List[Dict[str, Any]]) -> Dict[str, str]:
+        """
+        Exports Vocabulary N3 records into 3 CSV formats (basic Anki, detailed Anki, and table CSV).
+        """
+        basic_path = self.export_vocab_basic_cards(records)
+        detailed_path = self.export_vocab_detailed_cards(records)
+        table_path = self.export_vocab_table_csv(records)
+        return {
+            "vocab_basic_anki": basic_path,
+            "vocab_detailed_anki": detailed_path,
+            "vocab_table_csv": table_path,
+        }
+
+    def export_vocab_basic_cards(self, records: List[Dict[str, Any]], filename: str = "vocab_n3_anki_basic.csv") -> str:
+        filepath = os.path.join(self.output_dir, filename)
+        with open(filepath, mode="w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+            writer.writerow(["Front", "Back", "Tags"])
+            for r in records:
+                word = r.get("word", "").strip()
+                if not word:
+                    continue
+                reading = r.get("reading", "").strip()
+                meaning = r.get("meaning", "").strip()
+                note = r.get("note", "").strip()
+                lesson = r.get("lesson", "").strip()
+                lesson_tag = lesson.replace(" ", "_").replace("-", "_")
+                tag_str = f"JLPT_N3 Vocab_N3 {lesson_tag}"
+                ruby_front = f"<ruby>{word}<rt>{reading}</rt></ruby>" if reading else word
+                front_html = (
+                    f'<div style="font-size: 1.8em; font-weight: bold; text-align: center; color: #1a202c; padding: 12px;">'
+                    f'{ruby_front}'
+                    f'</div>'
+                )
+                back_html = (
+                    f'<div style="text-align: left; line-height: 1.6; font-size: 15px;">'
+                    f'<div style="font-size: 1.5em; font-weight: bold; color: #0f172a; margin-bottom: 6px;">'
+                    f'{ruby_front} <span style="font-size: 0.65em; color: #64748b;">[{lesson}]</span>'
+                    f'</div>'
+                    f'<p style="margin: 4px 0;"><b style="color: #b91c1c;">Ý nghĩa:</b> {meaning}</p>'
+                    f'<p style="margin: 4px 0; color: #475569;">{note}</p>'
+                    f'</div>'
+                )
+                writer.writerow([front_html, back_html, tag_str])
+        return filepath
+
+    def export_vocab_detailed_cards(self, records: List[Dict[str, Any]], filename: str = "vocab_n3_anki_detailed.csv") -> str:
+        filepath = os.path.join(self.output_dir, filename)
+        with open(filepath, mode="w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+            writer.writerow(["Lesson", "Vocabulary", "Reading", "Meaning", "Note", "Tags"])
+            for r in records:
+                lesson = r.get("lesson", "").strip()
+                lesson_tag = lesson.replace(" ", "_").replace("-", "_")
+                tag_str = f"JLPT_N3 Vocab_N3 {lesson_tag}"
+                writer.writerow([
+                    lesson,
+                    r.get("word", "").strip(),
+                    r.get("reading", "").strip(),
+                    r.get("meaning", "").strip(),
+                    r.get("note", "").strip(),
+                    tag_str,
+                ])
+        return filepath
+
+    def export_vocab_table_csv(self, records: List[Dict[str, Any]], filename: str = "vocab_n3_table.csv") -> str:
+        filepath = os.path.join(self.output_dir, filename)
+        with open(filepath, mode="w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+            writer.writerow([
+                "STT",
+                "Bài",
+                "Từ Vựng",
+                "Cách Đọc",
+                "Ý Nghĩa",
+                "Cách Chia / Nối Thể",
+                "Ghi Chú",
+                "Nguồn",
+            ])
+            for idx, r in enumerate(records, start=1):
+                word = r.get("word", "").strip()
+                reading = r.get("reading", "").strip()
+                meaning = r.get("meaning", "").strip()
+                note = r.get("note", "").strip()
+                conj = reading
+                if "Từ đồng nghĩa:" in note:
+                    syn_part = note.split("—")[0].replace("Từ đồng nghĩa:", "").strip()
+                    conj = f"{reading} • = {syn_part}" if reading else f"= {syn_part}"
+                writer.writerow([
+                    idx,
+                    r.get("lesson", "").strip(),
+                    word,
+                    reading,
+                    meaning,
+                    conj,
+                    note,
+                    r.get("source", "").strip(),
+                ])
+        return filepath
