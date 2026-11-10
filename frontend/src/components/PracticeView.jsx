@@ -35,24 +35,32 @@ export default function PracticeView({
   initialReturnCardId = null,
 }) {
   const [selectedAnswerByCard, setSelectedAnswerByCard] = useState({});
-  const [returnCardId, setReturnCardId] = useState(initialReturnCardId);
+  const [returnState, setReturnState] = useState(() => ({
+    baseProp: initialReturnCardId,
+    value: initialReturnCardId,
+  }));
   const [skippedDueIds, setSkippedDueIds] = useState([]);
   const pendingNextCardIdRef = useRef(null);
   const returnCardIdRef = useRef(initialReturnCardId);
   const skippedDueIdsRef = useRef([]);
   const srsMapRef = useRef(srsMap);
 
+  const effectiveReturnCardId =
+    returnState.baseProp === initialReturnCardId
+      ? returnState.value
+      : initialReturnCardId;
+
+  const setReturnCardId = (nextVal) => {
+    setReturnState({ baseProp: initialReturnCardId, value: nextVal });
+  };
+
   useEffect(() => {
     srsMapRef.current = srsMap;
   }, [srsMap]);
 
   useEffect(() => {
-    if (initialReturnCardId != null && returnCardIdRef.current == null) {
-      returnCardIdRef.current = initialReturnCardId;
-    }
-  }, [initialReturnCardId]);
-
-  const effectiveReturnCardId = returnCardId ?? initialReturnCardId;
+    returnCardIdRef.current = effectiveReturnCardId;
+  }, [effectiveReturnCardId]);
   const activeIndex =
     cards.length === 0 ? 0 : Math.min(currentIndex, cards.length - 1);
   const currentCard = cards[activeIndex] || cards[0] || null;
@@ -170,7 +178,11 @@ export default function PracticeView({
     });
   };
 
-  const applyImmediatePracticeChange = (targetIndex, targetCardId = null) => {
+  const applyImmediatePracticeChange = (
+    targetIndex,
+    targetCardId = null,
+    nextReturnCardId = undefined
+  ) => {
     if (cards.length === 0) return;
     let resolvedIdx = targetIndex;
     if (targetCardId != null) {
@@ -184,7 +196,7 @@ export default function PracticeView({
     resolvedIdx = Math.max(0, Math.min(resolvedIdx, cards.length - 1));
     clearCardAnswers(targetCardId ?? cards[resolvedIdx]?.id);
     pendingNextCardIdRef.current = targetCardId;
-    onIndexChange?.(resolvedIdx, targetCardId);
+    onIndexChange?.(resolvedIdx, targetCardId, nextReturnCardId);
   };
 
   const handlePrev = () => {
@@ -207,7 +219,8 @@ export default function PracticeView({
     setReturnCardId(transition.resumeCardId);
     applyImmediatePracticeChange(
       transition.targetIndex,
-      transition.targetCardId
+      transition.targetCardId,
+      transition.resumeCardId
     );
   };
 
@@ -231,7 +244,8 @@ export default function PracticeView({
     setReturnCardId(transition.resumeCardId);
     applyImmediatePracticeChange(
       transition.targetIndex,
-      transition.targetCardId
+      transition.targetCardId,
+      transition.resumeCardId
     );
   };
 
@@ -368,7 +382,8 @@ export default function PracticeView({
                   setReturnCardId(transition.resumeCardId);
                   applyImmediatePracticeChange(
                     transition.targetIndex,
-                    transition.targetCardId
+                    transition.targetCardId,
+                    transition.resumeCardId
                   );
                 }
               }}

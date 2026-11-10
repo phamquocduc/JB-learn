@@ -35,14 +35,51 @@ import {
   mergeServerSrsMap,
   getLastStudySession,
   saveLastStudySession,
+  beginCardReviewSync,
+  finishCardReviewSync,
+  getUnsyncedSyncPayload,
+  clearSyncedReviews,
 } from '../services/studyProgress';
 import {
   computeAnkiQueueSummary,
+  findInitialDueStudyIndex,
   getEarliestUpcomingDueTime,
   isCardDue,
   refreshSrsMapDueStates,
   sortCardsByAnkiPriority,
 } from '../services/ankiScheduler';
+
+function applyStatusFilter(
+  cardList,
+  statusFilter,
+  activeSrsMap,
+  activeStatusMap
+) {
+  if (!statusFilter) return cardList;
+  if (statusFilter === 'due') {
+    const dueCards = cardList.filter((card) =>
+      isCardDue(activeSrsMap[String(card.id)])
+    );
+    return sortCardsByAnkiPriority(dueCards, activeSrsMap);
+  }
+  if (statusFilter === 'again') {
+    const againCards = cardList.filter((card) => {
+      const srs = activeSrsMap[String(card.id)];
+      const st = activeStatusMap[String(card.id)] || srs?.status || 'unseen';
+      return getEffectiveCardStatus(st, srs) === 'again';
+    });
+    return sortCardsByAnkiPriority(againCards, activeSrsMap);
+  }
+  const matched = cardList.filter((card) => {
+    const srs = activeSrsMap[String(card.id)];
+    const st = activeStatusMap[String(card.id)] || srs?.status || 'unseen';
+    return getEffectiveCardStatus(st, srs) === statusFilter;
+  });
+  if (statusFilter === 'unseen') {
+    return matched;
+  }
+  return sortCardsByAnkiPriority(matched, activeSrsMap);
+}
 
 export default function HomePage({ defaultScope = 'all' }) {
   const outletContext = useOutletContext() || {};
@@ -69,12 +106,13 @@ export default function HomePage({ defaultScope = 'all' }) {
   const [activeTab, setActiveTab] = useState('flashcards');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentCardId, setCurrentCardId] = useState(null);
-  const hasAutoRestoredRef = useRef(false);
-  const syncedUserIdRef = useRef(null);
+  const [returnCardId, setReturnCardId] = useState(null);
+  const restoredContextKeyRef = useRef(null);
 
   const resetCardPosition = useCallback(() => {
     setCurrentIndex(0);
     setCurrentCardId(null);
+    setReturnCardId(null);
   }, []);
 
   // Filters
@@ -89,7 +127,14 @@ export default function HomePage({ defaultScope = 'all' }) {
     () => searchParams.get('course') || ''
   );
   const [selectedLesson, setSelectedLesson] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState(() => {
+    const raw = searchParams.get('status') || '';
+    return raw in STUDY_STATUS_LABELS ? raw : '';
+  });
+  const selectedStatusRef = useRef(selectedStatus);
+  useEffect(() => {
+    selectedStatusRef.current = selectedStatus;
+  }, [selectedStatus]);
 
   // Data
   const [cards, setCards] = useState([]);
@@ -128,15 +173,20 @@ export default function HomePage({ defaultScope = 'all' }) {
       setSelectedCourse(courseId);
       setSelectedLesson('');
       resetCardPosition();
-      const nextParams = new URLSearchParams(searchParams);
-      if (courseId) {
-        nextParams.set('course', courseId);
-      } else {
-        nextParams.delete('course');
-      }
-      setSearchParams(nextParams, { replace: true });
+      setSearchParams(
+        (prev) => {
+          const nextParams = new URLSearchParams(prev);
+          if (courseId) {
+            nextParams.set('course', courseId);
+          } else {
+            nextParams.delete('course');
+          }
+          return nextParams;
+        },
+        { replace: true }
+      );
     },
-    [resetCardPosition, searchParams, setSearchParams]
+    [resetCardPosition, setSearchParams]
   );
 
   // Load courses
@@ -212,7 +262,9 @@ export default function HomePage({ defaultScope = 'all' }) {
     }
   }, [authLoading, buildCardParams, user, userStorageKey]);
 
-  // Reactive card loader with race-condition protection & silent resume of last studied card
+  const deckContextKey = `${userStorageKey}|${effectiveScope}|${effectiveCourse}|${selectedType}|${selectedLevel}|${selectedLesson}|${debouncedSearch}`;
+
+  // Reactive card loader with race-condition protection & Anki SRS deck resume
   useEffect(() => {
     if (authLoading) return;
     let ignore = false;
@@ -225,8 +277,12 @@ export default function HomePage({ defaultScope = 'all' }) {
           if (Array.isArray(data.lessons)) {
             setLessons(data.lessons);
           }
+          let effectiveSrsMap = getCardSrsMap(user);
+          let effectiveStatusMap = getCardStatusMap(user);
           if (data.srs_states && typeof data.srs_states === 'object') {
             const merged = mergeServerSrsMap(user, data.srs_states);
+            effectiveSrsMap = merged.srsMap;
+            effectiveStatusMap = merged.statusMap;
             setSrsByScope((prev) => ({
               ...prev,
               [userStorageKey]: merged.srsMap,
@@ -238,13 +294,13 @@ export default function HomePage({ defaultScope = 'all' }) {
           }
           setError(null);
 
-          // Silently sync local SRS progress once when authenticated user loads
-          if (user?.id && syncedUserIdRef.current !== user.id) {
-            syncedUserIdRef.current = user.id;
-            const localSrs = getCardSrsMap(user);
-            if (Object.keys(localSrs).length > 0) {
-              syncCardReviews(localSrs)
+          // Flush any pending unsynced or guest reviews to backend
+          if (!isGuest && user?.id) {
+            const unsyncedPayload = getUnsyncedSyncPayload(user);
+            if (Object.keys(unsyncedPayload).length > 0) {
+              syncCardReviews(unsyncedPayload)
                 .then((res) => {
+                  clearSyncedReviews(user, unsyncedPayload);
                   if (!ignore && res?.srs_states) {
                     const synced = mergeServerSrsMap(user, res.srs_states);
                     setSrsByScope((prev) => ({
@@ -261,21 +317,39 @@ export default function HomePage({ defaultScope = 'all' }) {
             }
           }
 
-          // Silently restore exact last studied card position on initial page load
-          if (!hasAutoRestoredRef.current && loadedCards.length > 0) {
-            hasAutoRestoredRef.current = true;
-            const saved = getLastStudySession(user);
-            const savedIdx =
-              saved?.cardId != null
-                ? loadedCards.findIndex(
-                    (c) => String(c.id) === String(saved.cardId)
-                  )
-                : -1;
-            const initialIdx = savedIdx >= 0 ? savedIdx : 0;
-            setCurrentIndex(initialIdx);
-            setCurrentCardId(loadedCards[initialIdx]?.id ?? null);
-          } else if (loadedCards.length > 0) {
-            setCurrentCardId((prev) => prev ?? loadedCards[0].id);
+          // Restore due-first / per-course card position whenever deck context changes
+          if (
+            loadedCards.length > 0 &&
+            restoredContextKeyRef.current !== deckContextKey
+          ) {
+            restoredContextKeyRef.current = deckContextKey;
+            const activeStatusFilter = selectedStatusRef.current;
+            if (activeStatusFilter) {
+              const nextFiltered = applyStatusFilter(
+                loadedCards,
+                activeStatusFilter,
+                effectiveSrsMap,
+                effectiveStatusMap
+              );
+              setCurrentIndex(0);
+              setCurrentCardId(nextFiltered[0]?.id ?? null);
+              setReturnCardId(null);
+            } else {
+              const saved = getLastStudySession(user, effectiveCourse);
+              const { index: initialIdx, returnCardId: nextReturnId } =
+                findInitialDueStudyIndex(
+                  loadedCards,
+                  effectiveSrsMap,
+                  saved?.cardId ?? null,
+                  new Date(),
+                  saved?.returnCardId ?? null
+                );
+              setCurrentIndex(initialIdx);
+              setCurrentCardId(loadedCards[initialIdx]?.id ?? null);
+              setReturnCardId(nextReturnId);
+            }
+          } else if (loadedCards.length === 0) {
+            restoredContextKeyRef.current = deckContextKey;
           }
         }
       })
@@ -293,11 +367,25 @@ export default function HomePage({ defaultScope = 'all' }) {
     return () => {
       ignore = true;
     };
-  }, [authLoading, user, userStorageKey, buildCardParams]);
+  }, [
+    authLoading,
+    isGuest,
+    user,
+    userStorageKey,
+    effectiveCourse,
+    buildCardParams,
+    deckContextKey,
+  ]);
 
-  // Live timer: automatically flip is_due to true as soon as any learning/relearning card's due_at arrives
+  const currentDeckCardIds = useMemo(() => cards.map((c) => c.id), [cards]);
+
+  // Live timer: automatically flip is_due to true as soon as any card's due_at arrives
   useEffect(() => {
-    const earliestDueMs = getEarliestUpcomingDueTime(srsMap);
+    const earliestDueMs = getEarliestUpcomingDueTime(
+      srsMap,
+      new Date(),
+      currentDeckCardIds
+    );
     if (earliestDueMs === null) return undefined;
 
     const delayMs = Math.min(
@@ -323,7 +411,7 @@ export default function HomePage({ defaultScope = 'all' }) {
     }, delayMs);
 
     return () => clearTimeout(timer);
-  }, [srsMap, user, userStorageKey]);
+  }, [srsMap, currentDeckCardIds, user, userStorageKey]);
 
   // Also refresh expired due states when browser tab regains focus/visibility
   useEffect(() => {
@@ -350,28 +438,8 @@ export default function HomePage({ defaultScope = 'all' }) {
   }, [user, userStorageKey]);
 
   const filterCardsByStatus = useCallback(
-    (cardList, statusFilter) => {
-      if (!statusFilter) return cardList;
-      if (statusFilter === 'due') {
-        const dueCards = cardList.filter((card) =>
-          isCardDue(srsMap[String(card.id)])
-        );
-        return sortCardsByAnkiPriority(dueCards, srsMap);
-      }
-      if (statusFilter === 'again') {
-        const againCards = cardList.filter((card) => {
-          const srs = srsMap[String(card.id)];
-          const st = statusMap[String(card.id)] || srs?.status || 'unseen';
-          return getEffectiveCardStatus(st, srs) === 'again';
-        });
-        return sortCardsByAnkiPriority(againCards, srsMap);
-      }
-      return cardList.filter((card) => {
-        const srs = srsMap[String(card.id)];
-        const st = statusMap[String(card.id)] || srs?.status || 'unseen';
-        return getEffectiveCardStatus(st, srs) === statusFilter;
-      });
-    },
+    (cardList, statusFilter) =>
+      applyStatusFilter(cardList, statusFilter, srsMap, statusMap),
     [statusMap, srsMap]
   );
 
@@ -417,28 +485,42 @@ export default function HomePage({ defaultScope = 'all' }) {
     };
   }, [cards, statusMap, srsMap]);
 
-  // Silently persist last study position for both Guests and Authenticated Users
+  // Silently persist last study position per course for both Guests and Authenticated Users
   const recordStudySession = useCallback(
-    (card, index, tabOverride) => {
+    (card, index, tabOverride, nextReturnCardId = returnCardId) => {
       if (!card?.id) return;
+      if (
+        selectedStatus &&
+        selectedStatus !== 'due' &&
+        selectedStatus !== 'again'
+      ) {
+        return;
+      }
       saveLastStudySession(user, {
         cardId: card.id,
+        returnCardId: nextReturnCardId ?? null,
         cardIndex: index,
         frontText: card.front_text || card.grammar || '',
         meaning: card.meaning || '',
         lesson: card.lesson || '',
         level: card.level || '',
         cardType: card.card_type || '',
-        courseId: effectiveCourse || card.course || '',
+        courseId: effectiveCourse,
+        cardCourseId: card.course || '',
         activeTab: tabOverride || activeTab,
       });
     },
-    [user, effectiveCourse, activeTab]
+    [user, effectiveCourse, activeTab, returnCardId, selectedStatus]
   );
 
   const handleIndexChange = useCallback(
-    (nextIdx, nextCardId = null) => {
+    (nextIdx, nextCardId = null, nextReturnCardId = undefined) => {
       setCurrentIndex(nextIdx);
+      const resolvedReturnId =
+        nextReturnCardId !== undefined ? nextReturnCardId : returnCardId;
+      if (nextReturnCardId !== undefined) {
+        setReturnCardId(nextReturnCardId);
+      }
       const targetCard =
         nextCardId != null
           ? filteredCards.find((c) => String(c.id) === String(nextCardId)) ||
@@ -446,10 +528,10 @@ export default function HomePage({ defaultScope = 'all' }) {
           : filteredCards[nextIdx];
       setCurrentCardId(targetCard ? targetCard.id : nextCardId);
       if (targetCard) {
-        recordStudySession(targetCard, nextIdx);
+        recordStudySession(targetCard, nextIdx, undefined, resolvedReturnId);
       }
     },
-    [filteredCards, cards, recordStudySession]
+    [filteredCards, cards, returnCardId, recordStudySession]
   );
 
   const handleStatusChange = useCallback(
@@ -470,25 +552,16 @@ export default function HomePage({ defaultScope = 'all' }) {
         [userStorageKey]: nextStatusMap,
       }));
 
-      const localReviewedAt = cardSrs?.last_reviewed_at
-        ? new Date(cardSrs.last_reviewed_at).getTime()
-        : Date.now();
-
       if (!isGuest && user?.id) {
+        const seq = beginCardReviewSync(user, cardId);
         reviewCardApi(cardId, {
           rating: ratingOrStatus,
           current_state: prevSrs,
         })
           .then((serverReview) => {
+            const isLatest = finishCardReviewSync(user, cardId, seq, true);
+            if (!isLatest) return;
             if (serverReview && typeof serverReview === 'object') {
-              const currentMap = getCardSrsMap(user);
-              const latestLocal = currentMap[String(cardId)];
-              const latestLocalTs = latestLocal?.last_reviewed_at
-                ? new Date(latestLocal.last_reviewed_at).getTime()
-                : 0;
-              if (latestLocalTs > localReviewedAt + 500) {
-                return;
-              }
               const saved = saveCardSrsState(user, cardId, serverReview);
               setSrsByScope((prev) => ({
                 ...prev,
@@ -500,7 +573,9 @@ export default function HomePage({ defaultScope = 'all' }) {
               }));
             }
           })
-          .catch(() => {});
+          .catch(() => {
+            finishCardReviewSync(user, cardId, seq, false);
+          });
       }
 
       const targetCard = filteredCards.find(
@@ -566,6 +641,9 @@ export default function HomePage({ defaultScope = 'all' }) {
       if (selectedDetailCard?.id === card.id) {
         setSelectedDetailCard(null);
       }
+      if (String(currentCardId) === String(card.id)) {
+        setCurrentCardId(null);
+      }
       showToast(`Đã xóa thẻ "${cardTitle}".`, 'info');
       await reloadCards();
       await refreshCourses();
@@ -592,7 +670,7 @@ export default function HomePage({ defaultScope = 'all' }) {
             Đăng nhập để quản lý bộ thẻ cá nhân
           </h2>
           <p className="text-sm text-slate-600 max-w-md">
-            Bạn có thể học toàn bộ khoá học công khai tại Trang chủ. Hãy đăng nhập để tự tạo và lưu bộ thẻ của riêng bạn.
+            Bạn có thể học toàn bộ khoá học công khai tại mục Học thẻ. Hãy đăng nhập để tự tạo và lưu bộ thẻ của riêng bạn.
           </p>
           <div className="flex items-center gap-3">
             <Button variant="primary" onClick={() => openAuthModal('login')}>
@@ -600,7 +678,7 @@ export default function HomePage({ defaultScope = 'all' }) {
               <span>Đăng nhập ngay</span>
             </Button>
             <Link
-              to="/"
+              to="/study"
               className="min-h-10 inline-flex items-center px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-sm font-semibold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
             >
               Học thẻ công khai
@@ -644,10 +722,40 @@ export default function HomePage({ defaultScope = 'all' }) {
           }}
           selectedStatus={selectedStatus}
           setSelectedStatus={(val) => {
-            const nextFiltered = filterCardsByStatus(cards, val);
             setSelectedStatus(val);
-            setCurrentIndex(0);
-            setCurrentCardId(nextFiltered[0]?.id ?? null);
+            if (val) {
+              const nextFiltered = filterCardsByStatus(cards, val);
+              setCurrentIndex(0);
+              setCurrentCardId(nextFiltered[0]?.id ?? null);
+              setReturnCardId(null);
+            } else if (cards.length > 0) {
+              const saved = getLastStudySession(user, effectiveCourse);
+              const { index: restoredIdx, returnCardId: nextReturnId } =
+                findInitialDueStudyIndex(
+                  cards,
+                  srsMap,
+                  saved?.cardId ?? null,
+                  new Date(),
+                  saved?.returnCardId ?? null
+                );
+              setCurrentIndex(restoredIdx);
+              setCurrentCardId(cards[restoredIdx]?.id ?? null);
+              setReturnCardId(nextReturnId);
+            } else {
+              resetCardPosition();
+            }
+            setSearchParams(
+              (prev) => {
+                const nextParams = new URLSearchParams(prev);
+                if (val) {
+                  nextParams.set('status', val);
+                } else {
+                  nextParams.delete('status');
+                }
+                return nextParams;
+              },
+              { replace: true }
+            );
           }}
           scope={effectiveScope}
           setScope={(val) => {
@@ -679,6 +787,7 @@ export default function HomePage({ defaultScope = 'all' }) {
             <Skeleton variant={activeTab} />
           ) : activeTab === 'flashcards' ? (
             <FlashcardView
+              key={deckContextKey}
               cards={filteredCards}
               currentIndex={safeIndex}
               onIndexChange={handleIndexChange}
@@ -690,15 +799,18 @@ export default function HomePage({ defaultScope = 'all' }) {
               disabledShortcuts={Boolean(
                 selectedDetailCard || isCardModalOpen || isAuthModalOpen
               )}
+              initialReturnCardId={returnCardId}
             />
           ) : activeTab === 'practice' ? (
             <PracticeView
+              key={deckContextKey}
               cards={filteredCards}
               currentIndex={safeIndex}
               onIndexChange={handleIndexChange}
               statusMap={statusMap}
               srsMap={srsMap}
               onStatusChange={handleStatusChange}
+              initialReturnCardId={returnCardId}
             />
           ) : (
             <TableView
@@ -739,12 +851,20 @@ export default function HomePage({ defaultScope = 'all' }) {
 
       {!isGuest && isCardModalOpen && (
         <CardFormModal
-          key={cardToEdit ? `card-${cardToEdit.id}` : 'new-card'}
+          key={
+            cardToEdit
+              ? `card-${cardToEdit.id}`
+              : `new-card-${effectiveCourse || 'none'}`
+          }
           isOpen={isCardModalOpen}
           onClose={() => setIsCardModalOpen(false)}
           onSubmit={handleSaveCard}
           onCourseCreated={refreshCourses}
           initialCard={cardToEdit}
+          defaultCourseId={effectiveCourse}
+          defaultType={selectedType}
+          defaultLevel={selectedLevel}
+          defaultLesson={selectedLesson}
           courses={courses}
         />
       )}

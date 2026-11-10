@@ -10,7 +10,7 @@ import {
   ChevronDownIcon,
   PlusIcon,
   EllipsisHorizontalIcon,
-  BookOpenIcon,
+  HomeIcon,
 } from '@heroicons/react/24/outline';
 import Button from './ui/Button';
 import Dropdown from './ui/Dropdown';
@@ -642,11 +642,11 @@ export default function FilterBar({
 
           <button
             type="button"
-            onClick={() => navigate('/courses')}
+            onClick={() => navigate('/')}
             className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-800 cursor-pointer transition-colors duration-150"
           >
-            <BookOpenIcon className="w-5 h-5" aria-hidden="true" />
-            <span>Khoá học</span>
+            <HomeIcon className="w-5 h-5" aria-hidden="true" />
+            <span>Trang chủ</span>
           </button>
         </nav>
       )}

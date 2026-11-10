@@ -187,6 +187,7 @@ export async function deleteCard(id) {
 export async function reviewCardApi(id, { rating, current_state = null } = {}) {
   return request(`/cards/${id}/review/`, {
     method: 'POST',
+    keepalive: true,
     body: JSON.stringify({ rating, current_state }),
   });
 }

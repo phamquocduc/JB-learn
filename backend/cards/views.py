@@ -371,12 +371,24 @@ class CardViewSet(ModelViewSet):
                 if not item:
                     continue
                 if isinstance(item, str):
+                    if item.strip().lower() in ("unseen", "reset", "0"):
+                        if cid in existing_map:
+                            existing_map[cid].delete()
+                            synced_count += 1
+                        srs_states[str(cid)] = serialize_srs_state(None, now=now_dt)
+                        continue
                     try:
                         norm = schedule_card_review(None, item, now=now_dt)
                         norm["last_reviewed_at"] = None
                     except ValueError:
                         continue
                 elif isinstance(item, dict):
+                    if item.get("reset") is True:
+                        if cid in existing_map:
+                            existing_map[cid].delete()
+                            synced_count += 1
+                        srs_states[str(cid)] = serialize_srs_state(None, now=now_dt)
+                        continue
                     norm = normalize_srs_state(item)
                 else:
                     continue
