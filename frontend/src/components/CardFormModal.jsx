@@ -1,9 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
 import Button from './ui/Button';
 import Dropdown from './ui/Dropdown';
 import { CARD_TYPES, JLPT_LEVELS } from '../constants/cards';
 import { createCourse } from '../services/api';
+
+const BASE_INPUT_CLASS =
+  'w-full min-h-10 px-3.5 py-2 rounded-lg border text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus-visible:outline-2 focus-visible:outline-offset-2';
+const VALID_INPUT_CLASS =
+  'border-slate-200 bg-slate-50 focus:border-sky-700 focus-visible:outline-sky-700';
+const INVALID_INPUT_CLASS =
+  'border-red-400 bg-red-50/40 focus:border-red-600 focus-visible:outline-red-600';
 
 export default function CardFormModal({
   isOpen,
@@ -11,16 +18,42 @@ export default function CardFormModal({
   onSubmit,
   onCourseCreated,
   initialCard = null,
+  defaultCourseId = '',
+  defaultType = '',
+  defaultLevel = '',
+  defaultLesson = '',
   courses = [],
 }) {
   const isEditing = Boolean(initialCard && initialCard.id);
 
-  const [cardType, setCardType] = useState(() => initialCard?.card_type || 'grammar');
-  const [level, setLevel] = useState(() => initialCard?.level || 'N3');
-  const [courseId, setCourseId] = useState(() =>
-    initialCard?.course ? String(initialCard.course) : ''
+  const initialMatchedCourse = useMemo(() => {
+    if (isEditing || !defaultCourseId) return null;
+    return (
+      courses.find((c) => String(c.id) === String(defaultCourseId)) || null
+    );
+  }, [isEditing, defaultCourseId, courses]);
+
+  const [cardType, setCardType] = useState(
+    () =>
+      initialCard?.card_type ||
+      initialMatchedCourse?.card_type ||
+      defaultType ||
+      'grammar'
   );
-  const [lesson, setLesson] = useState(() => initialCard?.lesson || 'Bài 1');
+  const [level, setLevel] = useState(
+    () =>
+      initialCard?.level || initialMatchedCourse?.level || defaultLevel || 'N3'
+  );
+  const [courseId, setCourseId] = useState(() =>
+    initialCard?.course
+      ? String(initialCard.course)
+      : defaultCourseId
+        ? String(defaultCourseId)
+        : ''
+  );
+  const [lesson, setLesson] = useState(
+    () => initialCard?.lesson || defaultLesson || 'Bài 1'
+  );
   const [frontText, setFrontText] = useState(
     () => initialCard?.front_text || initialCard?.grammar || ''
   );
@@ -33,16 +66,30 @@ export default function CardFormModal({
   );
   const [examples, setExamples] = useState(() => initialCard?.examples || '');
   const [isPublic, setIsPublic] = useState(() =>
-    initialCard ? (initialCard.is_public ?? true) : true
+    initialCard
+      ? (initialCard.is_public ?? true)
+      : initialMatchedCourse
+        ? (initialMatchedCourse.is_public ?? true)
+        : true
   );
 
   // Quick inline course creation state
   const [showNewCourseForm, setShowNewCourseForm] = useState(false);
   const [newCourseTitle, setNewCourseTitle] = useState('');
+  const [newCourseError, setNewCourseError] = useState('');
   const [creatingCourse, setCreatingCourse] = useState(false);
 
+  // Submission & validation state
   const [submitting, setSubmitting] = useState(false);
+  const [hasCreatedCard, setHasCreatedCard] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const errorSummaryRef = useRef(null);
+  const lessonInputRef = useRef(null);
+  const frontInputRef = useRef(null);
+  const meaningInputRef = useRef(null);
+  const newCourseInputRef = useRef(null);
 
   const courseOptions = useMemo(
     () => [
@@ -79,11 +126,39 @@ export default function CardFormModal({
 
   if (!isOpen) return null;
 
+  const focusField = (fieldKey) => {
+    const refMap = {
+      lesson: lessonInputRef,
+      frontText: frontInputRef,
+      meaning: meaningInputRef,
+      newCourseTitle: newCourseInputRef,
+    };
+    refMap[fieldKey]?.current?.focus();
+  };
+
+  const handleCourseChange = (nextCourseId) => {
+    setCourseId(nextCourseId);
+    if (!isEditing && nextCourseId) {
+      const selected = courses.find(
+        (c) => String(c.id) === String(nextCourseId)
+      );
+      if (selected) {
+        if (selected.card_type) setCardType(selected.card_type);
+        if (selected.level) setLevel(selected.level);
+        if (typeof selected.is_public === 'boolean') {
+          setIsPublic(selected.is_public);
+        }
+      }
+    }
+  };
+
   const handleQuickCreateCourse = async () => {
     if (!newCourseTitle.trim()) {
-      setErrorMessage('Vui lòng nhập tên khoá học mới.');
+      setNewCourseError('Vui lòng nhập tên khoá học mới.');
+      newCourseInputRef.current?.focus();
       return;
     }
+    setNewCourseError('');
     setErrorMessage('');
     setCreatingCourse(true);
     try {
@@ -104,16 +179,43 @@ export default function CardFormModal({
     }
   };
 
+  const validateFields = () => {
+    const nextErrors = {};
+    if (!lesson.trim()) {
+      nextErrors.lesson = 'Vui lòng nhập bài học.';
+    }
+    if (showNewCourseForm && newCourseTitle.trim()) {
+      nextErrors.newCourseTitle =
+        'Vui lòng nhấn Lưu khoá học trước khi tạo thẻ.';
+    }
+    if (!frontText.trim()) {
+      nextErrors.frontText = 'Vui lòng nhập nội dung mặt trước của thẻ.';
+    }
+    if (!meaning.trim()) {
+      nextErrors.meaning = 'Vui lòng nhập ý nghĩa hoặc định nghĩa của thẻ.';
+    }
+    return nextErrors;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
 
-    if (!frontText.trim()) {
-      setErrorMessage('Vui lòng nhập nội dung mặt trước của thẻ.');
-      return;
+    const nextErrors = validateFields();
+    const errorKeys = Object.keys(nextErrors);
+    setFieldErrors(nextErrors);
+    if (nextErrors.newCourseTitle) {
+      setNewCourseError(nextErrors.newCourseTitle);
     }
-    if (!meaning.trim()) {
-      setErrorMessage('Vui lòng nhập ý nghĩa của thẻ.');
+
+    if (errorKeys.length > 0) {
+      requestAnimationFrame(() => {
+        if (errorKeys.length > 1) {
+          errorSummaryRef.current?.focus();
+        } else {
+          focusField(errorKeys[0]);
+        }
+      });
       return;
     }
 
@@ -121,7 +223,7 @@ export default function CardFormModal({
       card_type: cardType,
       level,
       course: courseId ? Number(courseId) : null,
-      lesson: lesson.trim() || 'Bài 1',
+      lesson: lesson.trim(),
       front_text: frontText.trim(),
       meaning: meaning.trim(),
       conjugation: conjugation.trim(),
@@ -133,7 +235,21 @@ export default function CardFormModal({
     setSubmitting(true);
     try {
       await onSubmit(payload, initialCard?.id);
-      onClose();
+      if (isEditing) {
+        onClose?.();
+      } else {
+        setHasCreatedCard(true);
+        setFrontText('');
+        setMeaning('');
+        setConjugation('');
+        setUsageNotes('');
+        setExamples('');
+        setFieldErrors({});
+        setErrorMessage('');
+        requestAnimationFrame(() => {
+          frontInputRef.current?.focus();
+        });
+      }
     } catch (err) {
       setErrorMessage(
         err.message || 'Không thể lưu thẻ học. Vui lòng kiểm tra lại dữ liệu.'
@@ -142,6 +258,10 @@ export default function CardFormModal({
       setSubmitting(false);
     }
   };
+
+  const errorEntries = Object.entries(fieldErrors).filter(([, msg]) =>
+    Boolean(msg)
+  );
 
   return (
     <div
@@ -172,13 +292,47 @@ export default function CardFormModal({
           </Button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto flex flex-col gap-4">
+        <form
+          noValidate
+          onSubmit={handleSubmit}
+          className="p-4 sm:p-6 overflow-y-auto flex flex-col gap-4"
+        >
           {errorMessage && (
             <div
               className="bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm rounded-lg p-3"
               role="alert"
             >
               {errorMessage}
+            </div>
+          )}
+
+          {errorEntries.length > 1 && (
+            <div
+              ref={errorSummaryRef}
+              tabIndex={-1}
+              role="alert"
+              aria-labelledby="card-form-error-summary-title"
+              className="bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm rounded-lg p-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+            >
+              <p
+                id="card-form-error-summary-title"
+                className="font-semibold mb-1"
+              >
+                Vui lòng kiểm tra các trường bắt buộc:
+              </p>
+              <ul className="list-disc list-inside flex flex-col gap-0.5">
+                {errorEntries.map(([key, msg]) => (
+                  <li key={key}>
+                    <button
+                      type="button"
+                      onClick={() => focusField(key)}
+                      className="underline hover:text-red-900 text-left cursor-pointer"
+                    >
+                      {msg}
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
@@ -252,15 +406,37 @@ export default function CardFormModal({
                 htmlFor="card-lesson-input"
                 className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
               >
-                Bài học
+                Bài học *
               </label>
               <input
+                ref={lessonInputRef}
                 id="card-lesson-input"
                 type="text"
                 value={lesson}
-                onChange={(e) => setLesson(e.target.value)}
-                className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+                aria-invalid={Boolean(fieldErrors.lesson)}
+                aria-describedby={
+                  fieldErrors.lesson ? 'card-lesson-error' : undefined
+                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setLesson(val);
+                  if (fieldErrors.lesson && val.trim()) {
+                    setFieldErrors((prev) => ({ ...prev, lesson: '' }));
+                  }
+                }}
+                className={`${BASE_INPUT_CLASS} ${
+                  fieldErrors.lesson ? INVALID_INPUT_CLASS : VALID_INPUT_CLASS
+                }`}
               />
+              {fieldErrors.lesson && (
+                <p
+                  id="card-lesson-error"
+                  role="alert"
+                  className="mt-1.5 text-xs font-medium text-red-600"
+                >
+                  {fieldErrors.lesson}
+                </p>
+              )}
             </div>
           </div>
 
@@ -275,7 +451,11 @@ export default function CardFormModal({
               </label>
               <button
                 type="button"
-                onClick={() => setShowNewCourseForm((prev) => !prev)}
+                onClick={() => {
+                  setShowNewCourseForm((prev) => !prev);
+                  setNewCourseError('');
+                  setFieldErrors((prev) => ({ ...prev, newCourseTitle: '' }));
+                }}
                 className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:text-sky-800 cursor-pointer"
               >
                 <PlusIcon className="w-3.5 h-3.5" aria-hidden="true" />
@@ -286,33 +466,63 @@ export default function CardFormModal({
             </div>
 
             {showNewCourseForm ? (
-              <div className="flex flex-col sm:flex-row gap-2 p-3 rounded-lg bg-slate-50 border border-slate-200">
-                <input
-                  type="text"
-                  aria-label="Tên khoá học mới"
-                  value={newCourseTitle}
-                  onChange={(e) => setNewCourseTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleQuickCreateCourse();
+              <div>
+                <div className="flex flex-col sm:flex-row gap-2 p-3 rounded-lg bg-slate-50 border border-slate-200">
+                  <input
+                    ref={newCourseInputRef}
+                    type="text"
+                    aria-label="Tên khoá học mới"
+                    aria-invalid={Boolean(newCourseError)}
+                    aria-describedby={
+                      newCourseError ? 'new-course-title-error' : undefined
                     }
-                  }}
-                  className="flex-1 min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm transition-colors duration-150 focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
-                />
-                <Button
-                  variant="primary"
-                  disabled={creatingCourse}
-                  onClick={handleQuickCreateCourse}
-                >
-                  {creatingCourse ? 'Đang tạo...' : 'Lưu khoá học'}
-                </Button>
+                    value={newCourseTitle}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNewCourseTitle(val);
+                      if (newCourseError) {
+                        setNewCourseError('');
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          newCourseTitle: '',
+                        }));
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleQuickCreateCourse();
+                      }
+                    }}
+                    className={`flex-1 min-h-10 px-3.5 py-2 rounded-lg border bg-white text-slate-900 text-sm transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                      newCourseError
+                        ? 'border-red-400 focus:border-red-600 focus-visible:outline-red-600'
+                        : 'border-slate-200 focus:border-sky-700 focus-visible:outline-sky-700'
+                    }`}
+                  />
+                  <Button
+                    variant="primary"
+                    disabled={creatingCourse}
+                    onClick={handleQuickCreateCourse}
+                  >
+                    {creatingCourse ? 'Đang tạo...' : 'Lưu khoá học'}
+                  </Button>
+                </div>
+                {newCourseError && (
+                  <p
+                    id="new-course-title-error"
+                    role="alert"
+                    className="mt-1.5 text-xs font-medium text-red-600"
+                  >
+                    {newCourseError}
+                  </p>
+                )}
               </div>
             ) : (
               <Dropdown
                 id="card-course-select"
                 value={courseId}
-                onChange={setCourseId}
+                onChange={handleCourseChange}
                 options={courseOptions}
               />
             )}
@@ -327,13 +537,34 @@ export default function CardFormModal({
               Mặt trước *
             </label>
             <input
+              ref={frontInputRef}
               id="card-front-text"
               type="text"
-              required
               value={frontText}
-              onChange={(e) => setFrontText(e.target.value)}
-              className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm font-jp transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+              aria-invalid={Boolean(fieldErrors.frontText)}
+              aria-describedby={
+                fieldErrors.frontText ? 'card-front-text-error' : undefined
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                setFrontText(val);
+                if (fieldErrors.frontText && val.trim()) {
+                  setFieldErrors((prev) => ({ ...prev, frontText: '' }));
+                }
+              }}
+              className={`${BASE_INPUT_CLASS} font-jp ${
+                fieldErrors.frontText ? INVALID_INPUT_CLASS : VALID_INPUT_CLASS
+              }`}
             />
+            {fieldErrors.frontText && (
+              <p
+                id="card-front-text-error"
+                role="alert"
+                className="mt-1.5 text-xs font-medium text-red-600"
+              >
+                {fieldErrors.frontText}
+              </p>
+            )}
           </div>
 
           {/* Meaning */}
@@ -345,13 +576,34 @@ export default function CardFormModal({
               Ý nghĩa / Định nghĩa *
             </label>
             <input
+              ref={meaningInputRef}
               id="card-meaning"
               type="text"
-              required
               value={meaning}
-              onChange={(e) => setMeaning(e.target.value)}
-              className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+              aria-invalid={Boolean(fieldErrors.meaning)}
+              aria-describedby={
+                fieldErrors.meaning ? 'card-meaning-error' : undefined
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                setMeaning(val);
+                if (fieldErrors.meaning && val.trim()) {
+                  setFieldErrors((prev) => ({ ...prev, meaning: '' }));
+                }
+              }}
+              className={`${BASE_INPUT_CLASS} ${
+                fieldErrors.meaning ? INVALID_INPUT_CLASS : VALID_INPUT_CLASS
+              }`}
             />
+            {fieldErrors.meaning && (
+              <p
+                id="card-meaning-error"
+                role="alert"
+                className="mt-1.5 text-xs font-medium text-red-600"
+              >
+                {fieldErrors.meaning}
+              </p>
+            )}
           </div>
 
           {/* Conjugation / Pronunciation */}
@@ -367,7 +619,7 @@ export default function CardFormModal({
               type="text"
               value={conjugation}
               onChange={(e) => setConjugation(e.target.value)}
-              className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm font-jp transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+              className={`${BASE_INPUT_CLASS} ${VALID_INPUT_CLASS} font-jp`}
             />
           </div>
 
@@ -412,7 +664,7 @@ export default function CardFormModal({
               disabled={submitting || creatingCourse}
               onClick={handleSafeClose}
             >
-              Hủy
+              {hasCreatedCard ? 'Đóng' : 'Hủy'}
             </Button>
             <Button
               variant="primary"

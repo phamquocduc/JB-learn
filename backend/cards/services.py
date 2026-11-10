@@ -1,4 +1,5 @@
 import csv
+from collections import defaultdict, deque
 from pathlib import Path
 
 from django.conf import settings
@@ -76,7 +77,7 @@ def sync_cards_from_csv(
     card_type: str = Card.CardType.GRAMMAR,
     level: str = Card.JLPTLevel.N3,
 ) -> int:
-    """Read study cards from CSV, attach to default Course, and atomically replace system records for (card_type, level)."""
+    """Read study cards from CSV, attach to default Course, and atomically upsert system records while preserving Card IDs and CardReview rows."""
     if not csv_path.exists():
         raise FileNotFoundError(f"Không tìm thấy file CSV tại: {csv_path}")
 
@@ -94,7 +95,7 @@ def sync_cards_from_csv(
         },
     )
 
-    cards: list[Card] = []
+    parsed_rows: list[dict] = []
     with csv_path.open(mode="r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for idx, row in enumerate(reader, start=1):
@@ -141,29 +142,99 @@ def sync_cards_from_csv(
             if han_viet:
                 extra_data["han_viet"] = han_viet
 
-            cards.append(
-                Card(
-                    course=default_course,
-                    created_by=None,
-                    is_public=True,
-                    card_type=card_type,
-                    level=level,
-                    lesson=(row.get("Bài") or "").strip(),
-                    display_order=display_order,
-                    front_text=front_text,
-                    meaning=(row.get("Ý Nghĩa") or "").strip(),
-                    conjugation=conjugation,
-                    usage_notes=usage_notes,
-                    examples=(row.get("Ví Dụ Minh Họa") or "").strip(),
-                    extra_data=extra_data,
-                    source=(row.get("Nguồn") or "").strip(),
-                )
+            parsed_rows.append(
+                {
+                    "course": default_course,
+                    "is_public": True,
+                    "card_type": card_type,
+                    "level": level,
+                    "lesson": (row.get("Bài") or "").strip(),
+                    "display_order": display_order,
+                    "front_text": front_text,
+                    "meaning": (row.get("Ý Nghĩa") or "").strip(),
+                    "conjugation": conjugation,
+                    "usage_notes": usage_notes,
+                    "examples": (row.get("Ví Dụ Minh Họa") or "").strip(),
+                    "extra_data": extra_data,
+                    "source": (row.get("Nguồn") or "").strip(),
+                }
             )
 
-    with transaction.atomic():
-        Card.objects.filter(
-            card_type=card_type, level=level, created_by__isnull=True
-        ).delete()
-        Card.objects.bulk_create(cards, batch_size=500)
+    update_fields = [
+        "course",
+        "is_public",
+        "lesson",
+        "display_order",
+        "front_text",
+        "meaning",
+        "conjugation",
+        "usage_notes",
+        "examples",
+        "extra_data",
+        "source",
+    ]
 
-    return len(cards)
+    with transaction.atomic():
+        existing_cards = list(
+            Card.objects.select_for_update()
+            .filter(card_type=card_type, level=level, created_by__isnull=True)
+            .order_by("display_order", "id")
+        )
+        by_lesson_front: dict[tuple[str, str], deque[Card]] = defaultdict(deque)
+        for card in existing_cards:
+            by_lesson_front[(card.lesson, card.front_text)].append(card)
+
+        matched_existing_ids: set[int] = set()
+        unmatched_row_indices: list[int] = []
+        to_update: list[Card] = []
+
+        # Pass 1: exact (lesson, front_text) match preserves Card PK & CardReview FK
+        for row_idx, attrs in enumerate(parsed_rows):
+            bucket = by_lesson_front.get((attrs["lesson"], attrs["front_text"]))
+            if bucket:
+                card_obj = bucket.popleft()
+                matched_existing_ids.add(card_obj.id)
+                for field in update_fields:
+                    setattr(card_obj, field, attrs[field])
+                to_update.append(card_obj)
+            else:
+                unmatched_row_indices.append(row_idx)
+
+        # Pass 2: fallback match by front_text if lesson label changed in CSV
+        if unmatched_row_indices:
+            by_front: dict[str, deque[Card]] = defaultdict(deque)
+            for card in existing_cards:
+                if card.id not in matched_existing_ids:
+                    by_front[card.front_text].append(card)
+
+            still_unmatched: list[int] = []
+            for row_idx in unmatched_row_indices:
+                attrs = parsed_rows[row_idx]
+                bucket = by_front.get(attrs["front_text"])
+                if bucket:
+                    card_obj = bucket.popleft()
+                    matched_existing_ids.add(card_obj.id)
+                    for field in update_fields:
+                        setattr(card_obj, field, attrs[field])
+                    to_update.append(card_obj)
+                else:
+                    still_unmatched.append(row_idx)
+            unmatched_row_indices = still_unmatched
+
+        stale_ids = [
+            card.id for card in existing_cards if card.id not in matched_existing_ids
+        ]
+        if stale_ids:
+            Card.objects.filter(id__in=stale_ids).delete()
+        if to_update:
+            Card.objects.bulk_update(to_update, fields=update_fields, batch_size=500)
+        if unmatched_row_indices:
+            Card.objects.bulk_create(
+                [
+                    Card(created_by=None, **parsed_rows[row_idx])
+                    for row_idx in unmatched_row_indices
+                ],
+                batch_size=500,
+            )
+
+    return len(parsed_rows)

@@ -14,8 +14,9 @@ export default function AppRoutes() {
     <Routes>
       {/* Main Application Layout with Sidebar */}
       <Route element={<MainLayout />}>
-        <Route path="/" element={<HomePage key="home-all" defaultScope="all" />} />
-        <Route path="/courses" element={<CoursesPage />} />
+        <Route path="/" element={<CoursesPage />} />
+        <Route path="/study" element={<HomePage key="home-all" defaultScope="all" />} />
+        <Route path="/courses" element={<Navigate to="/" replace />} />
         <Route path="/my-cards" element={<HomePage key="home-mine" defaultScope="mine" />} />
         <Route path="shadowing" element={<ShadowingLibraryPage />} />
         <Route path="shadowing/:videoId" element={<ShadowingWorkspacePage />} />

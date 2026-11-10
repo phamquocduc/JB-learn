@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import {
+  Navigate,
+  useNavigate,
+  useOutletContext,
+  useSearchParams,
+} from 'react-router-dom';
 import {
   PlusIcon,
   PencilSquareIcon,
@@ -29,12 +34,15 @@ import {
   createCourse,
   updateCourse,
   deleteCourse,
+  syncCardReviews,
 } from '../services/api';
 import {
   getCardStatusMap,
   mergeServerSrsMap,
   getLastStudySession,
   saveLastStudySession,
+  getUnsyncedSyncPayload,
+  clearSyncedReviews,
 } from '../services/studyProgress';
 
 const FILTER_TABS = [
@@ -66,6 +74,10 @@ export default function CoursesPage() {
   const outletContext = useOutletContext() || {};
   const { openSidebar } = outletContext;
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const hasLegacyStudyParams = Boolean(
+    searchParams.get('course') || searchParams.get('status')
+  );
   const { user, isGuest, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
@@ -110,22 +122,42 @@ export default function CoursesPage() {
           ? cardsData.cards
           : [];
       setCards(loadedCards);
-      if (cardsData?.srs_states && typeof cardsData.srs_states === 'object') {
+      if (
+        cardsData?.srs_states &&
+        typeof cardsData.srs_states === 'object'
+      ) {
         const merged = mergeServerSrsMap(user, cardsData.srs_states);
         setStatusByScope((prev) => ({
           ...prev,
           [userStorageKey]: merged.statusMap,
         }));
       }
+      if (!isGuest && user?.id) {
+        const unsyncedPayload = getUnsyncedSyncPayload(user);
+        if (Object.keys(unsyncedPayload).length > 0) {
+          syncCardReviews(unsyncedPayload)
+            .then((res) => {
+              clearSyncedReviews(user, unsyncedPayload);
+              if (res?.srs_states) {
+                const synced = mergeServerSrsMap(user, res.srs_states);
+                setStatusByScope((prev) => ({
+                  ...prev,
+                  [userStorageKey]: synced.statusMap,
+                }));
+              }
+            })
+            .catch(() => {});
+        }
+      }
     } catch {
       setError('Không thể tải danh sách khoá học.');
     } finally {
       setLoading(false);
     }
-  }, [authLoading, user, userStorageKey]);
+  }, [authLoading, isGuest, user, userStorageKey]);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || hasLegacyStudyParams) return;
     let ignore = false;
     Promise.all([
       fetchCourses(),
@@ -150,6 +182,23 @@ export default function CoursesPage() {
               [userStorageKey]: merged.statusMap,
             }));
           }
+          if (!isGuest && user?.id) {
+            const unsyncedPayload = getUnsyncedSyncPayload(user);
+            if (Object.keys(unsyncedPayload).length > 0) {
+              syncCardReviews(unsyncedPayload)
+                .then((res) => {
+                  clearSyncedReviews(user, unsyncedPayload);
+                  if (!ignore && res?.srs_states) {
+                    const synced = mergeServerSrsMap(user, res.srs_states);
+                    setStatusByScope((prev) => ({
+                      ...prev,
+                      [userStorageKey]: synced.statusMap,
+                    }));
+                  }
+                })
+                .catch(() => {});
+            }
+          }
           setError(null);
         }
       })
@@ -167,7 +216,7 @@ export default function CoursesPage() {
     return () => {
       ignore = true;
     };
-  }, [authLoading, user, userStorageKey]);
+  }, [authLoading, hasLegacyStudyParams, isGuest, user, userStorageKey]);
 
   useEffect(() => {
     if (!isFormOpen) return undefined;
@@ -295,17 +344,8 @@ export default function CoursesPage() {
 
   const handleSelectCourseToStudy = (course) => {
     if (!course?.id) return;
-    const firstCourseCard = cards.find(
-      (c) => String(c.course) === String(course.id)
-    );
-    if (firstCourseCard) {
-      saveLastStudySession(user, {
-        ...(lastSession || {}),
-        cardId: lastSession?.cardId || firstCourseCard.id,
-        courseId: course.id,
-      });
-    }
-    navigate(`/?course=${course.id}`);
+    saveLastStudySession(user, { courseId: course.id });
+    navigate(`/study?course=${course.id}`);
   };
 
   const handleOpenCreate = () => {
@@ -390,6 +430,10 @@ export default function CoursesPage() {
         Math.round((recentProgress.studied / recentProgress.total) * 100)
       )
       : 0;
+
+  if (hasLegacyStudyParams) {
+    return <Navigate to={`/study?${searchParams.toString()}`} replace />;
+  }
 
   return (
     <main className="w-full mx-auto px-3 sm:px-6 pt-3 pb-16 flex flex-col gap-5">
@@ -557,6 +601,19 @@ export default function CoursesPage() {
         </div>
       )}
 
+      {openSidebar && (error || (!loading && courses.length === 0)) && (
+        <div className="flex lg:hidden items-center justify-end">
+          <button
+            type="button"
+            onClick={openSidebar}
+            aria-label="Mở menu điều hướng"
+            className="w-9 h-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center cursor-pointer transition-colors duration-150"
+          >
+            <EllipsisHorizontalIcon className="w-5 h-5" aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
       {error ? (
         <EmptyState
           title="Không thể tải danh sách khoá học"
@@ -720,10 +777,10 @@ export default function CoursesPage() {
               </h2>
               <button
                 type="button"
-                onClick={() => navigate('/')}
+                onClick={() => navigate('/study')}
                 className="text-xs sm:text-sm font-semibold text-sky-700 hover:text-sky-800 cursor-pointer transition-colors duration-150"
               >
-                Xem tất cả
+                Học tất cả thẻ
               </button>
             </div>
 

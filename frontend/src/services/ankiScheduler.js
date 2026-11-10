@@ -589,13 +589,21 @@ export function sortCardsByAnkiPriority(cards = [], srsMap = {}, now = new Date(
   });
 }
 
-export function getEarliestUpcomingDueTime(srsMap = {}, now = new Date()) {
+export function getEarliestUpcomingDueTime(
+  srsMap = {},
+  now = new Date(),
+  cardIds = null
+) {
   if (!srsMap || typeof srsMap !== 'object') return null;
   const nowDt = toDate(now) || new Date();
   const nowMs = nowDt.getTime();
   let minDueMs = null;
 
-  for (const raw of Object.values(srsMap)) {
+  const entries = Array.isArray(cardIds)
+    ? cardIds.map((cid) => srsMap[cid] || srsMap[String(cid)])
+    : Object.values(srsMap);
+
+  for (const raw of entries) {
     if (!raw || typeof raw !== 'object') continue;
     const cur = normalizeSrsState(raw);
     if (cur.state === 'new' || !cur.due_at) continue;
@@ -662,6 +670,7 @@ export function getNextStudyCardIndex(
   const {
     returnCardId = null,
     isCurrentCardUnrated = false,
+    isManualNavigation = false,
     excludedDueCardIds = null,
     now = new Date(),
   } = options;
@@ -739,19 +748,41 @@ export function getNextStudyCardIndex(
     }
   }
 
-  // Prefer cards not waiting on a pending learning timer before wrapping sequentially
+  // When no unseen/due cards remain, surface pending learning/relearning cards by earliest due_at before wrapping to graduated review cards
   if (normalNextIndex < 0) {
-    for (let offset = 1; offset < cards.length; offset += 1) {
-      const idx = (resolvedCurrentIdx + offset) % cards.length;
+    const pendingLearning = [];
+    for (let idx = 0; idx < cards.length; idx += 1) {
       const s = getCardSrs(cards[idx]);
-      const isPendingLearning =
+      if (
         s &&
         (s.state === 'learning' || s.state === 'relearning') &&
-        !isCardDue(s, nowDt);
-      if (!isPendingLearning) {
-        normalNextIndex = idx;
-        break;
+        !isCardDue(s, nowDt)
+      ) {
+        pendingLearning.push({
+          idx,
+          isAgain: s.state === 'relearning' || Number(s.last_rating) === 1,
+          dueMs: toDate(s.due_at)?.getTime() ?? Number.MAX_SAFE_INTEGER,
+        });
       }
+    }
+
+    const otherPending = pendingLearning.filter(
+      (item) => item.idx !== resolvedCurrentIdx
+    );
+    const pool =
+      otherPending.length > 0
+        ? otherPending
+        : !isManualNavigation
+          ? pendingLearning
+          : [];
+
+    if (pool.length > 0) {
+      pool.sort((a, b) => {
+        if (a.isAgain !== b.isAgain) return a.isAgain ? -1 : 1;
+        if (a.dueMs !== b.dueMs) return a.dueMs - b.dueMs;
+        return a.idx - b.idx;
+      });
+      normalNextIndex = pool[0].idx;
     }
   }
 
@@ -759,8 +790,8 @@ export function getNextStudyCardIndex(
     normalNextIndex = (resolvedCurrentIdx + 1) % cards.length;
   }
 
-  // 2. Check for due learning / relearning ("Học lại") cards that should be reviewed now
-  const dueLearningCandidates = [];
+  // 2. Check for due cards: learning/relearning ("Học lại" / "Đang học") first, then due review ("Đến hạn ôn")
+  const dueCandidates = [];
   for (let idx = 0; idx < cards.length; idx += 1) {
     if (cards.length > 1 && idx === resolvedCurrentIdx) {
       continue;
@@ -770,39 +801,26 @@ export function getNextStudyCardIndex(
       continue;
     }
     const s = getCardSrs(card);
-    if (!s) continue;
-    if (
-      (s.state === 'learning' || s.state === 'relearning') &&
-      isCardDue(s, nowDt)
-    ) {
-      dueLearningCandidates.push({
-        idx,
-        card,
-        srs: s,
-        isActiveSession: isCardInActiveSession(s, cutoffMs),
-        sameLesson: (card.lesson || '') === currentLesson,
-        isAgain: s.state === 'relearning' || Number(s.last_rating) === 1,
-        dueMs: toDate(s.due_at)?.getTime() ?? 0,
-      });
-    }
+    if (!s || s.state === 'new' || !isCardDue(s, nowDt)) continue;
+
+    const isLearningTier =
+      s.state === 'learning' || s.state === 'relearning';
+    dueCandidates.push({
+      idx,
+      card,
+      isLearningTier,
+      isActiveSession: isLearningTier && isCardInActiveSession(s, cutoffMs),
+      sameLesson: (card.lesson || '') === currentLesson,
+      isAgain: s.state === 'relearning' || Number(s.last_rating) === 1,
+      dueMs: toDate(s.due_at)?.getTime() ?? 0,
+    });
   }
 
-  const hasUnseenInCurrentLesson =
-    Boolean(currentLesson) &&
-    cards.some(
-      (c, idx) =>
-        idx !== resolvedCurrentIdx &&
-        (c.lesson || '') === currentLesson &&
-        isUnseen(c)
-    );
-
-  const eligibleDueCandidates = dueLearningCandidates.filter((item) => {
-    if (item.isActiveSession) return true;
-    return !hasUnseenInCurrentLesson && (item.sameLesson || !currentLesson);
-  });
-
-  if (eligibleDueCandidates.length > 0) {
-    eligibleDueCandidates.sort((a, b) => {
+  if (dueCandidates.length > 0) {
+    dueCandidates.sort((a, b) => {
+      if (a.isLearningTier !== b.isLearningTier) {
+        return a.isLearningTier ? -1 : 1;
+      }
       if (a.isActiveSession !== b.isActiveSession) {
         return a.isActiveSession ? -1 : 1;
       }
@@ -812,7 +830,7 @@ export function getNextStudyCardIndex(
       return a.idx - b.idx;
     });
 
-    const topDue = eligibleDueCandidates[0];
+    const topDue = dueCandidates[0];
 
     let fallbackResumeId = isCurrentCardUnrated
       ? currentCard?.id ?? null
@@ -842,7 +860,7 @@ export function getNextStudyCardIndex(
       nextIndex: topDue.idx,
       nextCardId: topDue.card.id,
       isDueInterruption: topDue.idx !== normalNextIndex,
-      hasDueLearningCard: true,
+      hasDueLearningCard: topDue.isLearningTier,
       resumeCardId,
     };
   }
@@ -924,14 +942,14 @@ export function precomputeNextStudyPlan(
     curRawSrs && typeof curRawSrs === 'object'
       ? normalizeSrsState(curRawSrs)
       : null;
-  const isCurLearningDue = Boolean(
+  const isCurDue = Boolean(
     curNormSrs &&
-      (curNormSrs.state === 'learning' || curNormSrs.state === 'relearning') &&
+      curNormSrs.state !== 'new' &&
       isCardDue(curNormSrs, nowDt)
   );
 
   const manualExcludedDueIds =
-    isCurLearningDue &&
+    isCurDue &&
     resolvedCardId != null &&
     !rawExcluded.includes(String(resolvedCardId))
       ? [...rawExcluded, String(resolvedCardId)]
@@ -948,27 +966,26 @@ export function precomputeNextStudyPlan(
       returnCardId,
       excludedDueCardIds: [],
       isCurrentCardUnrated: false,
+      isManualNavigation: false,
       now: nowDt,
     }
   );
 
   // Pre-compute target when user clicks manual navigation buttons (Next / Prev / Shuffle)
-  const manualStudyNext =
-    manualExcludedDueIds.length === 0
-      ? rateStudyNext
-      : getNextStudyCardIndex(
-          cards,
-          srsMap,
-          resolvedCurrentIdx,
-          resolvedCardId,
-          {
-            ...options,
-            returnCardId,
-            excludedDueCardIds: manualExcludedDueIds,
-            isCurrentCardUnrated: false,
-            now: nowDt,
-          }
-        );
+  const manualStudyNext = getNextStudyCardIndex(
+    cards,
+    srsMap,
+    resolvedCurrentIdx,
+    resolvedCardId,
+    {
+      ...options,
+      returnCardId,
+      excludedDueCardIds: manualExcludedDueIds,
+      isCurrentCardUnrated: false,
+      isManualNavigation: true,
+      now: nowDt,
+    }
+  );
 
   const sequentialPrevIdx =
     resolvedCurrentIdx - 1 >= 0 ? resolvedCurrentIdx - 1 : cards.length - 1;
@@ -1023,7 +1040,8 @@ export function resolveStudyTransition(
   currentCardId = null,
   options = {}
 ) {
-  const nowMs = Date.now();
+  const nowDt = toDate(options.now) || new Date();
+  const nowMs = nowDt.getTime();
   const hasNewlyArrivedDue =
     precomputedPlan?.earliestUpcomingDueMs != null &&
     nowMs >= precomputedPlan.earliestUpcomingDueMs;
@@ -1039,6 +1057,7 @@ export function resolveStudyTransition(
       precomputedPlan.inputExcludedKey;
 
   const isPlanStale =
+    actionType === 'rate' ||
     !precomputedPlan ||
     String(precomputedPlan.currentCardId ?? '') !==
       String(currentCardId ?? '') ||
@@ -1113,7 +1132,8 @@ export function findInitialDueStudyIndex(
   cards = [],
   srsMap = {},
   savedCardId = null,
-  now = new Date()
+  now = new Date(),
+  savedReturnCardId = null
 ) {
   if (!Array.isArray(cards) || cards.length === 0) {
     return { index: 0, returnCardId: null };
@@ -1125,44 +1145,47 @@ export function findInitialDueStudyIndex(
     savedCardId != null
       ? cards.findIndex((c) => String(c.id) === String(savedCardId))
       : -1;
+  const savedReturnIdx =
+    savedReturnCardId != null
+      ? cards.findIndex((c) => String(c.id) === String(savedReturnCardId))
+      : -1;
   const savedLesson = savedIdx >= 0 ? cards[savedIdx]?.lesson || '' : '';
+
+  const getCardSrs = (card) => {
+    if (!card) return null;
+    const raw = srsMap[card.id] || srsMap[String(card.id)];
+    return raw && typeof raw === 'object' ? normalizeSrsState(raw) : null;
+  };
+
+  const isUnseen = (card) => {
+    const s = getCardSrs(card);
+    return !s || s.state === 'new' || s.status === 'unseen';
+  };
 
   const dueCandidates = [];
   for (let idx = 0; idx < cards.length; idx += 1) {
     const card = cards[idx];
-    const raw = srsMap[card.id] || srsMap[String(card.id)];
-    if (!raw || typeof raw !== 'object') continue;
-    const s = normalizeSrsState(raw);
-    if (
-      (s.state === 'learning' || s.state === 'relearning') &&
-      isCardDue(s, nowDt)
-    ) {
-      dueCandidates.push({
-        idx,
-        card,
-        isActiveSession: isCardInActiveSession(s, cutoffMs),
-        sameLesson: savedLesson ? (card.lesson || '') === savedLesson : true,
-        isAgain: s.state === 'relearning' || Number(s.last_rating) === 1,
-        dueMs: toDate(s.due_at)?.getTime() ?? 0,
-      });
-    }
+    const s = getCardSrs(card);
+    if (!s || s.state === 'new' || !isCardDue(s, nowDt)) continue;
+
+    const isLearningTier =
+      s.state === 'learning' || s.state === 'relearning';
+    dueCandidates.push({
+      idx,
+      card,
+      isLearningTier,
+      isActiveSession: isLearningTier && isCardInActiveSession(s, cutoffMs),
+      sameLesson: savedLesson ? (card.lesson || '') === savedLesson : true,
+      isAgain: s.state === 'relearning' || Number(s.last_rating) === 1,
+      dueMs: toDate(s.due_at)?.getTime() ?? 0,
+    });
   }
 
-  const activeSessionPool = dueCandidates.filter((c) => c.isActiveSession);
-  const sameLessonPool = savedLesson
-    ? dueCandidates.filter((c) => c.sameLesson)
-    : dueCandidates;
-  const pool =
-    activeSessionPool.length > 0
-      ? activeSessionPool
-      : sameLessonPool.length > 0
-        ? sameLessonPool
-        : savedIdx < 0
-          ? dueCandidates
-          : [];
-
-  if (pool.length > 0) {
-    pool.sort((a, b) => {
+  if (dueCandidates.length > 0) {
+    dueCandidates.sort((a, b) => {
+      if (a.isLearningTier !== b.isLearningTier) {
+        return a.isLearningTier ? -1 : 1;
+      }
       if (a.isActiveSession !== b.isActiveSession) {
         return a.isActiveSession ? -1 : 1;
       }
@@ -1171,12 +1194,78 @@ export function findInitialDueStudyIndex(
       if (a.dueMs !== b.dueMs) return a.dueMs - b.dueMs;
       return a.idx - b.idx;
     });
-    const top = pool[0];
+
+    const top = dueCandidates[0];
+    let resumeId = null;
+
+    if (
+      savedReturnIdx >= 0 &&
+      savedReturnIdx !== top.idx &&
+      isUnseen(cards[savedReturnIdx])
+    ) {
+      resumeId = cards[savedReturnIdx].id;
+    } else if (savedIdx >= 0 && savedIdx !== top.idx) {
+      if (isUnseen(cards[savedIdx])) {
+        resumeId = cards[savedIdx].id;
+      } else {
+        for (let offset = 1; offset < cards.length; offset += 1) {
+          const idx = (savedIdx + offset) % cards.length;
+          if (idx !== top.idx && isUnseen(cards[idx])) {
+            resumeId = cards[idx].id;
+            break;
+          }
+        }
+      }
+    } else {
+      for (let idx = 0; idx < cards.length; idx += 1) {
+        if (idx !== top.idx && isUnseen(cards[idx])) {
+          resumeId = cards[idx].id;
+          break;
+        }
+      }
+    }
+
     return {
       index: top.idx,
-      returnCardId:
-        savedIdx >= 0 && top.idx !== savedIdx ? cards[savedIdx].id : null,
+      returnCardId: resumeId,
     };
+  }
+
+  // No due cards right now: resume at saved unseen card, or advance to the next unseen card
+  if (savedIdx >= 0 && isUnseen(cards[savedIdx])) {
+    return { index: savedIdx, returnCardId: null };
+  }
+  if (savedReturnIdx >= 0 && isUnseen(cards[savedReturnIdx])) {
+    return { index: savedReturnIdx, returnCardId: null };
+  }
+
+  const scanBase = savedIdx >= 0 ? savedIdx : -1;
+  for (let offset = 1; offset <= cards.length; offset += 1) {
+    const idx = (scanBase + offset) % cards.length;
+    if (isUnseen(cards[idx])) {
+      return { index: idx, returnCardId: null };
+    }
+  }
+
+  // All unseen cards finished: prefer pending learning/relearning cards before graduated review cards
+  const pendingLearning = [];
+  for (let idx = 0; idx < cards.length; idx += 1) {
+    const s = getCardSrs(cards[idx]);
+    if (s && (s.state === 'learning' || s.state === 'relearning')) {
+      pendingLearning.push({
+        idx,
+        isAgain: s.state === 'relearning' || Number(s.last_rating) === 1,
+        dueMs: toDate(s.due_at)?.getTime() ?? Number.MAX_SAFE_INTEGER,
+      });
+    }
+  }
+  if (pendingLearning.length > 0) {
+    pendingLearning.sort((a, b) => {
+      if (a.isAgain !== b.isAgain) return a.isAgain ? -1 : 1;
+      if (a.dueMs !== b.dueMs) return a.dueMs - b.dueMs;
+      return a.idx - b.idx;
+    });
+    return { index: pendingLearning[0].idx, returnCardId: null };
   }
 
   return {

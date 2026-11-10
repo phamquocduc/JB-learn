@@ -3,7 +3,6 @@ import { NavLink, Link } from 'react-router-dom';
 import {
   BookOpenIcon,
   HomeIcon,
-  FolderIcon,
   RectangleStackIcon,
   FilmIcon,
   UserIcon,
@@ -17,7 +16,7 @@ import { useAuth } from '../context/useAuth';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Trang chủ', icon: HomeIcon, end: true },
-  { to: '/courses', label: 'Khoá học', icon: FolderIcon, end: false },
+  { to: '/study', label: 'Học thẻ', icon: BookOpenIcon, end: false },
   { to: '/my-cards', label: 'Bộ thẻ của tôi', icon: RectangleStackIcon, end: false },
   { to: '/shadowing', label: 'Luyện Shadowing', icon: FilmIcon, end: false },
 ];

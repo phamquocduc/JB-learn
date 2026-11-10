@@ -7,10 +7,143 @@ import {
 const PROGRESS_PREFIX = 'jb_study_status_v1_';
 const SRS_PREFIX = 'jb_study_srs_v1_';
 const SESSION_PREFIX = 'jb_last_session_v1_';
+const UNSYNCED_PREFIX = 'jb_unsynced_reviews_v1_';
+
+const inFlightReviewState = new Map();
 
 function getStorageKey(prefix, user) {
   const suffix = user?.id ? `user_${user.id}` : 'guest';
   return `${prefix}${suffix}`;
+}
+
+function getInFlightKey(user, cardId) {
+  const suffix = user?.id ? `user_${user.id}` : 'guest';
+  return `${suffix}:${String(cardId)}`;
+}
+
+function getUnsyncedReviewsMap(user) {
+  if (!user?.id) return {};
+  try {
+    const raw = localStorage.getItem(getStorageKey(UNSYNCED_PREFIX, user));
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function setUnsyncedReviewsMap(user, map) {
+  if (!user?.id) return;
+  try {
+    const key = getStorageKey(UNSYNCED_PREFIX, user);
+    if (!map || Object.keys(map).length === 0) {
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, JSON.stringify(map));
+    }
+  } catch {
+    // ignore storage quota errors
+  }
+}
+
+function markCardUnsynced(user, cardId, srsState) {
+  if (!user?.id || !cardId) return;
+  const next = { ...getUnsyncedReviewsMap(user) };
+  const keyStr = String(cardId);
+  if (!srsState || srsState.state === 'new' || srsState.status === 'unseen') {
+    next[keyStr] = { state: 'new', status: 'unseen', reset: true };
+  } else {
+    next[keyStr] = srsState;
+  }
+  setUnsyncedReviewsMap(user, next);
+}
+
+export function isCardReviewInFlight(user, cardId) {
+  if (!cardId) return false;
+  return (inFlightReviewState.get(getInFlightKey(user, cardId))?.pending || 0) > 0;
+}
+
+export function beginCardReviewSync(user, cardId) {
+  const key = getInFlightKey(user, cardId);
+  const prev = inFlightReviewState.get(key) || { seq: 0, pending: 0 };
+  const next = { seq: prev.seq + 1, pending: prev.pending + 1 };
+  inFlightReviewState.set(key, next);
+  return next.seq;
+}
+
+export function finishCardReviewSync(user, cardId, seq, succeeded) {
+  const key = getInFlightKey(user, cardId);
+  const prev = inFlightReviewState.get(key);
+  if (!prev) return true;
+  const pending = Math.max(0, prev.pending - 1);
+  const isLatest = prev.seq === seq;
+  if (pending === 0) {
+    inFlightReviewState.delete(key);
+  } else {
+    inFlightReviewState.set(key, { seq: prev.seq, pending });
+  }
+  if (succeeded && isLatest && user?.id) {
+    const nextUnsynced = { ...getUnsyncedReviewsMap(user) };
+    if (String(cardId) in nextUnsynced) {
+      delete nextUnsynced[String(cardId)];
+      setUnsyncedReviewsMap(user, nextUnsynced);
+    }
+  }
+  return isLatest;
+}
+
+export function getUnsyncedSyncPayload(user) {
+  if (!user?.id) return {};
+  const payload = {};
+  try {
+    const guestSrsRaw = localStorage.getItem(`${SRS_PREFIX}guest`);
+    const guestSrs = guestSrsRaw ? JSON.parse(guestSrsRaw) : {};
+    if (guestSrs && typeof guestSrs === 'object') {
+      for (const [cid, val] of Object.entries(guestSrs)) {
+        if (val && typeof val === 'object' && !isCardReviewInFlight(user, cid)) {
+          payload[String(cid)] = val;
+        }
+      }
+    }
+    const guestStatusRaw = localStorage.getItem(`${PROGRESS_PREFIX}guest`);
+    const guestStatus = guestStatusRaw ? JSON.parse(guestStatusRaw) : {};
+    if (guestStatus && typeof guestStatus === 'object') {
+      for (const [cid, st] of Object.entries(guestStatus)) {
+        const key = String(cid);
+        if (!payload[key] && typeof st === 'string' && !isCardReviewInFlight(user, key)) {
+          payload[key] = st;
+        }
+      }
+    }
+  } catch {
+    // ignore parse errors
+  }
+
+  const unsynced = getUnsyncedReviewsMap(user);
+  for (const [cid, val] of Object.entries(unsynced)) {
+    if (!isCardReviewInFlight(user, cid)) {
+      payload[String(cid)] = val;
+    }
+  }
+  return payload;
+}
+
+export function clearSyncedReviews(user, syncedPayload = {}) {
+  if (!user?.id || !syncedPayload || typeof syncedPayload !== 'object') return;
+  const nextUnsynced = { ...getUnsyncedReviewsMap(user) };
+  let changed = false;
+  for (const cid of Object.keys(syncedPayload)) {
+    const key = String(cid);
+    if (isCardReviewInFlight(user, key)) continue;
+    removeGuestCardKey(key);
+    if (key in nextUnsynced) {
+      delete nextUnsynced[key];
+      changed = true;
+    }
+  }
+  if (changed) {
+    setUnsyncedReviewsMap(user, nextUnsynced);
+  }
 }
 
 export function getCardStatusMap(user) {
@@ -178,11 +311,19 @@ export function reviewCardWithAnki(user, cardId, rating, now = new Date()) {
   const keyStr = String(cardId);
   const currentSrsMap = getCardSrsMap(user);
   const prevCardSrs = currentSrsMap[keyStr] || null;
+  const prevRevMs = prevCardSrs?.last_reviewed_at
+    ? new Date(prevCardSrs.last_reviewed_at).getTime()
+    : 0;
+  const rawNowMs = now instanceof Date ? now.getTime() : Date.now();
+  const effectiveNow = new Date(
+    Number.isFinite(prevRevMs) ? Math.max(rawNowMs, prevRevMs + 1) : rawNowMs
+  );
   const nextCardSrs = serializeSrsState(
-    scheduleCardReview(prevCardSrs, rating, now),
-    now
+    scheduleCardReview(prevCardSrs, rating, effectiveNow),
+    effectiveNow
   );
   const { srsMap, statusMap } = saveCardSrsState(user, cardId, nextCardSrs);
+  markCardUnsynced(user, cardId, nextCardSrs);
   return {
     srsMap,
     statusMap,
@@ -197,6 +338,7 @@ export function mergeServerSrsMap(user, serverSrsMap = {}) {
     return { srsMap: localSrsMap, statusMap: localStatusMap };
   }
 
+  const unsyncedMap = getUnsyncedReviewsMap(user);
   const nextSrsMap = { ...localSrsMap };
   const nextStatusMap = { ...localStatusMap };
   const now = new Date();
@@ -204,6 +346,9 @@ export function mergeServerSrsMap(user, serverSrsMap = {}) {
   for (const [cid, serverRaw] of Object.entries(serverSrsMap)) {
     if (!serverRaw || typeof serverRaw !== 'object') continue;
     const key = String(cid);
+    if (key in unsyncedMap || isCardReviewInFlight(user, key)) {
+      continue;
+    }
     const localItem = nextSrsMap[key];
     const serverNorm = normalizeSrsState(serverRaw);
 
@@ -251,16 +396,23 @@ export function saveCardStatus(user, cardId, status) {
   return statusMap;
 }
 
-export function getLastStudySession(user) {
+function getCourseSessionKey(courseId) {
+  const cleaned = courseId != null ? String(courseId).trim() : '';
+  return cleaned ? `course_${cleaned}` : 'all';
+}
+
+function readRawStudySession(user) {
   try {
     const userKey = getStorageKey(SESSION_PREFIX, user);
     const raw = localStorage.getItem(userKey);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
     }
     if (user?.id) {
       const guestRaw = localStorage.getItem(`${SESSION_PREFIX}guest`);
-      return guestRaw ? JSON.parse(guestRaw) : null;
+      const parsedGuest = guestRaw ? JSON.parse(guestRaw) : null;
+      return parsedGuest && typeof parsedGuest === 'object' ? parsedGuest : null;
     }
     return null;
   } catch {
@@ -268,20 +420,84 @@ export function getLastStudySession(user) {
   }
 }
 
+export function getLastStudySession(user, courseId = undefined) {
+  const raw = readRawStudySession(user);
+  if (!raw) return null;
+  if (courseId === undefined) {
+    return raw;
+  }
+
+  const courseKey = getCourseSessionKey(courseId);
+  if (raw.byCourse && typeof raw.byCourse === 'object') {
+    return raw.byCourse[courseKey] || null;
+  }
+
+  // Backward-compatible fallback for legacy flat session objects
+  const targetCourseStr = courseId != null ? String(courseId).trim() : '';
+  const rawCourseStr = raw.courseId != null ? String(raw.courseId).trim() : '';
+  if (raw.cardId != null && targetCourseStr === rawCourseStr) {
+    return raw;
+  }
+  return null;
+}
+
 export function saveLastStudySession(user, session) {
-  if (!session || !session.cardId) return;
-  const payload = {
-    cardId: session.cardId,
-    cardIndex: session.cardIndex ?? 0,
-    frontText: session.frontText || '',
-    meaning: session.meaning || '',
-    lesson: session.lesson || '',
-    level: session.level || '',
-    cardType: session.cardType || '',
-    courseId: session.courseId || '',
-    activeTab: session.activeTab || 'flashcards',
-    updatedAt: Date.now(),
-  };
+  if (!session || (session.cardId == null && !session.courseId)) return;
+
+  const existing = readRawStudySession(user) || {};
+  const byCourse =
+    existing.byCourse && typeof existing.byCourse === 'object'
+      ? { ...existing.byCourse }
+      : {};
+
+  if (existing.cardId != null) {
+    const legacyKey = getCourseSessionKey(existing.courseId);
+    if (!byCourse[legacyKey]) {
+      const { byCourse: _ignored, ...legacyEntry } = existing;
+      byCourse[legacyKey] = legacyEntry;
+    }
+  }
+
+  const courseIdStr =
+    session.courseId != null ? String(session.courseId).trim() : '';
+  const courseKey = getCourseSessionKey(courseIdStr);
+
+  let payload;
+  if (session.cardId != null) {
+    const entry = {
+      cardId: session.cardId,
+      returnCardId: session.returnCardId ?? null,
+      cardIndex: session.cardIndex ?? 0,
+      frontText: session.frontText || '',
+      meaning: session.meaning || '',
+      lesson: session.lesson || '',
+      level: session.level || '',
+      cardType: session.cardType || '',
+      courseId: courseIdStr,
+      activeTab: session.activeTab || 'flashcards',
+      updatedAt: Date.now(),
+    };
+    byCourse[courseKey] = entry;
+
+    const cardOwnCourse =
+      session.cardCourseId != null ? String(session.cardCourseId).trim() : '';
+    const recentCourseId = courseIdStr || cardOwnCourse || existing.courseId || '';
+    payload = {
+      ...entry,
+      courseId: recentCourseId,
+      byCourse,
+    };
+  } else {
+    const savedCourseEntry = byCourse[courseKey] || null;
+    payload = {
+      ...(savedCourseEntry || {}),
+      cardId: savedCourseEntry?.cardId ?? null,
+      returnCardId: savedCourseEntry?.returnCardId ?? null,
+      courseId: courseIdStr,
+      byCourse,
+      updatedAt: Date.now(),
+    };
+  }
 
   try {
     const key = getStorageKey(SESSION_PREFIX, user);

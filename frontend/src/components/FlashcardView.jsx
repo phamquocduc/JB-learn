@@ -51,7 +51,10 @@ export default function FlashcardView({
   const [isFlipped, setIsFlipped] = useState(false);
   const [suppressFlipTransition, setSuppressFlipTransition] = useState(false);
   const [slidePhase, setSlidePhase] = useState(null);
-  const [returnCardId, setReturnCardId] = useState(initialReturnCardId);
+  const [returnState, setReturnState] = useState(() => ({
+    baseProp: initialReturnCardId,
+    value: initialReturnCardId,
+  }));
   const [skippedDueIds, setSkippedDueIds] = useState([]);
   const slideInTimerRef = useRef(null);
   const returnCardIdRef = useRef(initialReturnCardId);
@@ -59,17 +62,25 @@ export default function FlashcardView({
   const pendingNextCardIdRef = useRef(null);
   const srsMapRef = useRef(srsMap);
 
+  const effectiveReturnCardId =
+    returnState.baseProp === initialReturnCardId
+      ? returnState.value
+      : initialReturnCardId;
+
+  const setReturnCardId = useCallback(
+    (nextVal) => {
+      setReturnState({ baseProp: initialReturnCardId, value: nextVal });
+    },
+    [initialReturnCardId]
+  );
+
   useEffect(() => {
     srsMapRef.current = srsMap;
   }, [srsMap]);
 
   useEffect(() => {
-    if (initialReturnCardId != null && returnCardIdRef.current == null) {
-      returnCardIdRef.current = initialReturnCardId;
-    }
-  }, [initialReturnCardId]);
-
-  const effectiveReturnCardId = returnCardId ?? initialReturnCardId;
+    returnCardIdRef.current = effectiveReturnCardId;
+  }, [effectiveReturnCardId]);
   const activeIndex =
     cards.length === 0 ? 0 : Math.min(currentIndex, cards.length - 1);
   const currentCard = cards[activeIndex] || cards[0] || null;
@@ -111,6 +122,8 @@ export default function FlashcardView({
         const idx = cards.findIndex((c) => String(c.id) === String(targetId));
         if (idx >= 0) {
           onIndexChange?.(idx, targetId);
+        } else {
+          onIndexChange?.(0, cards[0]?.id ?? null);
         }
       }
     }
@@ -132,7 +145,12 @@ export default function FlashcardView({
 
   // Immediately bring up the next card on screen without any pre-change delay
   const applyImmediateCardChange = useCallback(
-    (targetIndex, targetCardId = null, direction = 'next') => {
+    (
+      targetIndex,
+      targetCardId = null,
+      direction = 'next',
+      nextReturnCardId = undefined
+    ) => {
       const latestCards = cardsRef.current;
       if (!latestCards || latestCards.length === 0) return;
       clearSlideTimers();
@@ -151,7 +169,7 @@ export default function FlashcardView({
       pendingNextCardIdRef.current = targetCardId;
       setSuppressFlipTransition(true);
       setIsFlipped(false);
-      onIndexChange?.(resolvedIdx, targetCardId);
+      onIndexChange?.(resolvedIdx, targetCardId, nextReturnCardId);
 
       const inPhase = direction === 'prev' ? 'in-left' : 'in-right';
       setSlidePhase(inPhase);
@@ -185,7 +203,8 @@ export default function FlashcardView({
     applyImmediateCardChange(
       transition.targetIndex,
       transition.targetCardId,
-      'next'
+      'next',
+      transition.resumeCardId
     );
   }, [
     cards,
@@ -193,6 +212,7 @@ export default function FlashcardView({
     currentCardId,
     precomputedPlan,
     applyImmediateCardChange,
+    setReturnCardId,
   ]);
 
   const handlePrev = useCallback(() => {
@@ -216,7 +236,8 @@ export default function FlashcardView({
     applyImmediateCardChange(
       transition.targetIndex,
       transition.targetCardId,
-      transition.hasDueLearningCard ? 'next' : 'prev'
+      transition.hasDueLearningCard ? 'next' : 'prev',
+      transition.resumeCardId
     );
   }, [
     cards,
@@ -224,6 +245,7 @@ export default function FlashcardView({
     currentCardId,
     precomputedPlan,
     applyImmediateCardChange,
+    setReturnCardId,
   ]);
 
   const handleShuffle = useCallback(() => {
@@ -247,7 +269,8 @@ export default function FlashcardView({
     applyImmediateCardChange(
       transition.targetIndex,
       transition.targetCardId,
-      'next'
+      'next',
+      transition.resumeCardId
     );
   }, [
     cards,
@@ -255,6 +278,7 @@ export default function FlashcardView({
     currentCardId,
     precomputedPlan,
     applyImmediateCardChange,
+    setReturnCardId,
   ]);
 
   const handleRate = useCallback(
@@ -285,7 +309,8 @@ export default function FlashcardView({
         applyImmediateCardChange(
           transition.targetIndex,
           transition.targetCardId,
-          'next'
+          'next',
+          transition.resumeCardId
         );
       }
     },
@@ -297,6 +322,7 @@ export default function FlashcardView({
       onStatusChange,
       srsMap,
       applyImmediateCardChange,
+      setReturnCardId,
     ]
   );
 

@@ -940,6 +940,137 @@ class AnkiSpacedRepetitionTestCase(APITestCase):
             12,
         )
 
+        # Deferred offline reset ("unseen" string and {"reset": True} dict) deletes CardReview rows
+        res_reset = self.client.post(
+            sync_url,
+            {
+                "reviews": {
+                    str(self.card1.pk): {"state": "new", "status": "unseen", "reset": True},
+                    str(self.card2.pk): "unseen",
+                }
+            },
+            format="json",
+        )
+        self.assertEqual(res_reset.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_reset.data["synced"], 2)
+        self.assertEqual(CardReview.objects.filter(user=self.user).count(), 0)
+        self.assertEqual(
+            res_reset.data["srs_states"][str(self.card1.pk)]["state"],
+            "new",
+        )
+
+    def test_sync_cards_from_csv_preserves_card_ids_and_reviews(self):
+        import tempfile
+        from datetime import timedelta
+        from pathlib import Path
+        from django.utils import timezone
+        from .models import CardReview
+        from .services import sync_cards_from_csv
+
+        csv_header = (
+            "STT,Bài,Cấu Trúc Ngữ Pháp,Ý Nghĩa,Cách Chia / Nối Thể,"
+            "Phạm Vi Sử Dụng & Chú Ý,Ví Dụ Minh Họa,Nguồn\n"
+        )
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            csv_file = Path(tmp_dir) / "grammar_n2.csv"
+            csv_file.write_text(
+                csv_header
+                + "1,Bài 1,〜に関して,Liên quan đến,N + に関して,Văn viết,例1,Shin\n"
+                + "2,Bài 1,〜に対して,Đối với,N + に対して,,例2,Shin\n"
+                + "3,Bài 2,〜によって,Tùy theo,N + によって,,例3,Shin\n",
+                encoding="utf-8-sig",
+            )
+
+            count1 = sync_cards_from_csv(
+                csv_file,
+                card_type=Card.CardType.GRAMMAR,
+                level=Card.JLPTLevel.N2,
+            )
+            self.assertEqual(count1, 3)
+
+            synced_cards = list(
+                Card.objects.filter(
+                    card_type=Card.CardType.GRAMMAR,
+                    level=Card.JLPTLevel.N2,
+                    created_by__isnull=True,
+                ).order_by("display_order")
+            )
+            c1, c2, c3 = synced_cards
+            orig_c1_id, orig_c2_id = c1.id, c2.id
+
+            # User studies c1 (graduated review) and c2 (relearning), plus owns a custom N2 card
+            due_c1 = timezone.now() + timedelta(days=4)
+            due_c2 = timezone.now() + timedelta(minutes=10)
+            CardReview.objects.create(
+                user=self.user,
+                card=c1,
+                state=CardReview.ReviewState.REVIEW,
+                status=CardReview.StudyStatus.MASTERED,
+                interval=4,
+                repetitions=2,
+                due_at=due_c1,
+                last_reviewed_at=timezone.now(),
+                last_rating=4,
+            )
+            CardReview.objects.create(
+                user=self.user,
+                card=c2,
+                state=CardReview.ReviewState.RELEARNING,
+                status=CardReview.StudyStatus.LEARNED,
+                interval=1,
+                learning_minutes=10,
+                lapses=1,
+                due_at=due_c2,
+                last_reviewed_at=timezone.now(),
+                last_rating=1,
+            )
+            user_custom_card = Card.objects.create(
+                created_by=self.user,
+                is_public=False,
+                card_type=Card.CardType.GRAMMAR,
+                level=Card.JLPTLevel.N2,
+                lesson="Bài 99",
+                front_text="〜カスタム",
+                meaning="Thẻ tự tạo",
+            )
+
+            # Re-sync CSV: update c1 meaning, move c2 to Bài 2 (Pass 2 match), drop c3, add c4
+            csv_file.write_text(
+                csv_header
+                + "1,Bài 1,〜に関して,Liên quan mật thiết đến,N + に関して,Cập nhật,例1,Shin\n"
+                + "2,Bài 2,〜に対して,Đối với / Trái ngược với,N + に対して,,例2,Shin\n"
+                + "3,Bài 3,〜にわたって,Trải dài suốt,N + にわたって,,例4,Shin\n",
+                encoding="utf-8-sig",
+            )
+
+            count2 = sync_cards_from_csv(
+                csv_file,
+                card_type=Card.CardType.GRAMMAR,
+                level=Card.JLPTLevel.N2,
+            )
+            self.assertEqual(count2, 3)
+
+            # Verify c1 and c2 kept exact PKs and updated content
+            c1.refresh_from_db()
+            c2.refresh_from_db()
+            self.assertEqual(c1.id, orig_c1_id)
+            self.assertEqual(c1.meaning, "Liên quan mật thiết đến")
+            self.assertEqual(c2.id, orig_c2_id)
+            self.assertEqual(c2.lesson, "Bài 2")
+            self.assertFalse(Card.objects.filter(id=c3.id).exists())
+            self.assertTrue(Card.objects.filter(id=user_custom_card.id).exists())
+
+            # Verify both CardReview rows survived intact without CASCADE deletion
+            rev1 = CardReview.objects.get(user=self.user, card_id=orig_c1_id)
+            self.assertEqual(rev1.status, CardReview.StudyStatus.MASTERED)
+            self.assertEqual(rev1.interval, 4)
+            self.assertEqual(rev1.last_rating, 4)
+
+            rev2 = CardReview.objects.get(user=self.user, card_id=orig_c2_id)
+            self.assertEqual(rev2.state, CardReview.ReviewState.RELEARNING)
+            self.assertEqual(rev2.last_rating, 1)
+
     def test_relearning_due_logic_and_null_due_at_consistency(self):
         from datetime import timedelta
         from django.utils import timezone
