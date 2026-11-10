@@ -74,7 +74,11 @@ export default function ExerciseModeStage({
     }));
   };
 
-  const handleSeekContext = () => {
+  const handleToggleContextAudio = () => {
+    if (player?.isPlaying) {
+      player.pause?.();
+      return;
+    }
     const timestamp =
       currentQuestion?.context_timestamp ??
       currentQuestion?.start ??
@@ -155,27 +159,30 @@ export default function ExerciseModeStage({
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="lesson">Bài tập</Badge>
             {video?.level && <Badge variant="level">{video.level}</Badge>}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSeekContext}
-              className="text-xs text-sky-700"
-            >
-              <SpeakerWaveIcon className="w-4 h-4" aria-hidden="true" />
-              <span>Nghe đoạn hội thoại</span>
-            </Button>
           </div>
 
-          <span className="text-sm font-semibold text-slate-600">
+          <span className="text-sm font-semibold text-slate-600 shrink-0">
             Câu {currentQuestionIndex + 1} / {questionList.length}
           </span>
         </div>
 
         {/* 2. Question Prompt Box (synchronized with PracticeView) */}
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-6 flex flex-col items-center text-center gap-2.5 sm:gap-4">
-          <h3 className="text-lg sm:text-xl font-bold text-slate-900 leading-relaxed whitespace-pre-line">
+          <h3 className="text-base sm:text-xl font-bold text-slate-900 leading-relaxed whitespace-pre-line break-words w-full max-w-2xl">
             {currentQuestion.question}
           </h3>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleToggleContextAudio}
+            className="w-full sm:w-auto justify-center"
+          >
+            <SpeakerWaveIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>
+              {player?.isPlaying ? 'Tạm dừng hội thoại' : 'Nghe đoạn hội thoại'}
+            </span>
+          </Button>
         </div>
 
         {/* 3. Multiple Choice Options via AnswerOption.jsx */}
@@ -209,7 +216,7 @@ export default function ExerciseModeStage({
         {hasAnsweredCurrent && currentQuestion.explanation && (
           <div className="flex flex-col gap-3 pt-4 border-t border-slate-200">
             <div
-              className={`p-4 rounded-xl border flex flex-col gap-1.5 text-left ${
+              className={`p-3.5 sm:p-4 rounded-xl border flex flex-col gap-1.5 text-left ${
                 isCurrentCorrect
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
                   : 'bg-red-50 border-red-200 text-red-950'
@@ -229,7 +236,7 @@ export default function ExerciseModeStage({
                 )}
               </div>
 
-              <div className="text-xs sm:text-sm text-slate-800 leading-relaxed">
+              <div className="text-xs sm:text-sm text-slate-800 leading-relaxed break-words">
                 <span className="font-bold">Giải thích: </span>
                 {currentQuestion.explanation}
               </div>

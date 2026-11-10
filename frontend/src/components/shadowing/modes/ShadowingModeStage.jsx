@@ -78,34 +78,46 @@ export default function ShadowingModeStage({
         )}
       </Card>
 
-      {/* 2. Centered Tokenized Japanese Subtitle Box */}
-      {showSubtitle && activeSegment && (
-        <div className="flex flex-col items-center justify-center gap-1 my-1 px-2">
-          {/* Dark Subtitle Container matching mockup */}
-          <div className="bg-slate-800 text-white rounded-xl px-5 py-3 text-center max-w-3xl w-full shadow-sm animate-in fade-in duration-150">
-            <div className="text-base sm:text-lg md:text-xl font-jp leading-relaxed flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-              {tokens.map((tokenObj, idx) => (
-                <span
-                  key={idx}
-                  onClick={() => handleTokenClick(tokenObj)}
-                  className="inline-block px-1 py-0.5 rounded underline cursor-pointer hover:bg-slate-700 hover:text-sky-300 transition-colors"
-                  title="Bấm để tra từ & lưu vào bộ thẻ"
-                >
-                  {showFurigana && tokenObj.ruby ? (
-                    <RubyText text={tokenObj.ruby} />
-                  ) : showFurigana && tokenObj.reading && tokenObj.reading !== tokenObj.token ? (
-                    <RubyText text={tokenObj.token} reading={tokenObj.reading} />
-                  ) : (
-                    tokenObj.token || tokenObj.text
-                  )}
-                </span>
-              ))}
-            </div>
+      {/* 2. Centered Tokenized Japanese Subtitle Box (stable min-height prevents layout jump) */}
+      {showSubtitle && (
+        <div className="min-h-[76px] sm:min-h-[88px] flex flex-col items-center justify-center gap-1.5 px-0.5 sm:px-2">
+          <div className="bg-slate-800 text-white rounded-xl px-3.5 py-2.5 sm:px-5 sm:py-3 text-center max-w-3xl w-full shadow-sm">
+            {activeSegment ? (
+              <div
+                className={`text-base sm:text-lg md:text-xl font-jp ${
+                  showFurigana ? 'leading-loose' : 'leading-relaxed'
+                } flex flex-wrap items-center justify-center gap-x-1.5 sm:gap-x-2 gap-y-1`}
+              >
+                {tokens.map((tokenObj, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleTokenClick(tokenObj)}
+                    className="inline-block px-1 py-0.5 rounded underline decoration-slate-400 underline-offset-4 cursor-pointer hover:bg-slate-700 active:bg-slate-700 hover:text-sky-300 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-sky-400"
+                    title="Bấm để tra từ & lưu vào bộ thẻ"
+                  >
+                    {showFurigana && tokenObj.ruby ? (
+                      <RubyText text={tokenObj.ruby} />
+                    ) : showFurigana &&
+                      tokenObj.reading &&
+                      tokenObj.reading !== tokenObj.token ? (
+                      <RubyText text={tokenObj.token} reading={tokenObj.reading} />
+                    ) : (
+                      tokenObj.token || tokenObj.text
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs sm:text-sm text-slate-300 py-1">
+                Bấm phát video để hiển thị phụ đề tương ứng
+              </p>
+            )}
           </div>
 
           {/* Bold Vietnamese Translation underneath */}
-          {showTranslation && activeSegment.meaning && (
-            <p className="text-sm sm:text-base font-bold text-slate-900 text-center max-w-2xl mt-1 leading-snug">
+          {showTranslation && activeSegment?.meaning && (
+            <p className="text-xs sm:text-base font-bold text-slate-900 text-center max-w-2xl leading-snug px-1">
               {activeSegment.meaning}
             </p>
           )}

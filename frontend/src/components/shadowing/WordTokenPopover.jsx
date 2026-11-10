@@ -83,17 +83,19 @@ export default function WordTokenPopover({
   return (
     <div
       role="dialog"
-      aria-modal="false"
+      aria-modal="true"
       aria-label="Thông tin từ vựng"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm bg-white border border-slate-200 rounded-2xl p-5 shadow-lg flex flex-col gap-4 text-slate-900 animate-in fade-in zoom-in-95 duration-150"
+        className="w-full sm:max-w-sm bg-white border-t sm:border border-slate-200 rounded-t-2xl sm:rounded-2xl p-4 sm:p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 shadow-lg flex flex-col gap-3.5 sm:gap-4 text-slate-900 animate-in slide-in-from-bottom sm:zoom-in-95 duration-150"
       >
+        <div className="w-10 h-1.5 bg-slate-300 rounded-full mx-auto sm:hidden" />
+
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div className="flex items-center justify-between pb-2.5 sm:pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <Badge variant="level">{level}</Badge>
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -104,7 +106,7 @@ export default function WordTokenPopover({
             type="button"
             onClick={onClose}
             aria-label="Đóng bảng tra từ"
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="w-9 h-9 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <XMarkIcon className="w-5 h-5" aria-hidden="true" />
           </button>

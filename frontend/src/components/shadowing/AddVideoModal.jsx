@@ -190,22 +190,22 @@ export default function AddVideoModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="add-video-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 animate-backdrop-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 animate-backdrop-in"
       onClick={handleClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-xl max-h-[90vh] bg-white rounded-2xl border border-slate-200 shadow-lg flex flex-col animate-popup-in"
+        className="w-full sm:max-w-xl max-h-[92dvh] sm:max-h-[90vh] bg-white rounded-t-2xl sm:rounded-2xl border-t sm:border border-slate-200 shadow-lg flex flex-col animate-popup-in"
       >
         {/* Header */}
-        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-50 border-b border-slate-200 rounded-t-2xl flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center">
+        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-50 border-b border-slate-200 rounded-t-2xl flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
               <VideoCameraIcon className="w-5 h-5" aria-hidden="true" />
             </div>
             <h2
               id="add-video-modal-title"
-              className="text-base sm:text-lg font-bold text-slate-900"
+              className="text-base sm:text-lg font-bold text-slate-900 truncate"
             >
               Thêm bài học Shadowing mới
             </h2>
@@ -216,12 +216,13 @@ export default function AddVideoModal({
             disabled={isExtracting || isSubmitting}
             onClick={handleClose}
             aria-label="Đóng biểu mẫu"
+            className="shrink-0"
           >
             <XMarkIcon className="w-5 h-5" aria-hidden="true" />
           </Button>
         </div>
 
-        <div className="p-4 sm:p-6 overflow-y-auto flex flex-col gap-4">
+        <div className="p-4 sm:p-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-6 overflow-y-auto flex flex-col gap-4">
           {/* Source Switcher Tabs */}
           <div className="flex bg-slate-100 border border-slate-200 rounded-lg p-1 gap-1">
             <button

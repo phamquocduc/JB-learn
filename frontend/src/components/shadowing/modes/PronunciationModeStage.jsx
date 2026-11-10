@@ -253,14 +253,18 @@ export default function PronunciationModeStage({
             </Badge>
           </div>
 
-          <span className="text-sm font-semibold text-slate-600">
+          <span className="text-sm font-semibold text-slate-600 shrink-0">
             Câu {currentSegmentIndex + 1} / {segments.length}
           </span>
         </div>
 
         {/* 2. Target Sentence & Voice Recording Prompt Box */}
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-6 flex flex-col items-center text-center gap-2.5 sm:gap-4">
-          <div className="text-2xl sm:text-3xl font-bold font-jp text-slate-900 leading-relaxed max-w-2xl">
+          <div
+            className={`text-lg sm:text-2xl md:text-3xl font-bold font-jp text-slate-900 ${
+              activeSegment.ruby_text ? 'leading-loose' : 'leading-relaxed'
+            } max-w-2xl break-words w-full`}
+          >
             {activeSegment.ruby_text ? (
               <RubyText text={activeSegment.ruby_text} />
             ) : (
@@ -269,7 +273,7 @@ export default function PronunciationModeStage({
           </div>
 
           {activeSegment.meaning && (
-            <p className="text-sm sm:text-base font-medium text-slate-600 max-w-xl">
+            <p className="text-sm sm:text-base font-medium text-slate-600 max-w-xl break-words">
               {activeSegment.meaning}
             </p>
           )}
@@ -281,15 +285,15 @@ export default function PronunciationModeStage({
           )}
 
           {/* Primary Recording CTA */}
-          <div className="flex items-center justify-center gap-3 pt-1">
+          <div className="w-full sm:w-auto flex items-center justify-center gap-3 pt-1">
             {!isRecording ? (
               <Button
                 variant="primary"
                 size="md"
                 onClick={handleStartRecording}
-                className="font-bold px-5"
+                className="w-full sm:w-auto justify-center font-bold px-4 sm:px-5"
               >
-                <MicrophoneIcon className="w-4 h-4" aria-hidden="true" />
+                <MicrophoneIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span>Bắt đầu thu âm giọng đọc</span>
               </Button>
             ) : (
@@ -297,9 +301,9 @@ export default function PronunciationModeStage({
                 variant="destructive"
                 size="md"
                 onClick={handleStopRecording}
-                className="font-bold px-5 animate-pulse"
+                className="w-full sm:w-auto justify-center font-bold px-4 sm:px-5 animate-pulse"
               >
-                <StopIcon className="w-4 h-4" aria-hidden="true" />
+                <StopIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span>Dừng thu âm & chấm điểm</span>
               </Button>
             )}
@@ -307,64 +311,64 @@ export default function PronunciationModeStage({
         </div>
 
         {/* 3. Side-by-Side Playback Controls */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+          <button
+            type="button"
+            disabled={isPlayingNative}
             onClick={handlePlayNative}
-            className="p-3.5 rounded-xl flex items-center justify-between gap-3 bg-white border border-slate-200 hover:border-sky-300 transition-colors cursor-pointer"
+            className="w-full p-3 sm:p-3.5 rounded-xl flex items-center justify-between gap-2.5 bg-white border border-slate-200 hover:border-sky-300 transition-colors duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-default text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
           >
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-9 h-9 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
                 <SpeakerWaveIcon className="w-4 h-4" aria-hidden="true" />
               </div>
-              <span className="text-sm font-bold text-slate-900">
+              <span className="text-sm font-bold text-slate-900 truncate">
                 Phát âm mẫu
               </span>
             </div>
-            <Button variant="secondary" size="sm" disabled={isPlayingNative}>
-              <PlayIcon className="w-4 h-4" aria-hidden="true" />
+            <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-800 border border-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 shrink-0">
+              <PlayIcon className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{isPlayingNative ? 'Đang phát...' : 'Nghe'}</span>
-            </Button>
-          </div>
+            </span>
+          </button>
 
-          <div
+          <button
+            type="button"
+            disabled={!recordedAudioUrl || isPlayingRecorded}
             onClick={recordedAudioUrl ? handlePlayRecorded : undefined}
-            className={`p-3.5 rounded-xl flex items-center justify-between gap-3 bg-white border transition-colors ${
-              recordedAudioUrl
+            className={`w-full p-3 sm:p-3.5 rounded-xl flex items-center justify-between gap-2.5 bg-white border transition-colors duration-150 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 ${
+              recordedAudioUrl && !isPlayingRecorded
                 ? 'border-slate-200 hover:border-sky-300 cursor-pointer'
                 : 'border-slate-100 opacity-60 cursor-not-allowed'
             }`}
           >
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
                 <MicrophoneIcon className="w-4 h-4" aria-hidden="true" />
               </div>
-              <span className="text-sm font-bold text-slate-900">
+              <span className="text-sm font-bold text-slate-900 truncate">
                 Bản thu của bạn
               </span>
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              disabled={!recordedAudioUrl || isPlayingRecorded}
-            >
-              <PlayIcon className="w-4 h-4" aria-hidden="true" />
+            <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-800 border border-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 shrink-0">
+              <PlayIcon className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{isPlayingRecorded ? 'Đang phát...' : 'Nghe'}</span>
-            </Button>
-          </div>
+            </span>
+          </button>
         </div>
 
         {/* 4. Speech Accuracy & ReviewRating */}
         <div className="flex flex-col gap-3">
           {accuracyScore !== null && (
             <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <CheckBadgeIcon className="w-5 h-5 text-emerald-600" aria-hidden="true" />
+                  <CheckBadgeIcon className="w-5 h-5 text-emerald-600 shrink-0" aria-hidden="true" />
                   <span className="text-sm font-bold text-emerald-900">
                     Điểm phát âm: {accuracyScore}%
                   </span>
                 </div>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
                   {accuracyScore >= 90
                     ? 'Rất chuẩn!'
                     : accuracyScore >= 75
@@ -373,7 +377,7 @@ export default function PronunciationModeStage({
                 </span>
               </div>
               {recognizedTranscript && (
-                <p className="text-xs text-emerald-800">
+                <p className="text-xs text-emerald-800 break-words">
                   <span className="font-semibold">Nhận diện:</span> {recognizedTranscript}
                 </p>
               )}

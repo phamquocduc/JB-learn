@@ -177,19 +177,21 @@ export default function ShadowingWorkspacePage() {
       >
         {/* Left: Back button, Video title, Level badge, and Mobile Sidebar button */}
         <div className="flex items-center justify-between gap-2 min-w-0">
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
             <Link
               to="/shadowing"
               aria-label="Quay lại thư viện Shadowing"
-              className="p-2 rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors border border-slate-200 shrink-0"
+              className="w-9 h-9 inline-flex items-center justify-center rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors duration-150 border border-slate-200 shrink-0"
             >
               <ArrowLeftIcon className="w-4 h-4" aria-hidden="true" />
             </Link>
 
-            <h1 className="text-sm sm:text-base font-bold text-slate-900 truncate">
+            <h1 className="text-sm sm:text-base font-bold text-slate-900 truncate min-w-0 flex-1">
               {video.title}
             </h1>
-            <Badge variant="level">{video.level || 'N3'}</Badge>
+            <Badge variant="level" className="shrink-0">
+              {video.level || 'N3'}
+            </Badge>
           </div>
 
           {openSidebar && (
@@ -204,8 +206,12 @@ export default function ShadowingWorkspacePage() {
           )}
         </div>
 
-        {/* Right: 4 Mode Switcher Pill Buttons */}
-        <div className="grid grid-cols-4 sm:flex sm:items-center gap-1 bg-slate-100 p-1 rounded-lg shrink-0">
+        {/* Right: 4 Mode Switcher Pill Buttons (stacked icon+label on mobile so labels never truncate) */}
+        <div
+          role="tablist"
+          aria-label="Chế độ luyện Shadowing"
+          className="grid grid-cols-4 sm:flex sm:items-center gap-1 bg-slate-100 p-1 rounded-xl sm:rounded-lg shrink-0"
+        >
           {MODES.map((mode) => {
             const Icon = mode.icon;
             const isActive = activeMode === mode.id;
@@ -213,17 +219,19 @@ export default function ShadowingWorkspacePage() {
               <button
                 key={mode.id}
                 type="button"
+                role="tab"
+                aria-selected={isActive}
                 onClick={() => {
                   setActiveMode(mode.id);
                   player.pause();
                 }}
-                className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer ${isActive
+                className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 min-h-11 sm:min-h-9 px-1 sm:px-3 py-1.5 rounded-lg sm:rounded-md text-[11px] sm:text-xs font-bold leading-tight transition-colors duration-150 cursor-pointer ${isActive
                     ? 'bg-sky-600 text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                   }`}
               >
                 <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span className="truncate">{mode.label}</span>
+                <span className="whitespace-nowrap">{mode.label}</span>
               </button>
             );
           })}
@@ -231,13 +239,13 @@ export default function ShadowingWorkspacePage() {
       </Card>
 
       {/* 2. Main Study Workspace (synchronized flex-1 container with HomePage) */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Persistent player mounted across all modes with hidden class to preserve player.youtubeContainerId iframe and snippet playback */}
-        <div className={activeMode === 'Shadowing' ? 'flex-1 flex flex-col' : 'hidden'}>
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start flex-1">
+        <div className={activeMode === 'Shadowing' ? 'flex-1 flex flex-col min-w-0' : 'hidden'}>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-4 items-start flex-1 min-w-0">
             {/* Left Video Player & Subtitles Stage (lg:col-span-8) */}
             <div
-              className={`flex flex-col gap-3 transition-all duration-150 ${isTranscriptOpen ? 'lg:col-span-8' : 'lg:col-span-12'
+              className={`min-w-0 flex flex-col gap-3 transition-all duration-150 ${isTranscriptOpen ? 'lg:col-span-8' : 'lg:col-span-12'
                 }`}
             >
               <ShadowingModeStage
@@ -260,7 +268,7 @@ export default function ShadowingWorkspacePage() {
 
             {/* Right Synchronized Transcript Panel (lg:col-span-4) */}
             {isTranscriptOpen && (
-              <div className="lg:col-span-4 w-full lg:sticky lg:top-4">
+              <div className="lg:col-span-4 w-full min-w-0 lg:sticky lg:top-4">
                 <TranscriptPanel
                   segments={segments}
                   activeSegmentIndex={player.activeSegmentIndex}
