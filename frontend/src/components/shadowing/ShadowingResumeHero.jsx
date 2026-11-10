@@ -74,16 +74,18 @@ export default function ShadowingResumeHero({
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {onOpenAddVideo && (
             <Button
               variant="secondary"
               size="sm"
               onClick={onOpenAddVideo}
-              className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-lg text-xs font-semibold"
+              aria-label="Thêm Video hoặc Audio"
+              className="h-9 px-2.5 sm:px-3 rounded-lg text-xs font-semibold"
             >
-              <PlusIcon className="w-4 h-4" aria-hidden="true" />
-              <span>Thêm Video / Audio</span>
+              <PlusIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span className="sm:hidden">Thêm bài</span>
+              <span className="hidden sm:inline">Thêm Video / Audio</span>
             </Button>
           )}
 
@@ -92,7 +94,7 @@ export default function ShadowingResumeHero({
               type="button"
               onClick={onOpenSidebar}
               aria-label="Mở menu điều hướng"
-              className="lg:hidden w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center cursor-pointer transition-colors duration-150"
+              className="lg:hidden w-9 h-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center cursor-pointer transition-colors duration-150"
             >
               <EllipsisHorizontalIcon className="w-5 h-5" aria-hidden="true" />
             </button>
@@ -101,26 +103,26 @@ export default function ShadowingResumeHero({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex items-center gap-3.5 sm:gap-4">
-        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-700 shrink-0">
-          <PlayIcon className="w-7 h-7" aria-hidden="true" />
+      <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-700 shrink-0">
+          <PlayIcon className="w-6 h-6 sm:w-7 sm:h-7" aria-hidden="true" />
         </div>
         <div className="flex-1 min-w-0 flex flex-col gap-1">
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+          <h2 className="text-sm sm:text-lg font-bold text-slate-900 line-clamp-2 sm:truncate leading-snug">
             {videoTitle}
           </h2>
-          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs text-slate-500 font-medium">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-500 font-medium">
             {targetVideoId && (
               <span className="inline-flex sm:hidden items-center gap-1">
                 <Badge variant="level">{level}</Badge>
               </span>
             )}
             <span className="inline-flex items-center gap-1">
-              <AcademicCapIcon className="w-3.5 h-3.5" aria-hidden="true" />
+              <AcademicCapIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               Đoạn số {segmentNum}
             </span>
             <span className="inline-flex items-center gap-1">
-              <ClockIcon className="w-3.5 h-3.5" aria-hidden="true" />
+              <ClockIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               {hasSavedSession ? 'Đang học dở' : 'Sẵn sàng luyện tập'}
             </span>
           </div>

@@ -96,30 +96,33 @@ export default function ShadowingFilterBottomSheet({
 
       {/* Sheet Content */}
       <div
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto bg-white rounded-t-2xl border-t border-slate-200 p-5 shadow-lg flex flex-col gap-4 animate-in slide-in-from-bottom duration-200"
+        className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-y-auto bg-white rounded-t-2xl border-t border-slate-200 px-5 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-lg flex flex-col gap-4 animate-in slide-in-from-bottom duration-200"
       >
-        {/* Grab Handle */}
-        <div className="w-10 h-1.5 bg-slate-300 rounded-full mx-auto shrink-0" />
+        {/* Drag-to-close Handle + Header */}
+        <div
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="flex flex-col gap-3"
+        >
+          <div className="w-10 h-1.5 bg-slate-300 rounded-full mx-auto shrink-0" />
 
-        {/* Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <FunnelIcon className="w-5 h-5 text-sky-700" aria-hidden="true" />
-            <h2 className="text-base font-bold text-slate-900">
-              Bộ lọc
-            </h2>
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <FunnelIcon className="w-5 h-5 text-sky-700" aria-hidden="true" />
+              <h2 className="text-base font-bold text-slate-900">
+                Bộ lọc
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Đóng bộ lọc"
+              className="w-9 h-9 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <XMarkIcon className="w-5 h-5" aria-hidden="true" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Đóng bộ lọc"
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-          >
-            <XMarkIcon className="w-5 h-5" aria-hidden="true" />
-          </button>
         </div>
 
         {/* Filter Section: Topic */}
@@ -132,8 +135,9 @@ export default function ShadowingFilterBottomSheet({
               <button
                 key={opt.value}
                 type="button"
+                aria-pressed={topic === opt.value}
                 onClick={() => setTopic(opt.value)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                className={`min-h-9 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
                   topic === opt.value
                     ? 'bg-sky-600 text-white border-sky-600'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -155,8 +159,9 @@ export default function ShadowingFilterBottomSheet({
               <button
                 key={opt.value}
                 type="button"
+                aria-pressed={level === opt.value}
                 onClick={() => setLevel(opt.value)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                className={`min-h-9 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
                   level === opt.value
                     ? 'bg-sky-600 text-white border-sky-600'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -178,8 +183,9 @@ export default function ShadowingFilterBottomSheet({
               <button
                 key={opt.value}
                 type="button"
+                aria-pressed={mediaSource === opt.value}
                 onClick={() => setMediaSource(opt.value)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                className={`min-h-9 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
                   mediaSource === opt.value
                     ? 'bg-sky-600 text-white border-sky-600'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'

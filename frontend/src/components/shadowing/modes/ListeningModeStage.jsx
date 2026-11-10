@@ -135,14 +135,14 @@ export default function ListeningModeStage({
             {video?.level && <Badge variant="level">{video.level}</Badge>}
           </div>
 
-          <span className="text-sm font-semibold text-slate-600">
+          <span className="text-sm font-semibold text-slate-600 shrink-0">
             Câu {currentSegmentIndex + 1} / {segments.length}
           </span>
         </div>
 
         {/* 2. Prompt & Listening Section (synchronized with PracticeView) */}
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-6 flex flex-col items-center text-center gap-2.5 sm:gap-4">
-          <div className="text-xl sm:text-2xl font-bold font-jp text-slate-900 leading-relaxed max-w-2xl">
+          <div className="text-base sm:text-xl md:text-2xl font-bold font-jp text-slate-900 leading-relaxed max-w-2xl break-words w-full">
             {clozeData.blankedSentence}
           </div>
 
@@ -151,9 +151,9 @@ export default function ListeningModeStage({
             size="md"
             onClick={handlePlayAudio}
             disabled={isPlayingAudio}
-            className="font-bold px-5"
+            className="w-full sm:w-auto justify-center font-bold px-4 sm:px-5"
           >
-            <SpeakerWaveIcon className="w-4 h-4" aria-hidden="true" />
+            <SpeakerWaveIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>{isPlayingAudio ? 'Đang phát âm thanh...' : 'Nghe âm thanh'}</span>
           </Button>
         </div>
@@ -189,7 +189,7 @@ export default function ListeningModeStage({
         {isAnswered && (
           <div className="flex flex-col gap-3 pt-4 border-t border-slate-200">
             <div
-              className={`p-4 rounded-xl border flex flex-col gap-1.5 text-left ${
+              className={`p-3.5 sm:p-4 rounded-xl border flex flex-col gap-1.5 text-left ${
                 isCorrect
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
                   : 'bg-red-50 border-red-200 text-red-950'
@@ -209,7 +209,11 @@ export default function ListeningModeStage({
                 )}
               </div>
 
-              <div className="text-sm font-jp text-slate-800 pt-1">
+              <div
+                className={`text-sm font-jp text-slate-800 pt-1 break-words ${
+                  activeSegment.ruby_text ? 'leading-loose' : 'leading-relaxed'
+                }`}
+              >
                 <span className="font-semibold text-slate-600">Câu hoàn chỉnh: </span>
                 {activeSegment.ruby_text ? (
                   <RubyText text={activeSegment.ruby_text} />
@@ -218,7 +222,7 @@ export default function ListeningModeStage({
                 )}
               </div>
               {activeSegment.meaning && (
-                <p className="text-xs text-slate-600">
+                <p className="text-xs text-slate-600 break-words">
                   <span className="font-semibold">Dịch nghĩa:</span> {activeSegment.meaning}
                 </p>
               )}
