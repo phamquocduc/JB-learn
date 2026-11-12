@@ -1,6 +1,7 @@
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
@@ -10,6 +11,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
+from core.i18n import SUPPORTED_LANGUAGES, normalize_language_code
+
+from users.rbac import (
+    enforce_guest_access,
+    enforce_module_enabled,
+    enforce_view_permission,
+)
 from .anki import (
     compute_anki_queue_summary,
     normalize_srs_state,
@@ -33,10 +41,15 @@ class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request: Request) -> Response:
+        enforce_module_enabled(
+            "auth.registration",
+            request.user,
+            custom_message=_("Chức năng đăng ký tài khoản mới hiện đang tạm đóng."),
+        )
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        token, _ = Token.objects.get_or_create(user=user)
+        token, _created = Token.objects.get_or_create(user=user)
         return Response(
             {
                 "token": token.key,
@@ -72,7 +85,7 @@ class LogoutView(APIView):
         elif hasattr(request.user, "auth_token"):
             request.user.auth_token.delete()
         return Response(
-            {"detail": "Đăng xuất thành công."},
+            {"detail": _("Đăng xuất thành công.")},
             status=status.HTTP_200_OK,
         )
 
@@ -80,9 +93,48 @@ class LogoutView(APIView):
 class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def _fresh_user(self, request: Request):
+        return (
+            type(request.user)
+            .objects.select_related("role")
+            .filter(pk=request.user.pk)
+            .first()
+            or request.user
+        )
+
     def get(self, request: Request) -> Response:
+        user = self._fresh_user(request)
         return Response(
-            UserSerializer(request.user).data,
+            UserSerializer(user).data,
+            status=status.HTTP_200_OK,
+        )
+
+    def patch(self, request: Request) -> Response:
+        user = self._fresh_user(request)
+        if "preferred_language" not in request.data:
+            return Response(
+                UserSerializer(user).data,
+                status=status.HTTP_200_OK,
+            )
+
+        raw_lang = request.data.get("preferred_language")
+        lang = normalize_language_code(raw_lang)
+        if not lang or lang not in SUPPORTED_LANGUAGES:
+            return Response(
+                {
+                    "preferred_language": [
+                        _("Ngôn ngữ không hợp lệ. Chỉ hỗ trợ: vi, en.")
+                    ]
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if user.preferred_language != lang:
+            user.preferred_language = lang
+            user.save(update_fields=["preferred_language"])
+
+        return Response(
+            UserSerializer(user).data,
             status=status.HTTP_200_OK,
         )
 
@@ -90,9 +142,35 @@ class CurrentUserView(APIView):
 class CourseViewSet(ModelViewSet):
     serializer_class = CourseSerializer
     permission_classes = [IsOwnerOrReadOnly]
+    permission_module_prefix = "courses"
+
+    def initial(self, request: Request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        enforce_guest_access(request)
+        enforce_module_enabled("courses", request.user)
+        if self.action in ("list", "retrieve"):
+            enforce_view_permission(
+                request.user,
+                ("courses.view", "courses.view_all", "courses.edit", "courses.delete"),
+            )
 
     def get_queryset(self):
-        qs = Course.objects.visible_to(self.request.user).select_related("created_by")
+        user = self.request.user
+        is_detail = self.action in ("retrieve", "update", "partial_update", "destroy")
+        if (
+            is_detail
+            and user
+            and user.is_authenticated
+            and any(
+                user.has_perm_code(code)
+                for code in ("courses.view_all", "courses.edit", "courses.delete")
+            )
+        ):
+            qs = Course.objects.all()
+        else:
+            qs = Course.objects.visible_to(user)
+        qs = qs.select_related("created_by").annotate(card_count=Count("cards"))
+
         level = self.request.query_params.get("level", "")
         card_type = self.request.query_params.get("card_type", "")
         search = self.request.query_params.get("search", "")
@@ -105,8 +183,8 @@ class CourseViewSet(ModelViewSet):
         if search:
             qs = qs.search(search)
         if mine:
-            if self.request.user.is_authenticated:
-                qs = qs.filter(created_by=self.request.user)
+            if user.is_authenticated:
+                qs = qs.filter(created_by=user)
             else:
                 qs = qs.none()
         return qs
@@ -118,11 +196,62 @@ class CourseViewSet(ModelViewSet):
 class CardViewSet(ModelViewSet):
     serializer_class = CardSerializer
     permission_classes = [IsOwnerOrReadOnly]
+    permission_module_prefix = "cards"
+
+    def initial(self, request: Request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        enforce_guest_access(request)
+        enforce_module_enabled("study.cards", request.user)
+        has_cards_create_sys = bool(
+            request.user.is_authenticated
+            and request.user.has_perm_code("cards.create")
+        )
+        has_cards_admin = bool(
+            request.user.is_authenticated
+            and any(
+                request.user.has_perm_code(code)
+                for code in ("cards.view_all", "cards.create", "cards.edit", "cards.delete")
+            )
+        )
+        is_mine = request.query_params.get("mine", "").lower() in ("true", "1", "yes")
+        if self.action == "create" and not has_cards_create_sys:
+            enforce_module_enabled("study.personal_cards", request.user)
+        if is_mine and not has_cards_admin:
+            enforce_module_enabled("study.personal_cards", request.user)
+        if self.action in ("list", "retrieve", "review", "reviews", "sync_reviews"):
+            if is_mine:
+                enforce_view_permission(
+                    request.user,
+                    (
+                        "personal_cards.view",
+                        "cards.view_all",
+                        "cards.edit",
+                        "cards.delete",
+                    ),
+                )
+            else:
+                enforce_view_permission(
+                    request.user,
+                    ("cards.view", "cards.view_all", "cards.edit", "cards.delete"),
+                )
 
     def get_base_queryset(self):
-        qs = Card.objects.visible_to(self.request.user).select_related(
-            "course", "created_by"
-        )
+        user = self.request.user
+        is_detail = self.action in ("retrieve", "update", "partial_update", "destroy", "review")
+        if (
+            is_detail
+            and user
+            and user.is_authenticated
+            and any(
+                user.has_perm_code(code)
+                for code in ("cards.view_all", "cards.edit", "cards.delete")
+            )
+        ):
+            qs = Card.objects.all()
+        else:
+            qs = Card.objects.visible_to(user)
+        qs = qs.select_related("course", "created_by")
+
         card_type = self.request.query_params.get("type", "")
         level = self.request.query_params.get("level", "")
         course = self.request.query_params.get("course", "")
@@ -135,8 +264,8 @@ class CardViewSet(ModelViewSet):
         if course:
             qs = qs.by_course(course)
         if mine:
-            if self.request.user.is_authenticated:
-                qs = qs.filter(created_by=self.request.user)
+            if user.is_authenticated:
+                qs = qs.filter(created_by=user)
             else:
                 qs = qs.none()
         return qs
@@ -338,7 +467,7 @@ class CardViewSet(ModelViewSet):
         raw_reviews = request.data.get("reviews")
         if not isinstance(raw_reviews, dict):
             return Response(
-                {"detail": "Trường 'reviews' phải là một đối tượng (dict)."},
+                {"detail": _("Trường 'reviews' phải là một đối tượng (dict).")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -454,6 +583,12 @@ class CardListAPIView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request: Request) -> Response:
+        enforce_guest_access(request)
+        enforce_module_enabled("study.cards", request.user)
+        enforce_view_permission(
+            request.user,
+            ("cards.view", "cards.view_all", "cards.edit", "cards.delete"),
+        )
         card_type = request.query_params.get("type", Card.CardType.GRAMMAR)
         level = request.query_params.get("level", "")
         lesson = request.query_params.get("lesson", "")

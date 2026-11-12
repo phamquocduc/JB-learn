@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 export default function ProgressBar({
   current = 0,
@@ -6,8 +7,10 @@ export default function ProgressBar({
   learnedCount = 0,
   rememberedCount = 0,
   masteredCount = 0,
-  label = 'Tiến độ học tập',
+  label,
 }) {
+  const { t } = useTranslation('common');
+  const resolvedLabel = label || t('progress.learningLabel');
   const safeTotal = Math.max(total, 1);
   const studiedTotal = learnedCount + rememberedCount + masteredCount;
   const studiedPercent = Math.min(100, Math.round((studiedTotal / safeTotal) * 100));
@@ -21,12 +24,12 @@ export default function ProgressBar({
 
   return (
     <div className="w-full flex flex-col gap-2">
-      <div className="hidden sm:flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
+      <div className="hidden sm:flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 tabular-nums">
         <div className="flex items-center gap-2 font-medium text-slate-700">
-          <span>{label}</span>
+          <span>{resolvedLabel}</span>
           {current > 0 && total > 0 && (
             <span className="text-slate-500">
-              • Thẻ {current}/{total}
+              {t('progress.cardCounter', { current, total })}
             </span>
           )}
         </div>
@@ -34,15 +37,15 @@ export default function ProgressBar({
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-sky-300" aria-hidden="true" />
-            <span>Đã học: {learnedCount}</span>
+            <span>{t('progress.learnedStat', { count: learnedCount })}</span>
           </span>
           <span className="inline-flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-sky-600" aria-hidden="true" />
-            <span>Đã nhớ: {rememberedCount}</span>
+            <span>{t('progress.rememberedStat', { count: rememberedCount })}</span>
           </span>
           <span className="inline-flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-emerald-600" aria-hidden="true" />
-            <span>Thành thạo: {masteredCount}</span>
+            <span>{t('progress.masteredStat', { count: masteredCount })}</span>
           </span>
           <span className="font-semibold text-slate-800">{studiedPercent}%</span>
         </div>
@@ -54,7 +57,7 @@ export default function ProgressBar({
         aria-valuenow={studiedPercent}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label={label}
+        aria-label={resolvedLabel}
       >
         {masteredPct > 0 && (
           <div

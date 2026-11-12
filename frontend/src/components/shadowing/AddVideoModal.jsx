@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   XMarkIcon,
-  VideoCameraIcon,
   ArrowUpTrayIcon,
   SparklesIcon,
   CheckCircleIcon,
@@ -13,11 +13,11 @@ import { YouTubeLogoSvg } from '../ui/SvgIcons';
 import { extractTranscript, createShadowingVideo } from '../../services/shadowingApi';
 
 const TOPIC_CHOICES = [
-  { value: 'life', label: 'Đời sống' },
-  { value: 'conversation', label: 'Hội thoại' },
-  { value: 'business', label: 'Công việc' },
-  { value: 'news', label: 'Tin tức' },
-  { value: 'culture', label: 'Văn hóa' },
+  { value: 'life', labelKey: 'shadowing:topics.life' },
+  { value: 'conversation', labelKey: 'shadowing:topics.conversation' },
+  { value: 'business', labelKey: 'shadowing:topics.business' },
+  { value: 'news', labelKey: 'shadowing:topics.news' },
+  { value: 'culture', labelKey: 'shadowing:topics.culture' },
 ];
 
 const LEVEL_CHOICES = ['N5', 'N4', 'N3', 'N2', 'N1'];
@@ -33,10 +33,13 @@ export default function AddVideoModal({
   onSuccess,
   currentUser = null,
 }) {
+  const { t } = useTranslation(['shadowing', 'common']);
   const [sourceType, setSourceType] = useState('youtube'); // 'youtube' | 'upload'
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [mediaFile, setMediaFile] = useState(null);
+  const [contentLang, setContentLang] = useState('vi'); // 'vi' | 'en'
   const [title, setTitle] = useState('');
+  const [enTitle, setEnTitle] = useState('');
   const [topic, setTopic] = useState('life');
   const [level, setLevel] = useState('N3');
   const [isPublic, setIsPublic] = useState(true);
@@ -46,10 +49,17 @@ export default function AddVideoModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  const topicOptions = TOPIC_CHOICES.map((opt) => ({
+    value: opt.value,
+    label: t(opt.labelKey),
+  }));
+
   const resetForm = () => {
     setYoutubeUrl('');
     setMediaFile(null);
+    setContentLang('vi');
     setTitle('');
+    setEnTitle('');
     setTopic('life');
     setLevel('N3');
     setIsPublic(true);
@@ -94,7 +104,7 @@ export default function AddVideoModal({
       let payload;
       if (sourceType === 'youtube') {
         if (!youtubeUrl.trim()) {
-          throw new Error('Vui lòng nhập đường dẫn YouTube.');
+          throw new Error(t('shadowing:addVideoModal.errors.missingYoutubeUrl'));
         }
         payload = {
           source_type: 'youtube',
@@ -102,7 +112,7 @@ export default function AddVideoModal({
         };
       } else {
         if (!mediaFile) {
-          throw new Error('Vui lòng chọn tệp âm thanh hoặc video để tải lên.');
+          throw new Error(t('shadowing:addVideoModal.errors.missingMediaFile'));
         }
         const formData = new FormData();
         formData.append('media_file', mediaFile);
@@ -119,7 +129,7 @@ export default function AddVideoModal({
       }
     } catch (err) {
       setErrorMessage(
-        err.message || 'Quá trình trích xuất phụ đề tự động gặp lỗi.'
+        err.message || t('shadowing:addVideoModal.errors.extractFailed')
       );
     } finally {
       setIsExtracting(false);
@@ -129,7 +139,8 @@ export default function AddVideoModal({
   // Step 2: Final video creation
   const handleCreateVideo = async () => {
     if (!title.trim()) {
-      setErrorMessage('Vui lòng nhập tiêu đề cho bài học Shadowing.');
+      setContentLang('vi');
+      setErrorMessage(t('shadowing:addVideoModal.errors.missingTitle'));
       return;
     }
 
@@ -141,11 +152,15 @@ export default function AddVideoModal({
         ...ex,
         options: Array.isArray(ex.options) ? ex.options.slice(0, 6) : [],
       }));
+      const translationsPayload = enTitle.trim()
+        ? { en: { title: enTitle.trim() } }
+        : null;
 
       let payload;
       if (sourceType === 'youtube') {
         payload = {
           title: title.trim(),
+          ...(translationsPayload ? { translations: translationsPayload } : {}),
           topic,
           level,
           media_source: 'youtube',
@@ -159,6 +174,9 @@ export default function AddVideoModal({
       } else {
         const formData = new FormData();
         formData.append('title', title.trim());
+        if (translationsPayload) {
+          formData.append('translations', JSON.stringify(translationsPayload));
+        }
         formData.append('topic', topic);
         formData.append('level', level);
         formData.append('media_source', 'upload');
@@ -179,7 +197,7 @@ export default function AddVideoModal({
       onSuccess?.(created);
       onClose?.();
     } catch (err) {
-      setErrorMessage(err.message || 'Không thể tạo video bài học.');
+      setErrorMessage(err.message || t('shadowing:addVideoModal.errors.createFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -195,27 +213,22 @@ export default function AddVideoModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full sm:max-w-xl max-h-[92dvh] sm:max-h-[90vh] bg-white rounded-t-2xl sm:rounded-2xl border-t sm:border border-slate-200 shadow-lg flex flex-col animate-popup-in"
+        className="w-full sm:max-w-xl max-h-[92dvh] sm:max-h-[90vh] bg-white rounded-t-surface sm:rounded-surface border-t sm:border border-slate-200 shadow-sm flex flex-col animate-popup-in"
       >
         {/* Header */}
-        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-50 border-b border-slate-200 rounded-t-2xl flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
-              <VideoCameraIcon className="w-5 h-5" aria-hidden="true" />
-            </div>
-            <h2
-              id="add-video-modal-title"
-              className="text-base sm:text-lg font-bold text-slate-900 truncate"
-            >
-              Thêm bài học Shadowing mới
-            </h2>
-          </div>
+        <div className="px-4 sm:px-6 py-3.5 bg-slate-50 border-b border-slate-200 rounded-t-surface flex items-center justify-between gap-2">
+          <h2
+            id="add-video-modal-title"
+            className="text-sm sm:text-base font-semibold text-slate-900 truncate"
+          >
+            {t('shadowing:addVideoModal.title')}
+          </h2>
           <Button
             variant="secondary"
             size="icon"
             disabled={isExtracting || isSubmitting}
             onClick={handleClose}
-            aria-label="Đóng biểu mẫu"
+            aria-label={t('shadowing:addVideoModal.closeAria')}
             className="shrink-0"
           >
             <XMarkIcon className="w-5 h-5" aria-hidden="true" />
@@ -224,21 +237,21 @@ export default function AddVideoModal({
 
         <div className="p-4 sm:p-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-6 overflow-y-auto flex flex-col gap-4">
           {/* Source Switcher Tabs */}
-          <div className="flex bg-slate-100 border border-slate-200 rounded-lg p-1 gap-1">
+          <div className="flex bg-slate-100 border border-slate-200 rounded-control p-1 gap-1">
             <button
               type="button"
               onClick={() => {
                 setSourceType('youtube');
                 setExtractedData(null);
               }}
-              className={`flex-1 min-h-9 flex items-center justify-center gap-2 rounded-md text-xs sm:text-sm font-semibold transition-colors duration-150 cursor-pointer ${
+              className={`flex-1 min-h-9 flex items-center justify-center gap-2 rounded-control text-xs sm:text-sm font-medium transition-colors duration-150 cursor-pointer ${
                 sourceType === 'youtube'
-                  ? 'bg-white text-slate-900 shadow-sm'
+                  ? 'bg-white text-slate-900 border border-slate-200'
                   : 'text-slate-600 hover:bg-white/60 hover:text-slate-900'
               }`}
             >
               <YouTubeLogoSvg className="w-4 h-4 text-red-600" />
-              <span>Đường dẫn YouTube</span>
+              <span>{t('shadowing:addVideoModal.youtubeTab')}</span>
             </button>
             <button
               type="button"
@@ -246,14 +259,14 @@ export default function AddVideoModal({
                 setSourceType('upload');
                 setExtractedData(null);
               }}
-              className={`flex-1 min-h-9 flex items-center justify-center gap-2 rounded-md text-xs sm:text-sm font-semibold transition-colors duration-150 cursor-pointer ${
+              className={`flex-1 min-h-9 flex items-center justify-center gap-2 rounded-control text-xs sm:text-sm font-medium transition-colors duration-150 cursor-pointer ${
                 sourceType === 'upload'
-                  ? 'bg-white text-slate-900 shadow-sm'
+                  ? 'bg-white text-slate-900 border border-slate-200'
                   : 'text-slate-600 hover:bg-white/60 hover:text-slate-900'
               }`}
             >
               <ArrowUpTrayIcon className="w-4 h-4 text-sky-700" aria-hidden="true" />
-              <span>Tải tệp lên</span>
+              <span>{t('shadowing:addVideoModal.uploadTab')}</span>
             </button>
           </div>
 
@@ -261,7 +274,7 @@ export default function AddVideoModal({
           {errorMessage && (
             <div
               role="alert"
-              className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2.5 text-xs sm:text-sm text-red-800"
+              className="p-3 bg-red-50 border border-red-200 rounded-control flex items-start gap-2.5 text-xs sm:text-sm text-red-800"
             >
               <ExclamationCircleIcon className="w-4 h-4 text-red-600 shrink-0 mt-0.5" aria-hidden="true" />
               <div className="flex-1 font-medium">{errorMessage}</div>
@@ -274,9 +287,9 @@ export default function AddVideoModal({
               <div>
                 <label
                   htmlFor="youtube-url-input"
-                  className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+                  className="block text-xs font-medium text-slate-700 mb-1.5"
                 >
-                  Đường dẫn video YouTube
+                  {t('shadowing:addVideoModal.youtubeUrlLabel')}
                 </label>
                 <input
                   id="youtube-url-input"
@@ -288,16 +301,16 @@ export default function AddVideoModal({
                     setYoutubeUrl(e.target.value);
                     if (extractedData) setExtractedData(null);
                   }}
-                  className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+                  className="w-full min-h-10 px-3.5 py-2 rounded-control border border-slate-200 bg-white hover:border-slate-300 text-slate-900 text-sm transition-colors duration-150 focus:border-sky-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
                 />
               </div>
             ) : (
               <div>
                 <label
                   htmlFor="media-file-input"
-                  className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+                  className="block text-xs font-medium text-slate-700 mb-1.5"
                 >
-                  Tệp âm thanh hoặc video
+                  {t('shadowing:addVideoModal.mediaFileLabel')}
                 </label>
                 <input
                   id="media-file-input"
@@ -309,7 +322,7 @@ export default function AddVideoModal({
                     setMediaFile(e.target.files[0] || null);
                     if (extractedData) setExtractedData(null);
                   }}
-                  className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm text-slate-700 file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100 cursor-pointer"
+                  className="w-full min-h-10 px-3.5 py-2 rounded-control border border-slate-200 bg-white hover:border-slate-300 text-sm text-slate-700 file:mr-3 file:py-1 file:px-3 file:rounded-control file:border-0 file:text-xs file:font-medium file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100 cursor-pointer"
                 />
               </div>
             )}
@@ -325,8 +338,8 @@ export default function AddVideoModal({
                 <SparklesIcon className="w-4 h-4" aria-hidden="true" />
                 <span>
                   {isExtracting
-                    ? 'Đang trích xuất phụ đề...'
-                    : 'Trích xuất phụ đề tự động'}
+                    ? t('shadowing:addVideoModal.extracting')
+                    : t('shadowing:addVideoModal.extractAction')}
                 </span>
               </Button>
             )}
@@ -334,63 +347,118 @@ export default function AddVideoModal({
 
           {/* Step 2: Extracted preview & metadata */}
           {extractedData && (
-            <div className="flex flex-col gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
-              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700">
+            <div className="flex flex-col gap-4 p-4 rounded-surface bg-slate-50 border border-slate-200">
+              <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 tabular-nums">
                 <CheckCircleIcon className="w-4 h-4 text-emerald-600" aria-hidden="true" />
                 <span>
-                  Đã trích xuất {extractedData.total_segments ?? extractedData.segments?.length ?? 0} câu phụ đề & {extractedData.total_exercises ?? extractedData.exercises?.length ?? 0} bài tập
+                  {t('shadowing:addVideoModal.extractedSummary', {
+                    segments:
+                      extractedData.total_segments ?? extractedData.segments?.length ?? 0,
+                    exercises:
+                      extractedData.total_exercises ?? extractedData.exercises?.length ?? 0,
+                  })}
                 </span>
               </div>
 
-              {/* Video Title */}
-              <div>
-                <label
-                  htmlFor="video-title-input"
-                  className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+              {/* Bilingual Title Language Tabs */}
+              <div
+                role="tablist"
+                aria-label={t('common:contentForm.languageTabsAria')}
+                className="grid grid-cols-2 bg-white border border-slate-200 rounded-control p-1 gap-1"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={contentLang === 'vi'}
+                  onClick={() => setContentLang('vi')}
+                  className={`h-8 rounded-control text-xs font-medium transition-colors duration-150 cursor-pointer ${
+                    contentLang === 'vi'
+                      ? 'bg-sky-700 text-white'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
                 >
-                  Tiêu đề bài học *
-                </label>
-                <input
-                  id="video-title-input"
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm transition-colors duration-150 focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
-                />
+                  {t('common:contentForm.viTab')}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={contentLang === 'en'}
+                  onClick={() => setContentLang('en')}
+                  className={`h-8 rounded-control text-xs font-medium transition-colors duration-150 cursor-pointer ${
+                    contentLang === 'en'
+                      ? 'bg-sky-700 text-white'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  {t('common:contentForm.enTab')}
+                </button>
               </div>
+
+              {/* Video Title */}
+              {contentLang === 'vi' ? (
+                <div>
+                  <label
+                    htmlFor="video-title-input"
+                    className="block text-xs font-medium text-slate-700 mb-1.5"
+                  >
+                    {t('shadowing:addVideoModal.titleLabel')}
+                  </label>
+                  <input
+                    id="video-title-input"
+                    type="text"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full min-h-10 px-3.5 py-2 rounded-control border border-slate-200 bg-white hover:border-slate-300 text-slate-900 text-sm transition-colors duration-150 focus:border-sky-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label
+                    htmlFor="video-title-en-input"
+                    className="block text-xs font-medium text-slate-700 mb-1.5"
+                  >
+                    {t('shadowing:addVideoModal.titleEnLabel')}
+                  </label>
+                  <input
+                    id="video-title-en-input"
+                    type="text"
+                    value={enTitle}
+                    onChange={(e) => setEnTitle(e.target.value)}
+                    placeholder={t('shadowing:addVideoModal.titleEnPlaceholder')}
+                    className="w-full min-h-10 px-3.5 py-2 rounded-control border border-slate-200 bg-white hover:border-slate-300 text-slate-900 text-sm transition-colors duration-150 focus:border-sky-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
+                  />
+                </div>
+              )}
 
               {/* Topic & Level Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label
                     htmlFor="topic-select"
-                    className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+                    className="block text-xs font-medium text-slate-700 mb-1.5"
                   >
-                    Chủ đề
+                    {t('shadowing:addVideoModal.topicLabel')}
                   </label>
                   <Dropdown
                     id="topic-select"
                     value={topic}
                     onChange={setTopic}
-                    options={TOPIC_CHOICES}
-                    triggerClassName="bg-white"
+                    options={topicOptions}
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="level-select"
-                    className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+                    className="block text-xs font-medium text-slate-700 mb-1.5"
                   >
-                    Trình độ JLPT
+                    {t('shadowing:addVideoModal.levelLabel')}
                   </label>
                   <Dropdown
                     id="level-select"
                     value={level}
                     onChange={setLevel}
                     options={LEVEL_CHOICES}
-                    triggerClassName="bg-white"
                   />
                 </div>
               </div>
@@ -398,33 +466,33 @@ export default function AddVideoModal({
               {/* Public/Private toggle if authenticated */}
               {currentUser && (
                 <div>
-                  <span className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Quyền hiển thị
+                  <span className="block text-xs font-medium text-slate-700 mb-1.5">
+                    {t('shadowing:addVideoModal.visibilityLabel')}
                   </span>
-                  <div className="flex bg-slate-100 border border-slate-200 rounded-lg p-1 gap-1">
+                  <div className="flex bg-slate-100 border border-slate-200 rounded-control p-1 gap-1">
                     <button
                       type="button"
                       aria-pressed={Boolean(isPublic)}
                       onClick={() => setIsPublic(true)}
-                      className={`flex-1 min-h-9 text-xs sm:text-sm font-semibold rounded-md transition-colors duration-150 cursor-pointer ${
+                      className={`flex-1 min-h-9 text-xs sm:text-sm font-medium rounded-control transition-colors duration-150 cursor-pointer ${
                         isPublic
-                          ? 'bg-sky-700 text-white shadow-sm'
+                          ? 'bg-sky-700 text-white'
                           : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
                       }`}
                     >
-                      Công khai
+                      {t('shadowing:addVideoModal.publicOption')}
                     </button>
                     <button
                       type="button"
                       aria-pressed={!isPublic}
                       onClick={() => setIsPublic(false)}
-                      className={`flex-1 min-h-9 text-xs sm:text-sm font-semibold rounded-md transition-colors duration-150 cursor-pointer ${
+                      className={`flex-1 min-h-9 text-xs sm:text-sm font-medium rounded-control transition-colors duration-150 cursor-pointer ${
                         !isPublic
-                          ? 'bg-sky-700 text-white shadow-sm'
+                          ? 'bg-sky-700 text-white'
                           : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
                       }`}
                     >
-                      Riêng tư
+                      {t('shadowing:addVideoModal.privateOption')}
                     </button>
                   </div>
                 </div>
@@ -434,13 +502,17 @@ export default function AddVideoModal({
               <Button
                 type="button"
                 variant="primary"
-                size="lg"
+                size="md"
                 disabled={isSubmitting}
                 onClick={handleCreateVideo}
-                className="justify-center font-bold mt-1"
+                className="justify-center mt-1"
               >
-                <CheckCircleIcon className="w-5 h-5" aria-hidden="true" />
-                <span>{isSubmitting ? 'Đang lưu bài học...' : 'Lưu và bắt đầu học ngay'}</span>
+                <CheckCircleIcon className="w-4 h-4" aria-hidden="true" />
+                <span>
+                  {isSubmitting
+                    ? t('shadowing:addVideoModal.submitting')
+                    : t('shadowing:addVideoModal.submitAction')}
+                </span>
               </Button>
             </div>
           )}

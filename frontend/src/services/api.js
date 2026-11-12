@@ -1,3 +1,5 @@
+import i18n, { getActiveLanguage } from '../i18n';
+
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 const TOKEN_KEY = 'jb_auth_token';
 
@@ -20,6 +22,7 @@ export function clearStoredToken() {
 async function request(endpoint, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
+    'Accept-Language': getActiveLanguage(),
     ...(options.headers || {}),
   };
 
@@ -45,10 +48,16 @@ async function request(endpoint, options = {}) {
   }
 
   if (!response.ok) {
-    let errorMessage = `Yêu cầu thất bại với mã lỗi ${response.status}`;
+    let errorMessage = i18n.t('errors:httpFallback', { status: response.status });
     if (data) {
       if (typeof data.detail === 'string') {
         errorMessage = data.detail;
+      } else if (
+        data.detail &&
+        typeof data.detail === 'object' &&
+        typeof data.detail.detail === 'string'
+      ) {
+        errorMessage = data.detail.detail;
       } else if (Array.isArray(data.non_field_errors)) {
         errorMessage = data.non_field_errors.join(' ');
       } else if (typeof data === 'object') {
@@ -107,6 +116,13 @@ export async function logout() {
 export async function fetchCurrentUser() {
   return request('/auth/me/', {
     method: 'GET',
+  });
+}
+
+export async function updatePreferredLanguage(preferred_language) {
+  return request('/auth/me/', {
+    method: 'PATCH',
+    body: JSON.stringify({ preferred_language }),
   });
 }
 

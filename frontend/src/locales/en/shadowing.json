@@ -1,0 +1,235 @@
+{
+  "pageTitles": {
+    "library": "Shadowing Practice — JB Learn App",
+    "workspace": "{{title}} — Shadowing — JB Learn App",
+    "workspaceFallback": "Shadowing Practice — JB Learn App"
+  },
+  "topics": {
+    "all": "All",
+    "allTopics": "All topics",
+    "life": "Daily Life",
+    "conversation": "Conversation",
+    "business": "Business",
+    "news": "News",
+    "culture": "Culture",
+    "general": "General"
+  },
+  "levels": {
+    "all": "All",
+    "allLevels": "All levels"
+  },
+  "sources": {
+    "all": "All sources",
+    "youtube": "YouTube",
+    "upload": "Uploaded file"
+  },
+  "modes": {
+    "shadowing": "Shadowing",
+    "pronunciation": "Pronunciation",
+    "listening": "Listening",
+    "exercise": "Exercises"
+  },
+  "library": {
+    "blockedRoleTitle": "Module unavailable for current role",
+    "blockedMaintenanceTitle": "Shadowing Practice is paused",
+    "blockedRoleDesc": "Your account does not currently have permission to access the Shadowing Practice module.",
+    "blockedMaintenanceFallback": "The Shadowing listening & speaking module is currently unavailable.",
+    "loadError": "Could not load Shadowing videos.",
+    "stats": {
+      "videos": "Videos",
+      "practicedSegments": "Practiced Lines",
+      "completion": "Completed"
+    },
+    "filters": {
+      "topicLabel": "Topic:",
+      "levelLabel": "Level:",
+      "searchAria": "Search Shadowing videos",
+      "searchPlaceholder": "Search videos...",
+      "clearSearchAria": "Clear search query",
+      "filterAria": "Filters",
+      "removeFilterAria": "Remove {{label}} filter",
+      "clearAll": "Clear filters"
+    },
+    "empty": {
+      "title": "No matching Shadowing videos found",
+      "description": "Try changing your topic filter or add a new lesson from YouTube or your own audio/video file.",
+      "actionLabel": "Add Video"
+    }
+  },
+  "hero": {
+    "continueHeading": "Continue learning progress",
+    "latestFallback": "Recent Shadowing lesson",
+    "emptyTitle": "No Shadowing lessons yet",
+    "addAria": "Add Video or Audio",
+    "addShort": "Add lesson",
+    "addFull": "Add Video / Audio",
+    "segmentStatus": "Segment {{num}} · {{status}}",
+    "inProgress": "In progress",
+    "ready": "Ready to practice",
+    "resumeCta": "Continue Shadowing"
+  },
+  "videoCard": {
+    "segmentsCount": "{{count}} lines",
+    "notPracticed": "Not practiced",
+    "progressAria": "{{percent}}% completed"
+  },
+  "filterSheet": {
+    "dialogAria": "Shadowing Filters",
+    "title": "Filters",
+    "closeAria": "Close filters",
+    "topicLabel": "Topic",
+    "levelLabel": "JLPT Level",
+    "sourceLabel": "Source",
+    "reset": "Reset",
+    "apply": "Apply"
+  },
+  "addVideoModal": {
+    "title": "Add New Shadowing Lesson",
+    "closeAria": "Close form",
+    "youtubeTab": "YouTube URL",
+    "uploadTab": "Upload File",
+    "youtubeUrlLabel": "YouTube Video URL",
+    "mediaFileLabel": "Audio or Video File",
+    "extracting": "Extracting transcript...",
+    "extractAction": "Auto-extract Transcript",
+    "extractedSummary": "Extracted {{segments}} transcript lines & {{exercises}} exercises",
+    "titleLabel": "Lesson Title *",
+    "titleEnLabel": "English Title",
+    "titleEnPlaceholder": "Optional: title shown when the interface is set to English...",
+    "topicLabel": "Topic",
+    "levelLabel": "JLPT Level",
+    "visibilityLabel": "Visibility",
+    "publicOption": "Public",
+    "privateOption": "Private",
+    "submitting": "Saving lesson...",
+    "submitAction": "Save & Start Practicing",
+    "errors": {
+      "missingYoutubeUrl": "Please enter a YouTube URL.",
+      "missingMediaFile": "Please choose an audio or video file to upload.",
+      "extractFailed": "Automatic transcript extraction failed.",
+      "missingTitle": "Please enter a title for the Shadowing lesson.",
+      "createFailed": "Could not create the video lesson."
+    }
+  },
+  "workspace": {
+    "loadError": "Could not load this Shadowing video.",
+    "notFoundTitle": "Shadowing lesson not found",
+    "notFoundDesc": "This video may have been deleted or you do not have access.",
+    "backToLibrary": "Back to Library",
+    "backToLibraryAria": "Back to Shadowing library",
+    "modesTabAria": "Shadowing practice modes"
+  },
+  "controls": {
+    "subtitle": "Subtitles",
+    "translation": "Translation",
+    "furigana": "Furigana",
+    "speedGroupAria": "Playback speed",
+    "loopSentenceAria": "Loop current sentence",
+    "loopSentenceShort": "Loop",
+    "favoriteAria": "Favorite this lesson",
+    "unfavoriteAria": "Remove from favorites",
+    "toggleTranscriptAria": "Toggle transcript panel",
+    "showTranscript": "Show transcript panel",
+    "hideTranscript": "Hide transcript panel"
+  },
+  "transcriptPanel": {
+    "title": "Transcript ({{count}})",
+    "exportTitle": "Download transcript (.txt)",
+    "exportAria": "Download transcript",
+    "enableBilingual": "Enable bilingual translation",
+    "disableBilingual": "Disable bilingual translation",
+    "toggleBilingualAria": "Toggle bilingual display",
+    "closeAria": "Close transcript panel"
+  },
+  "shadowingStage": {
+    "tokenHint": "Click to look up word & save to deck",
+    "emptySubtitle": "Play the video to show synchronized subtitles"
+  },
+  "wordPopover": {
+    "dialogAria": "Vocabulary details",
+    "closeAria": "Close dictionary popover",
+    "speakAria": "Pronounce this word",
+    "meaningLabel": "Meaning",
+    "noMeaning": "No detailed translation yet",
+    "savedButton": "Saved to deck",
+    "savingButton": "Saving...",
+    "saveButton": "Save to deck",
+    "saveError": "Could not save card. Please sign in to sync!"
+  },
+  "pronunciation": {
+    "noData": "No transcript segments available for this video.",
+    "sentenceCounter": "Line {{current}} / {{total}}",
+    "micError": "Unable to access microphone. Please allow recording permission in your browser.",
+    "startRecording": "Start Recording",
+    "stopRecording": "Stop & Score Pronunciation",
+    "nativeAudio": "Native Audio",
+    "yourRecording": "Your Recording",
+    "playing": "Playing...",
+    "play": "Listen",
+    "scoreLabel": "Pronunciation score: {{score}}%",
+    "ratings": {
+      "veryGood": "Excellent",
+      "good": "Good",
+      "needsPractice": "Needs practice"
+    },
+    "recognizedLabel": "Recognized:",
+    "prevAria": "Previous line",
+    "nextAria": "Next line"
+  },
+  "listening": {
+    "noData": "No listening exercise data available for this video.",
+    "sentenceCounter": "Question {{current}} / {{total}}",
+    "playingAudio": "Playing audio...",
+    "listenAudio": "Play Audio",
+    "correctMatch": "Correct! The missing word is \"{{word}}\".",
+    "incorrectMatch": "Incorrect. The right answer is \"{{word}}\".",
+    "fullSentenceLabel": "Full sentence: ",
+    "translationLabel": "Translation:",
+    "prevAria": "Previous question",
+    "nextAria": "Next question"
+  },
+  "exercise": {
+    "completedTitle": "Exercises Completed",
+    "retryButton": "Retry Exercises",
+    "questionCounter": "Question {{current}} / {{total}}",
+    "pauseDialogue": "Pause Dialogue",
+    "listenDialogue": "Listen to Dialogue",
+    "correctBadge": "Correct!",
+    "incorrectBadge": "Incorrect!",
+    "explanationLabel": "Explanation: ",
+    "prevAria": "Previous question",
+    "nextAria": "Next question",
+    "defaultQuestions": [
+      {
+        "id": 1,
+        "question": "What is the main topic discussed in this video?",
+        "options": [
+          "How to manage and use money wisely",
+          "Methods for learning a foreign language quickly",
+          "Traveling around Japan",
+          "Cooking traditional dishes"
+        ],
+        "correct_index": 0,
+        "explanation": "The video shares perspectives and habits for personal financial management.",
+        "fallbackStart": 0
+      },
+      {
+        "id": 2,
+        "question": "What does the speaker emphasize regarding daily spending?",
+        "options": [
+          "Spending impulsively based on emotion",
+          "Clearly distinguishing between waste and self-investment",
+          "Never buying anything at all",
+          "Only borrowing money from friends"
+        ],
+        "correct_index": 1,
+        "explanation": "The speaker advises thinking carefully before buying to avoid waste (無駄遣い).",
+        "fallbackStart": 10
+      }
+    ]
+  },
+  "player": {
+    "youtubeError": "YouTube playback error (code {{code}})",
+    "youtubeApiLoadError": "Unable to load YouTube Player API."
+  }
+}

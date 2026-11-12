@@ -5,6 +5,7 @@ import {
   InformationCircleIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { useTranslation } from 'react-i18next';
 import { ToastContext } from '../../context/useToast';
 
 const TOAST_STYLES = {
@@ -26,18 +27,30 @@ const TOAST_STYLES = {
 };
 
 export function ToastProvider({ children }) {
+  const { t } = useTranslation('common');
   const [toasts, setToasts] = useState([]);
 
   const dismissToast = useCallback((id) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
-  const showToast = useCallback((message, type = 'info') => {
-    if (!message) return;
+  const showToast = useCallback((messageOrPayload, type = 'info') => {
+    const isObjectPayload =
+      typeof messageOrPayload === 'object' && messageOrPayload !== null;
+    const resolvedMessage = isObjectPayload
+      ? messageOrPayload.message
+      : messageOrPayload;
+    const resolvedType = isObjectPayload
+      ? messageOrPayload.type || type
+      : type;
+    if (!resolvedMessage) return;
     const id = `${Date.now()}-${Math.random()}`;
-    setToasts((prev) => [...prev.slice(-2), { id, message, type }]);
+    setToasts((prev) => [
+      ...prev.slice(-2),
+      { id, message: String(resolvedMessage), type: resolvedType },
+    ]);
     setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
+      setToasts((prev) => prev.filter((item) => item.id !== id));
     }, 3200);
   }, []);
 
@@ -49,27 +62,29 @@ export function ToastProvider({ children }) {
           className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"
           aria-live="polite"
         >
-          {toasts.map((t) => {
-            const cfg = TOAST_STYLES[t.type] || TOAST_STYLES.info;
+          {toasts.map((toastItem) => {
+            const cfg = TOAST_STYLES[toastItem.type] || TOAST_STYLES.info;
             const Icon = cfg.icon;
             return (
               <div
-                key={t.id}
+                key={toastItem.id}
                 role="status"
-                className={`pointer-events-auto flex items-center justify-between gap-3 px-4 py-3 rounded-xl border shadow-lg transition-colors duration-150 ${cfg.box}`}
+                className={`pointer-events-auto flex items-center justify-between gap-3 px-4 py-3 rounded-surface border shadow-sm transition-colors duration-150 ${cfg.box}`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <Icon
                     className={`w-5 h-5 shrink-0 ${cfg.iconCls}`}
                     aria-hidden="true"
                   />
-                  <span className="text-sm font-medium">{t.message}</span>
+                  <span className="text-sm font-medium">
+                    {toastItem.message}
+                  </span>
                 </div>
                 <button
                   type="button"
-                  onClick={() => dismissToast(t.id)}
-                  aria-label="Đóng thông báo"
-                  className="w-7 h-7 inline-flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500 cursor-pointer"
+                  onClick={() => dismissToast(toastItem.id)}
+                  aria-label={t('toast.dismiss')}
+                  className="w-7 h-7 inline-flex items-center justify-center rounded-control hover:bg-slate-100 text-slate-500 cursor-pointer"
                 >
                   <XMarkIcon className="w-4 h-4" aria-hidden="true" />
                 </button>

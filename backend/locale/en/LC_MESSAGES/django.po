@@ -1,0 +1,444 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: JB Learn App\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-11-12 01:53+0700\n"
+"PO-Revision-Date: 2026-11-12 01:55+0700\n"
+"Last-Translator: JB Learn App\n"
+"Language-Team: English\n"
+"Language: en\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: cards/anki.py:51
+msgid "Giá trị đánh giá (rating) không hợp lệ."
+msgstr "Invalid rating value."
+
+#: cards/anki.py:59
+msgid "Giá trị rating không hợp lệ. Chấp nhận: 1-4, 'again', 'hard', 'good', 'easy', 'learned', 'remembered', 'mastered', 'unseen'."
+msgstr "Invalid rating value. Accepted: 1-4, 'again', 'hard', 'good', 'easy', 'learned', 'remembered', 'mastered', 'unseen'."
+
+#: cards/anki.py:190
+#, python-format
+msgid "%(count)s phút"
+msgstr "%(count)s min"
+
+#: cards/anki.py:192
+#, python-format
+msgid "%(count)s giờ"
+msgstr "%(count)s hr"
+
+#: cards/anki.py:196
+#, python-format
+msgid "%(count)s ngày"
+msgstr "%(count)s days"
+
+#: cards/anki.py:199
+#, python-format
+msgid "%(count)s tháng"
+msgstr "%(count)s mos"
+
+#: cards/anki.py:201
+#, python-format
+msgid "%(count)s năm"
+msgstr "%(count)s yrs"
+
+#: cards/anki.py:452 cards/serializers.py:424
+msgid "Chưa học"
+msgstr "Unseen"
+
+#: cards/serializers.py:94 users/serializers.py:236
+msgid "Tên người dùng không được để trống."
+msgstr "Username cannot be empty."
+
+#: cards/serializers.py:96 users/serializers.py:241
+msgid "Tên người dùng này đã tồn tại."
+msgstr "This username is already taken."
+
+#: cards/serializers.py:102 users/serializers.py:247
+msgid "Email không được để trống."
+msgstr "Email cannot be empty."
+
+#: cards/serializers.py:104 users/serializers.py:252
+msgid "Email này đã được sử dụng."
+msgstr "This email is already in use."
+
+#: cards/serializers.py:109 users/serializers.py:257 users/serializers.py:315
+msgid "Mật khẩu phải chứa ít nhất 8 ký tự."
+msgstr "Password must be at least 8 characters long."
+
+#: cards/serializers.py:141
+msgid "Vui lòng nhập tên đăng nhập/email và mật khẩu."
+msgstr "Please enter your username/email and password."
+
+#: cards/serializers.py:150
+msgid "Tên đăng nhập/email hoặc mật khẩu không chính xác."
+msgstr "Incorrect username/email or password."
+
+#: cards/serializers.py:154
+msgid "Tài khoản đã bị khóa."
+msgstr "Account has been deactivated."
+
+#: cards/serializers.py:209 cards/serializers.py:314
+msgid "Trường translations phải là một đối tượng JSON hợp lệ."
+msgstr "The translations field must be a valid JSON object."
+
+#: cards/serializers.py:233 cards/serializers.py:333
+#: shadowing/serializers.py:153 shadowing/serializers.py:279
+#: users/serializers.py:393
+msgid "Hệ thống"
+msgstr "System"
+
+#: cards/serializers.py:386
+msgid "Không thể thêm thẻ vào khoá học riêng tư của người khác."
+msgstr "Cannot add cards to another user's private course."
+
+#: cards/views.py:47
+msgid "Chức năng đăng ký tài khoản mới hiện đang tạm đóng."
+msgstr "New account registration is currently disabled."
+
+#: cards/views.py:88
+msgid "Đăng xuất thành công."
+msgstr "Signed out successfully."
+
+#: cards/views.py:126
+msgid "Ngôn ngữ không hợp lệ. Chỉ hỗ trợ: vi, en."
+msgstr "Invalid language. Supported languages: vi, en."
+
+#: cards/views.py:470
+msgid "Trường 'reviews' phải là một đối tượng (dict)."
+msgstr "The 'reviews' field must be a dictionary object."
+
+#: shadowing/models.py:37
+msgid "Đời sống & Thường nhật"
+msgstr "Daily Life"
+
+#: shadowing/models.py:38
+msgid "Công sở & Kinh doanh"
+msgstr "Business & Workplace"
+
+#: shadowing/models.py:39
+msgid "Giao tiếp tự nhiên"
+msgstr "Natural Conversation"
+
+#: shadowing/models.py:40
+msgid "Tin tức & Xã hội"
+msgstr "News & Society"
+
+#: shadowing/models.py:41
+msgid "Văn hoá & Đời sống Nhật"
+msgstr "Japanese Culture"
+
+#: shadowing/models.py:52
+msgid "Tải lên tệp media"
+msgstr "Media upload"
+
+#: shadowing/serializers.py:34
+msgid "Thời điểm kết thúc (end) phải lớn hơn thời điểm bắt đầu (start)."
+msgstr "End time (end) must be greater than start time (start)."
+
+#: shadowing/serializers.py:62
+#, python-format
+msgid "correct_index (%(index)s) vượt quá số lượng đáp án (%(total)s)."
+msgstr "correct_index (%(index)s) exceeds the number of options (%(total)s)."
+
+#: shadowing/serializers.py:255
+msgid "translations không phải là chuỗi JSON hợp lệ."
+msgstr "translations is not a valid JSON string."
+
+#: shadowing/serializers.py:261
+msgid "translations phải là một đối tượng JSON hợp lệ."
+msgstr "translations must be a valid JSON object."
+
+#: shadowing/serializers.py:317
+msgid "segments không phải là chuỗi JSON hợp lệ."
+msgstr "segments is not a valid JSON string."
+
+#: shadowing/serializers.py:319
+msgid "segments phải là danh sách phân đoạn."
+msgstr "segments must be a list of transcript segments."
+
+#: shadowing/serializers.py:332
+msgid "exercises không phải là chuỗi JSON hợp lệ."
+msgstr "exercises is not a valid JSON string."
+
+#: shadowing/serializers.py:334
+msgid "exercises phải là danh sách bài tập."
+msgstr "exercises must be a list of exercises."
+
+#: shadowing/services/transcription.py:249
+msgid "Không thể nhận diện YouTube Video ID hợp lệ."
+msgstr "Could not detect a valid YouTube Video ID."
+
+#: shadowing/services/transcription.py:269
+#, python-format
+msgid "Không tìm thấy phụ đề tiếng Nhật cho video YouTube %(video_id)s."
+msgstr "No Japanese subtitles found for YouTube video %(video_id)s."
+
+#: shadowing/services/transcription.py:275
+#, python-format
+msgid "Lỗi khi trích xuất phụ đề YouTube: %(error)s"
+msgstr "Error extracting YouTube transcript: %(error)s"
+
+#: shadowing/services/transcription.py:400
+#, python-format
+msgid ""
+"Từ「%(target)s」trong câu sau có cách đọc Furigana đúng là gì?\n"
+"「%(sentence)s」"
+msgstr ""
+"What is the correct Furigana reading of「%(target)s」in the sentence below?\n"
+"「%(sentence)s」"
+
+#: shadowing/services/transcription.py:406
+#, python-format
+msgid "「%(target)s」được đọc là「%(reading)s」trong ngữ cảnh này."
+msgstr "「%(target)s」is read as「%(reading)s」in this context."
+
+#: shadowing/services/transcription.py:441
+#, python-format
+msgid ""
+"Lắng nghe đoạn âm thanh và điền từ thích hợp vào chỗ trống:\n"
+"「%(sentence)s」"
+msgstr ""
+"Listen to the audio clip and choose the word that fills the blank:\n"
+"「%(sentence)s」"
+
+#: shadowing/services/transcription.py:447
+#, python-format
+msgid "Đáp án chính xác là「%(target)s」(%(reading)s)."
+msgstr "The correct answer is「%(target)s」(%(reading)s)."
+
+#: shadowing/services/transcription.py:464
+#, python-format
+msgid "Nội dung của câu mở đầu「%(sentence)s」là gì?"
+msgstr "What does the opening sentence「%(sentence)s」express?"
+
+#: shadowing/services/transcription.py:467
+msgid "Lời chào hỏi và giới thiệu mở đầu bài học"
+msgstr "Greeting and opening introduction"
+
+#: shadowing/services/transcription.py:468
+msgid "Đưa ra kết luận của bài giảng"
+msgstr "Closing summary of the talk"
+
+#: shadowing/services/transcription.py:469
+msgid "Đặt câu hỏi kiểm tra ngữ pháp"
+msgstr "Grammar quiz question"
+
+#: shadowing/services/transcription.py:470
+msgid "Tạm biệt người nghe"
+msgstr "Saying goodbye to listeners"
+
+#: shadowing/services/transcription.py:474
+msgid "Câu mở đầu dùng để chào hỏi và bắt đầu chủ đề buổi nói chuyện."
+msgstr "The opening line greets listeners and introduces the topic."
+
+#: shadowing/views.py:80
+msgid "Vai trò của bạn chưa được cấp quyền thêm hoặc trích xuất bài Shadowing."
+msgstr "Your role does not have permission to add or extract Shadowing lessons."
+
+#: shadowing/views.py:211
+msgid "youtube_url phải là chuỗi hợp lệ."
+msgstr "youtube_url must be a valid string."
+
+#: shadowing/views.py:219
+msgid "Vui lòng cung cấp youtube_url hoặc tải lên tệp media_file."
+msgstr "Please provide a youtube_url or upload a media_file."
+
+#: shadowing/views.py:229
+msgid "Không thể nhận diện YouTube Video ID từ liên kết được cung cấp."
+msgstr "Could not detect a YouTube Video ID from the provided URL."
+
+#: shadowing/views.py:278 shadowing/views.py:287
+msgid "Tệp âm thanh / video không hợp lệ hoặc không có dữ liệu âm thanh để xử lý."
+msgstr "Invalid audio/video file or no audio stream available to process."
+
+#: shadowing/views.py:289
+#, python-format
+msgid "Quá trình trích xuất phụ đề thất bại: %(error)s"
+msgstr "Transcript extraction failed: %(error)s"
+
+#: shadowing/views.py:317
+msgid "current_segment_index phải là số nguyên không âm."
+msgstr "current_segment_index must be a non-negative integer."
+
+#: shadowing/views.py:323
+msgid "current_segment_index vượt quá giới hạn cho phép."
+msgstr "current_segment_index exceeds the allowed limit."
+
+#: shadowing/views.py:338
+msgid "Giá trị ratings không hợp lệ. Các giá trị hợp lệ là: 'learned', 'remembered', 'mastered'."
+msgstr "Invalid ratings value. Allowed values: 'learned', 'remembered', 'mastered'."
+
+#: shadowing/views.py:340
+msgid "Giá trị ratings không hợp lệ."
+msgstr "Invalid ratings value."
+
+#: users/permissions.py:97
+msgid "Bạn không có quyền truy cập khu vực quản trị."
+msgstr "You do not have permission to access the admin area."
+
+#: users/permissions.py:121
+msgid "Tài khoản của bạn không có quyền thực hiện thao tác này."
+msgstr "Your account does not have permission to perform this action."
+
+#: users/rbac.py:259
+msgid "Đăng ký tài khoản mới"
+msgstr "New user registration"
+
+#: users/rbac.py:268
+msgid "Học không cần đăng nhập"
+msgstr "Guest learning mode"
+
+#: users/rbac.py:277
+msgid "Khoá học"
+msgstr "Courses"
+
+#: users/rbac.py:287
+msgid "Học thẻ"
+msgstr "Study Cards"
+
+#: users/rbac.py:297
+msgid "Bộ thẻ của tôi"
+msgstr "My Decks"
+
+#: users/rbac.py:307
+msgid "Luyện Shadowing"
+msgstr "Shadowing Practice"
+
+#: users/rbac.py:317
+msgid "Chế độ Phát âm"
+msgstr "Pronunciation Mode"
+
+#: users/rbac.py:327
+msgid "Chế độ Luyện nghe"
+msgstr "Listening Mode"
+
+#: users/rbac.py:337
+msgid "Chế độ Bài tập"
+msgstr "Exercise Mode"
+
+#: users/rbac.py:347
+msgid "Thêm bài & Trích xuất phụ đề"
+msgstr "Add Lesson & Transcript Extraction"
+
+#: users/rbac.py:796
+#, python-format
+msgid "Vui lòng đăng nhập bằng tài khoản được cấp quyền để truy cập \"%(label)s\"."
+msgstr "Please sign in with an authorized account to access \"%(label)s\"."
+
+#: users/rbac.py:801
+#, python-format
+msgid "Vai trò hiện tại không được cấp quyền truy cập phân hệ \"%(label)s\"."
+msgstr "Your current role does not have access to \"%(label)s\"."
+
+#: users/rbac.py:818
+#, python-format
+msgid "Tính năng \"%(label)s\" hiện đang tạm ngưng."
+msgstr "\"%(label)s\" is temporarily unavailable."
+
+#: users/rbac.py:839
+msgid "Chế độ học không cần đăng nhập hiện đang tạm ngưng. Vui lòng đăng nhập để tiếp tục."
+msgstr "Guest learning mode is temporarily unavailable. Please sign in to continue."
+
+#: users/rbac.py:907
+msgid "Vai trò của bạn hiện chưa được cấp quyền xem phân hệ này."
+msgstr "Your role does not have view permission for this module."
+
+#: users/serializers.py:68
+msgid "Tên vai trò không được để trống."
+msgstr "Role name cannot be empty."
+
+#: users/serializers.py:73
+msgid "Danh sách quyền phải là một mảng."
+msgstr "Permissions must be a list."
+
+#: users/serializers.py:79
+#, python-format
+msgid "Mã quyền không hợp lệ: %(codes)s"
+msgstr "Invalid permission codes: %(codes)s"
+
+#: users/serializers.py:85
+msgid "Danh sách phân hệ phải là một mảng."
+msgstr "Visible modules must be a list."
+
+#: users/serializers.py:89
+#, python-format
+msgid "Mã phân hệ không hợp lệ: %(keys)s"
+msgstr "Invalid module keys: %(keys)s"
+
+#: users/serializers.py:101
+msgid "Không thể thay đổi mã của vai trò mặc định hệ thống."
+msgstr "Cannot change the slug of a built-in system role."
+
+#: users/serializers.py:108 users/serializers.py:125
+msgid "Mã vai trò này đã tồn tại."
+msgstr "This role slug already exists."
+
+#: users/serializers.py:270
+msgid "Vai trò được chọn không tồn tại."
+msgstr "Selected role does not exist."
+
+#: users/serializers.py:276
+msgid "Vui lòng nhập mật khẩu cho tài khoản mới."
+msgstr "Please enter a password for the new account."
+
+#: users/views.py:438
+msgid "Bạn không có quyền gán vai trò Quản trị viên."
+msgstr "You do not have permission to assign the Administrator role."
+
+#: users/views.py:484
+msgid "Bạn không có quyền thay đổi tài khoản Quản trị viên."
+msgstr "You do not have permission to modify an Administrator account."
+
+#: users/views.py:491 users/views.py:559
+msgid "Bạn không thể tự khóa tài khoản đang đăng nhập."
+msgstr "You cannot deactivate your own currently signed-in account."
+
+#: users/views.py:495
+msgid "Bạn không thể tự thay đổi vai trò của chính mình."
+msgstr "You cannot change your own role."
+
+#: users/views.py:508 users/views.py:569 users/views.py:652
+msgid "Hệ thống phải luôn giữ ít nhất 1 Quản trị viên đang hoạt động."
+msgstr "The system must keep at least 1 active Administrator."
+
+#: users/views.py:553
+msgid "Bạn không có quyền khóa tài khoản Quản trị viên."
+msgstr "You do not have permission to deactivate an Administrator account."
+
+#: users/views.py:602
+msgid "Bạn không có quyền đặt lại mật khẩu Quản trị viên."
+msgstr "You do not have permission to reset an Administrator's password."
+
+#: users/views.py:624
+#, python-format
+msgid "Đã đặt lại mật khẩu cho '%(username)s'."
+msgstr "Password reset for '%(username)s'."
+
+#: users/views.py:636
+msgid "Bạn không thể tự xóa tài khoản đang đăng nhập."
+msgstr "You cannot delete your own currently signed-in account."
+
+#: users/views.py:643
+msgid "Bạn không có quyền xóa tài khoản Quản trị viên."
+msgstr "You do not have permission to delete an Administrator account."
+
+#: users/views.py:835
+msgid "Không thể xóa vai trò mặc định của hệ thống."
+msgstr "Cannot delete a built-in system role."
+
+#: users/views.py:939
+msgid "Tính năng này áp dụng toàn cục, không phân quyền theo vai trò."
+msgstr "This feature applies globally and is not role-scoped."
+
+#: users/views.py:947
+msgid "Danh sách vai trò phải là một mảng hoặc để trống."
+msgstr "Allowed roles must be a list or null."
+
+#: users/views.py:962
+#, python-format
+msgid "Mã vai trò không hợp lệ: %(roles)s"
+msgstr "Invalid role slugs: %(roles)s"

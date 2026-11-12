@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   SpeakerWaveIcon,
   ChevronLeftIcon,
@@ -12,12 +13,14 @@ import Card from '../../ui/Card';
 import Button from '../../ui/Button';
 import Badge from '../../ui/Badge';
 import AnswerOption from '../../ui/AnswerOption';
+import { formatNumber } from '../../../utils/formatters';
 
 export default function ExerciseModeStage({
   video,
   player,
   exercises = [],
 }) {
+  const { t } = useTranslation('shadowing');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [isFinished, setIsFinished] = useState(false);
@@ -30,35 +33,14 @@ export default function ExerciseModeStage({
       return video.exercises;
     }
     const segs = video?.segments || [];
-    return [
-      {
-        id: 1,
-        question: 'Chủ đề chính được thảo luận trong đoạn video này là gì?',
-        options: [
-          'Cách quản lý và sử dụng tiền bạc hợp lý',
-          'Phương pháp học ngoại ngữ nhanh chóng',
-          'Du lịch vòng quanh nước Nhật',
-          'Kỹ năng nấu ăn các món truyền thống',
-        ],
-        correct_index: 0,
-        explanation: 'Video chia sẻ về góc nhìn và tư duy quản lý tài chính cá nhân.',
-        context_timestamp: segs[0]?.start ?? 0,
-      },
-      {
-        id: 2,
-        question: 'Người nói nhấn mạnh điều gì đối với việc chi tiêu hàng ngày?',
-        options: [
-          'Chi tiêu tùy hứng theo cảm xúc',
-          'Phân biệt rõ giữa lãng phí và đầu tư cho bản thân',
-          'Tuyệt đối không mua bất kỳ món đồ nào',
-          'Chỉ vay mượn từ bạn bè',
-        ],
-        correct_index: 1,
-        explanation: 'Người nói khuyên nên suy nghĩ kỹ trước khi mua để tránh lãng phí (無駄遣い).',
-        context_timestamp: segs[4]?.start ?? 10,
-      },
-    ];
-  }, [exercises, video]);
+    const defaults = t('exercise.defaultQuestions', { returnObjects: true });
+    if (!Array.isArray(defaults)) return [];
+    return defaults.map((q, idx) => ({
+      ...q,
+      context_timestamp:
+        (idx === 0 ? segs[0]?.start : segs[4]?.start) ?? q.fallbackStart ?? 0,
+    }));
+  }, [exercises, video, t]);
 
   const currentQuestion = questionList[currentQuestionIndex] || questionList[0];
   const hasAnsweredCurrent = selectedAnswers[currentQuestionIndex] !== undefined;
@@ -117,21 +99,18 @@ export default function ExerciseModeStage({
   if (isFinished) {
     return (
       <div className="flex-1 w-full flex flex-col justify-between gap-3">
-        <Card
-          rounded="2xl"
-          className="flex-1 min-h-[524px] sm:min-h-[622px] p-4 sm:p-8 flex flex-col items-center justify-center text-center gap-5"
-        >
-          <div className="w-16 h-16 rounded-full bg-sky-50 text-sky-700 flex items-center justify-center">
-            <TrophyIcon className="w-8 h-8" aria-hidden="true" />
+        <Card className="flex-1 min-h-[524px] sm:min-h-[622px] p-4 sm:p-6 flex flex-col items-center justify-center text-center gap-5">
+          <div className="w-12 h-12 rounded-surface bg-sky-50 border border-sky-200 text-sky-700 flex items-center justify-center">
+            <TrophyIcon className="w-5 h-5" aria-hidden="true" />
           </div>
 
-          <h2 className="text-xl font-bold text-slate-900">
-            Hoàn thành bài tập
+          <h2 className="text-base sm:text-lg font-semibold text-slate-900">
+            {t('exercise.completedTitle')}
           </h2>
 
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl w-full max-w-md">
-            <div className="text-3xl font-black text-sky-700">
-              {correctCount} / {totalQuestions} ({scorePercent}%)
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-surface w-full max-w-md">
+            <div className="text-2xl sm:text-3xl font-bold text-sky-700 tabular-nums">
+              {formatNumber(correctCount)} / {formatNumber(totalQuestions)} ({scorePercent}%)
             </div>
           </div>
 
@@ -141,7 +120,7 @@ export default function ExerciseModeStage({
             onClick={handleRestart}
           >
             <ArrowPathIcon className="w-4 h-4" aria-hidden="true" />
-            <span>Làm lại bài tập</span>
+            <span>{t('exercise.retryButton')}</span>
           </Button>
         </Card>
       </div>
@@ -150,25 +129,25 @@ export default function ExerciseModeStage({
 
   return (
     <div className="flex-1 w-full flex flex-col justify-between gap-3">
-      <Card
-        rounded="2xl"
-        className="flex-1 min-h-[524px] sm:min-h-[622px] p-4 sm:p-8 flex flex-col justify-between gap-4 sm:gap-6"
-      >
+      <Card className="flex-1 min-h-[524px] sm:min-h-[622px] p-4 sm:p-6 flex flex-col justify-between gap-4 sm:gap-5">
         {/* 1. Card Header (synchronized with PracticeView) */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="lesson">Bài tập</Badge>
+            <Badge variant="lesson">{t('modes.exercise')}</Badge>
             {video?.level && <Badge variant="level">{video.level}</Badge>}
           </div>
 
-          <span className="text-sm font-semibold text-slate-600 shrink-0">
-            Câu {currentQuestionIndex + 1} / {questionList.length}
+          <span className="text-sm font-medium text-slate-600 tabular-nums shrink-0">
+            {t('exercise.questionCounter', {
+              current: formatNumber(currentQuestionIndex + 1),
+              total: formatNumber(questionList.length),
+            })}
           </span>
         </div>
 
         {/* 2. Question Prompt Box (synchronized with PracticeView) */}
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-6 flex flex-col items-center text-center gap-2.5 sm:gap-4">
-          <h3 className="text-base sm:text-xl font-bold text-slate-900 leading-relaxed whitespace-pre-line break-words w-full max-w-2xl">
+        <div className="bg-slate-50 border border-slate-200 rounded-surface p-4 sm:p-6 flex flex-col items-center text-center gap-2.5 sm:gap-4">
+          <h3 className="text-base sm:text-lg font-semibold text-slate-900 leading-relaxed whitespace-pre-line break-words w-full max-w-2xl">
             {currentQuestion.question}
           </h3>
 
@@ -180,7 +159,9 @@ export default function ExerciseModeStage({
           >
             <SpeakerWaveIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>
-              {player?.isPlaying ? 'Tạm dừng hội thoại' : 'Nghe đoạn hội thoại'}
+              {player?.isPlaying
+                ? t('exercise.pauseDialogue')
+                : t('exercise.listenDialogue')}
             </span>
           </Button>
         </div>
@@ -214,30 +195,30 @@ export default function ExerciseModeStage({
 
         {/* 4. Instant Explanation Reveal Card */}
         {hasAnsweredCurrent && currentQuestion.explanation && (
-          <div className="flex flex-col gap-3 pt-4 border-t border-slate-200">
+          <div className="flex flex-col gap-3">
             <div
-              className={`p-3.5 sm:p-4 rounded-xl border flex flex-col gap-1.5 text-left ${
+              className={`p-3.5 sm:p-4 rounded-surface border flex flex-col gap-1.5 text-left ${
                 isCurrentCorrect
                   ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
                   : 'bg-red-50 border-red-200 text-red-950'
               }`}
             >
-              <div className="flex items-center gap-2 font-bold text-sm">
+              <div className="flex items-center gap-2 font-semibold text-sm">
                 {isCurrentCorrect ? (
                   <>
                     <CheckCircleIcon className="w-5 h-5 text-emerald-600 shrink-0" aria-hidden="true" />
-                    <span>Chính xác!</span>
+                    <span>{t('exercise.correctBadge')}</span>
                   </>
                 ) : (
                   <>
                     <XCircleIcon className="w-5 h-5 text-red-600 shrink-0" aria-hidden="true" />
-                    <span>Chưa đúng!</span>
+                    <span>{t('exercise.incorrectBadge')}</span>
                   </>
                 )}
               </div>
 
               <div className="text-xs sm:text-sm text-slate-800 leading-relaxed break-words">
-                <span className="font-bold">Giải thích: </span>
+                <span className="font-semibold">{t('exercise.explanationLabel')}</span>
                 {currentQuestion.explanation}
               </div>
             </div>
@@ -252,9 +233,9 @@ export default function ExerciseModeStage({
           size="sm"
           onClick={handlePrev}
           disabled={currentQuestionIndex === 0}
-          aria-label="Câu trước"
-          title="Câu trước"
-          className="h-9 sm:h-10 sm:w-12 rounded-xl"
+          aria-label={t('exercise.prevAria')}
+          title={t('exercise.prevAria')}
+          className="h-9 sm:h-10 sm:w-12"
         >
           <ChevronLeftIcon className="w-4 h-4" aria-hidden="true" />
         </Button>
@@ -263,9 +244,9 @@ export default function ExerciseModeStage({
           variant="primary"
           size="sm"
           onClick={handleNext}
-          aria-label="Câu tiếp theo"
-          title="Câu tiếp theo"
-          className="h-9 sm:h-10 sm:w-12 rounded-xl"
+          aria-label={t('exercise.nextAria')}
+          title={t('exercise.nextAria')}
+          className="h-9 sm:h-10 sm:w-12"
         >
           <ChevronRightIcon className="w-4 h-4" aria-hidden="true" />
         </Button>

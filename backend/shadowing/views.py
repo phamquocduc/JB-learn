@@ -3,7 +3,11 @@ import tempfile
 from pathlib import Path
 
 from django.db.models import Q
+from django.utils import translation
+from django.utils.translation import gettext as _
 from rest_framework import status, viewsets
+
+from core.i18n import resolve_request_language
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -22,6 +26,11 @@ from shadowing.services.transcription import (
     generate_exercises_from_segments,
     transcribe_audio_offline,
 )
+from users.rbac import (
+    enforce_guest_access,
+    enforce_module_enabled,
+    enforce_view_permission,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,10 +43,58 @@ class ShadowingVideoViewSet(viewsets.ModelViewSet):
 
     permission_classes = [IsOwnerOrReadOnly]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
+    permission_module_prefix = "shadowing"
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
+        enforce_guest_access(request)
+        enforce_module_enabled("shadowing", request.user)
+        has_shadowing_bypass = bool(
+            request.user.is_authenticated
+            and (
+                request.user.has_perm_code("shadowing.create")
+                or request.user.has_perm_code("shadowing.edit")
+            )
+        )
+        if self.action in ("list", "retrieve", "topics", "progress"):
+            enforce_view_permission(
+                request.user,
+                (
+                    "shadowing.view",
+                    "shadowing.view_all",
+                    "shadowing.edit",
+                    "shadowing.delete",
+                ),
+            )
+        if self.action in ("create", "extract_transcript") and not has_shadowing_bypass:
+            enforce_module_enabled("shadowing.extraction", request.user)
+        if (
+            self.action == "extract_transcript"
+            and request.user.is_authenticated
+            and not request.user.has_perm_code("shadowing.create")
+            and not request.user.has_perm_code("shadowing.create_own")
+        ):
+            enforce_view_permission(
+                request.user,
+                ("shadowing.create", "shadowing.create_own"),
+                message=_("Vai trò của bạn chưa được cấp quyền thêm hoặc trích xuất bài Shadowing."),
+            )
 
     def get_queryset(self):
         user = self.request.user
-        qs = ShadowingVideo.objects.visible_to(user).select_related("created_by")
+        is_detail = self.action in ("retrieve", "update", "partial_update", "destroy", "progress")
+        if (
+            is_detail
+            and user
+            and user.is_authenticated
+            and any(
+                user.has_perm_code(code)
+                for code in ("shadowing.view_all", "shadowing.edit", "shadowing.delete")
+            )
+        ):
+            qs = ShadowingVideo.objects.all().select_related("created_by")
+        else:
+            qs = ShadowingVideo.objects.visible_to(user).select_related("created_by")
 
         # Filters
         topic = self.request.query_params.get("topic")
@@ -67,6 +124,8 @@ class ShadowingVideoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(
                 Q(title__icontains=q)
                 | Q(description__icontains=q)
+                | Q(translations__en__title__icontains=q)
+                | Q(translations__en__description__icontains=q)
             )
 
         return qs
@@ -111,18 +170,20 @@ class ShadowingVideoViewSet(viewsets.ModelViewSet):
         user = request.user
         base_qs = ShadowingVideo.objects.visible_to(user)
 
-        for code, label in ShadowingVideo.Topic.choices:
-            count = base_qs.filter(topic=code).count()
-            topics_data.append(
-                {
-                    "id": code,
-                    "code": code,
-                    "slug": code,
-                    "name": label,
-                    "label": label,
-                    "count": count,
-                }
-            )
+        lang = resolve_request_language(request)
+        with translation.override(lang):
+            for code, label in ShadowingVideo.Topic.choices:
+                count = base_qs.filter(topic=code).count()
+                topics_data.append(
+                    {
+                        "id": code,
+                        "code": code,
+                        "slug": code,
+                        "name": str(label),
+                        "label": str(label),
+                        "count": count,
+                    }
+                )
 
         levels_data = [
             {"code": code, "label": label}
@@ -147,21 +208,17 @@ class ShadowingVideoViewSet(viewsets.ModelViewSet):
 
         if youtube_url is not None:
             if not isinstance(youtube_url, str):
+                msg = _("youtube_url phải là chuỗi hợp lệ.")
                 return Response(
-                    {
-                        "detail": "youtube_url phải là chuỗi hợp lệ.",
-                        "error": "youtube_url phải là chuỗi hợp lệ.",
-                    },
+                    {"detail": msg, "error": msg},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             youtube_url = youtube_url.strip()
 
         if not youtube_url and not media_file:
+            msg = _("Vui lòng cung cấp youtube_url hoặc tải lên tệp media_file.")
             return Response(
-                {
-                    "detail": "Vui lòng cung cấp youtube_url hoặc tải lên tệp media_file.",
-                    "error": "Vui lòng cung cấp youtube_url hoặc tải lên tệp media_file.",
-                },
+                {"detail": msg, "error": msg},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -169,11 +226,9 @@ class ShadowingVideoViewSet(viewsets.ModelViewSet):
             if youtube_url:
                 youtube_id = extract_youtube_id(youtube_url)
                 if not youtube_id:
+                    msg = _("Không thể nhận diện YouTube Video ID từ liên kết được cung cấp.")
                     return Response(
-                        {
-                            "detail": "Không thể nhận diện YouTube Video ID từ liên kết được cung cấp.",
-                            "error": "Không thể nhận diện YouTube Video ID từ liên kết được cung cấp.",
-                        },
+                        {"detail": msg, "error": msg},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 segments = extract_youtube_transcript(youtube_id)
@@ -220,7 +275,7 @@ class ShadowingVideoViewSet(viewsets.ModelViewSet):
         except ValueError as exc:
             err_msg = str(exc)
             if any(p in err_msg for p in ("/var/", "/tmp", "Invalid data found")):
-                err_msg = "Tệp âm thanh / video không hợp lệ hoặc không có dữ liệu âm thanh để xử lý."
+                err_msg = _("Tệp âm thanh / video không hợp lệ hoặc không có dữ liệu âm thanh để xử lý.")
             return Response(
                 {"detail": err_msg, "error": err_msg},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -229,9 +284,11 @@ class ShadowingVideoViewSet(viewsets.ModelViewSet):
             logger.exception("Transcription extraction failed: %s", exc)
             err_msg = str(exc)
             if any(p in err_msg for p in ("/var/", "/tmp", "Invalid data found")):
-                err_msg = "Tệp âm thanh / video không hợp lệ hoặc không có dữ liệu âm thanh để xử lý."
+                err_msg = _("Tệp âm thanh / video không hợp lệ hoặc không có dữ liệu âm thanh để xử lý.")
             else:
-                err_msg = f"Quá trình trích xuất phụ đề thất bại: {err_msg}"
+                err_msg = _("Quá trình trích xuất phụ đề thất bại: %(error)s") % {
+                    "error": err_msg
+                }
             return Response(
                 {"detail": err_msg, "error": err_msg},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -243,7 +300,7 @@ class ShadowingVideoViewSet(viewsets.ModelViewSet):
         video = self.get_object()
         user = request.user
 
-        progress_obj, _ = UserShadowingProgress.objects.get_or_create(
+        progress_obj, _created = UserShadowingProgress.objects.get_or_create(
             user=user,
             video=video,
         )
@@ -257,19 +314,15 @@ class ShadowingVideoViewSet(viewsets.ModelViewSet):
                     or not isinstance(current_segment_index, int)
                     or current_segment_index < 0
                 ):
+                    msg = _("current_segment_index phải là số nguyên không âm.")
                     return Response(
-                        {
-                            "detail": "current_segment_index phải là số nguyên không âm.",
-                            "error": "current_segment_index phải là số nguyên không âm.",
-                        },
+                        {"detail": msg, "error": msg},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 if current_segment_index > 2147483647:
+                    msg = _("current_segment_index vượt quá giới hạn cho phép.")
                     return Response(
-                        {
-                            "detail": "current_segment_index vượt quá giới hạn cho phép.",
-                            "error": "current_segment_index vượt quá giới hạn cho phép.",
-                        },
+                        {"detail": msg, "error": msg},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 progress_obj.current_segment_index = current_segment_index
@@ -281,8 +334,10 @@ class ShadowingVideoViewSet(viewsets.ModelViewSet):
                     if invalid_values:
                         return Response(
                             {
-                                "detail": "Giá trị ratings không hợp lệ. Các giá trị hợp lệ là: 'learned', 'remembered', 'mastered'.",
-                                "error": "Giá trị ratings không hợp lệ.",
+                                "detail": _(
+                                    "Giá trị ratings không hợp lệ. Các giá trị hợp lệ là: 'learned', 'remembered', 'mastered'."
+                                ),
+                                "error": _("Giá trị ratings không hợp lệ."),
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )

@@ -5,14 +5,12 @@ import {
   useOutletContext,
   useSearchParams,
 } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   PlusIcon,
   PencilSquareIcon,
   TrashIcon,
   BookOpenIcon,
-  RectangleStackIcon,
-  CheckCircleIcon,
-  ArrowRightIcon,
   ChevronRightIcon,
   LanguageIcon,
   AcademicCapIcon,
@@ -26,8 +24,14 @@ import Dropdown from '../components/ui/Dropdown';
 import Skeleton from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
 import { useAuth } from '../context/useAuth';
+import { useSystemConfig } from '../context/useSystemConfig';
 import { useToast } from '../context/useToast';
-import { CARD_TYPES, CARD_TYPE_LABELS, JLPT_LEVELS } from '../constants/cards';
+import {
+  getCardTypeLabel,
+  getCardTypeOptions,
+  JLPT_LEVELS,
+} from '../constants/cards';
+import { formatNumber } from '../utils/formatters';
 import {
   fetchCourses,
   fetchCards,
@@ -46,27 +50,27 @@ import {
 } from '../services/studyProgress';
 
 const FILTER_TABS = [
-  { id: 'all', label: 'Tất cả' },
-  { id: 'learning', label: 'Đang học' },
-  { id: 'unseen', label: 'Chưa học' },
+  { id: 'all', labelKey: 'study:courses.filters.all' },
+  { id: 'learning', labelKey: 'study:courses.filters.learning' },
+  { id: 'unseen', labelKey: 'study:courses.filters.unseen' },
 ];
 
 function getCourseVisual(cardType) {
   if (cardType === 'vocabulary') {
     return {
       icon: LanguageIcon,
-      boxClass: 'bg-emerald-100/80 text-emerald-700',
+      boxClass: 'bg-emerald-50 border border-emerald-200 text-emerald-700',
     };
   }
   if (cardType === 'kanji') {
     return {
       icon: AcademicCapIcon,
-      boxClass: 'bg-sky-100/80 text-sky-700',
+      boxClass: 'bg-sky-50 border border-sky-200 text-sky-700',
     };
   }
   return {
     icon: BookOpenIcon,
-    boxClass: 'bg-sky-100/80 text-sky-700',
+    boxClass: 'bg-sky-50 border border-sky-200 text-sky-700',
   };
 }
 
@@ -78,8 +82,49 @@ export default function CoursesPage() {
   const hasLegacyStudyParams = Boolean(
     searchParams.get('course') || searchParams.get('status')
   );
-  const { user, isGuest, loading: authLoading } = useAuth();
+  const {
+    user,
+    isGuest,
+    loading: authLoading,
+    hasPermission,
+    hasAnyPermission,
+  } = useAuth();
+  const { isModuleEnabled, getModuleBlockReason, getModuleInfo } =
+    useSystemConfig();
   const { showToast } = useToast();
+  const { t, i18n } = useTranslation(['study', 'common']);
+
+  useEffect(() => {
+    document.title = t('study:pageTitles.courses');
+  }, [t]);
+
+  const coursesModuleEnabled = isModuleEnabled('courses');
+  const canViewCourses = Boolean(
+    coursesModuleEnabled &&
+      (isGuest ||
+        hasAnyPermission([
+          'courses.view',
+          'courses.view_all',
+          'courses.edit',
+          'courses.delete',
+        ]))
+  );
+  const cardsModuleEnabled = isModuleEnabled('study.cards');
+  const canViewCards = Boolean(
+    cardsModuleEnabled &&
+      (isGuest ||
+        hasAnyPermission([
+          'cards.view',
+          'cards.view_all',
+          'cards.edit',
+          'cards.delete',
+        ]))
+  );
+  const canCreateCourse = Boolean(
+    !isGuest &&
+      user &&
+      (hasPermission('courses.create') || hasPermission('courses.create_own'))
+  );
 
   const [courses, setCourses] = useState([]);
   const [cards, setCards] = useState([]);
@@ -91,8 +136,11 @@ export default function CoursesPage() {
   // Course form state
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
+  const [contentLang, setContentLang] = useState('vi');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [enTitle, setEnTitle] = useState('');
+  const [enDescription, setEnDescription] = useState('');
   const [level, setLevel] = useState('N3');
   const [cardType, setCardType] = useState('grammar');
   const [isPublic, setIsPublic] = useState(true);
@@ -107,13 +155,13 @@ export default function CoursesPage() {
   const lastSession = useMemo(() => getLastStudySession(user), [user]);
 
   const reloadCourses = useCallback(async () => {
-    if (authLoading) return;
+    if (authLoading || !canViewCourses) return;
     setLoading(true);
     setError(null);
     try {
       const [coursesData, cardsData] = await Promise.all([
         fetchCourses(),
-        fetchCards().catch(() => ({ results: [] })),
+        canViewCards ? fetchCards().catch(() => ({ results: [] })) : Promise.resolve({ results: [] }),
       ]);
       setCourses(Array.isArray(coursesData) ? coursesData : []);
       const loadedCards = Array.isArray(cardsData?.results)
@@ -150,18 +198,18 @@ export default function CoursesPage() {
         }
       }
     } catch {
-      setError('Không thể tải danh sách khoá học.');
+      setError(t('study:courses.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [authLoading, isGuest, user, userStorageKey]);
+  }, [authLoading, canViewCards, canViewCourses, isGuest, t, user, userStorageKey]);
 
   useEffect(() => {
-    if (authLoading || hasLegacyStudyParams) return;
+    if (authLoading || hasLegacyStudyParams || !canViewCourses) return;
     let ignore = false;
     Promise.all([
       fetchCourses(),
-      fetchCards().catch(() => ({ results: [] })),
+      canViewCards ? fetchCards().catch(() => ({ results: [] })) : Promise.resolve({ results: [] }),
     ])
       .then(([coursesData, cardsData]) => {
         if (!ignore) {
@@ -204,7 +252,7 @@ export default function CoursesPage() {
       })
       .catch(() => {
         if (!ignore) {
-          setError('Không thể tải danh sách khoá học.');
+          setError(t('study:courses.loadError'));
         }
       })
       .finally(() => {
@@ -216,7 +264,17 @@ export default function CoursesPage() {
     return () => {
       ignore = true;
     };
-  }, [authLoading, hasLegacyStudyParams, isGuest, user, userStorageKey]);
+  }, [
+    authLoading,
+    canViewCards,
+    canViewCourses,
+    hasLegacyStudyParams,
+    isGuest,
+    user,
+    userStorageKey,
+    i18n.language,
+    t,
+  ]);
 
   useEffect(() => {
     if (!isFormOpen) return undefined;
@@ -350,8 +408,11 @@ export default function CoursesPage() {
 
   const handleOpenCreate = () => {
     setEditingCourse(null);
+    setContentLang('vi');
     setTitle('');
     setDescription('');
+    setEnTitle('');
+    setEnDescription('');
     setLevel('N3');
     setCardType('grammar');
     setIsPublic(true);
@@ -361,8 +422,13 @@ export default function CoursesPage() {
 
   const handleOpenEdit = (course) => {
     setEditingCourse(course);
-    setTitle(course.title || '');
-    setDescription(course.description || '');
+    setContentLang('vi');
+    setTitle(course.source_values?.title ?? course.title ?? '');
+    setDescription(
+      course.source_values?.description ?? course.description ?? ''
+    );
+    setEnTitle(course.translations?.en?.title || '');
+    setEnDescription(course.translations?.en?.description || '');
     setLevel(course.level || 'N3');
     setCardType(course.card_type || 'grammar');
     setIsPublic(course.is_public ?? true);
@@ -373,30 +439,49 @@ export default function CoursesPage() {
   const handleSubmitCourse = async (e) => {
     e.preventDefault();
     if (!title.trim()) {
-      setFormError('Vui lòng nhập tên khoá học.');
+      setContentLang('vi');
+      setFormError(t('study:courses.titleRequiredError'));
       return;
     }
     setFormError('');
     setSubmitting(true);
     try {
+      const existingTranslations =
+        editingCourse?.translations &&
+        typeof editingCourse.translations === 'object'
+          ? editingCourse.translations
+          : {};
+      const enFields = {
+        title: enTitle.trim(),
+        description: enDescription.trim(),
+      };
+      const hasEnContent = Object.values(enFields).some(Boolean);
+      const nextTranslations = { ...existingTranslations };
+      if (hasEnContent) {
+        nextTranslations.en = enFields;
+      } else {
+        delete nextTranslations.en;
+      }
+
       const payload = {
         title: title.trim(),
         description: description.trim(),
+        translations: nextTranslations,
         level,
         card_type: cardType,
         is_public: Boolean(isPublic),
       };
       if (editingCourse?.id) {
         await updateCourse(editingCourse.id, payload);
-        showToast('Đã cập nhật khoá học.', 'success');
+        showToast(t('study:courses.updateSuccess'), 'success');
       } else {
         await createCourse(payload);
-        showToast('Đã tạo khoá học mới.', 'success');
+        showToast(t('study:courses.createSuccess'), 'success');
       }
       setIsFormOpen(false);
       await reloadCourses();
     } catch (err) {
-      setFormError(err.message || 'Không thể lưu khoá học.');
+      setFormError(err.message || t('study:courses.saveError'));
     } finally {
       setSubmitting(false);
     }
@@ -404,16 +489,19 @@ export default function CoursesPage() {
 
   const handleDeleteCourse = async (course) => {
     const confirmed = window.confirm(
-      `Bạn có chắc muốn xóa khoá học "${course.title}" không?`
+      t('study:courses.deleteConfirm', { title: course.title })
     );
     if (!confirmed) return;
 
     try {
       await deleteCourse(course.id);
-      showToast(`Đã xóa khoá học "${course.title}".`, 'info');
+      showToast(
+        t('study:courses.deleteSuccess', { title: course.title }),
+        'info'
+      );
       await reloadCourses();
     } catch (err) {
-      showToast(err.message || 'Không thể xóa khoá học.', 'error');
+      showToast(err.message || t('study:courses.deleteError'), 'error');
     }
   };
 
@@ -435,8 +523,44 @@ export default function CoursesPage() {
     return <Navigate to={`/study?${searchParams.toString()}`} replace />;
   }
 
+  if (!canViewCourses) {
+    const isRoleRestricted =
+      !coursesModuleEnabled
+        ? getModuleBlockReason('courses') === 'role_restricted'
+        : true;
+    const note = getModuleInfo('courses')?.maintenance_note;
+    return (
+      <main className="w-full mx-auto px-3 sm:px-5 pt-3 pb-16 flex-1 flex flex-col gap-3.5 sm:gap-4">
+        {openSidebar && (
+          <div className="flex lg:hidden items-center justify-end">
+            <button
+              type="button"
+              onClick={openSidebar}
+              aria-label={t('common:nav.openMenu')}
+              className="w-9 h-9 rounded-control border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center cursor-pointer transition-colors duration-150"
+            >
+              <EllipsisHorizontalIcon className="w-5 h-5" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+        <EmptyState
+          title={
+            isRoleRestricted
+              ? t('study:courses.blockedTitle')
+              : t('study:courses.disabledTitle')
+          }
+          description={
+            isRoleRestricted
+              ? t('study:courses.blockedDesc')
+              : note || t('study:courses.disabledDescFallback')
+          }
+        />
+      </main>
+    );
+  }
+
   return (
-    <main className="w-full mx-auto px-3 sm:px-6 pt-3 pb-16 flex flex-col gap-5">
+    <main className="w-full mx-auto px-3 sm:px-5 pt-3 pb-16 flex-1 flex flex-col gap-3.5 sm:gap-4">
       {/* Create / Edit Course Modal */}
       {!isGuest && isFormOpen && (
         <div
@@ -449,15 +573,17 @@ export default function CoursesPage() {
           aria-labelledby="course-modal-title"
         >
           <div
-            className="bg-white border border-slate-200 rounded-2xl shadow-lg max-w-lg w-full max-h-[90vh] flex flex-col animate-popup-in"
+            className="bg-white border border-slate-200 rounded-surface shadow-sm max-w-lg w-full max-h-[90vh] flex flex-col animate-popup-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-50 border-b border-slate-200 rounded-t-2xl flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3.5 bg-slate-50 border-b border-slate-200 rounded-t-surface flex items-center justify-between">
               <h2
                 id="course-modal-title"
-                className="text-base sm:text-lg font-bold text-slate-900"
+                className="text-sm sm:text-base font-semibold text-slate-900"
               >
-                {editingCourse ? 'Chỉnh sửa khoá học' : 'Tạo khoá học mới'}
+                {editingCourse
+                  ? t('study:courses.editModalTitle')
+                  : t('study:courses.createModalTitle')}
               </h2>
               <Button
                 variant="secondary"
@@ -466,64 +592,48 @@ export default function CoursesPage() {
                 onClick={() => {
                   if (!submitting) setIsFormOpen(false);
                 }}
-                aria-label="Đóng biểu mẫu"
+                aria-label={t('study:courses.closeFormAria')}
               >
                 <XMarkIcon className="w-5 h-5" aria-hidden="true" />
               </Button>
             </div>
 
             <form
+              noValidate
               onSubmit={handleSubmitCourse}
               className="p-4 sm:p-6 overflow-y-auto flex flex-col gap-4"
             >
               {formError && (
                 <div
-                  className="bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm rounded-lg p-3"
+                  className="bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm rounded-control p-3"
                   role="alert"
                 >
                   {formError}
                 </div>
               )}
 
-              <div>
-                <label
-                  htmlFor="course-title-input"
-                  className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
-                >
-                  Tên khoá học / Bộ thẻ *
-                </label>
-                <input
-                  id="course-title-input"
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full min-h-10 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
-                />
-              </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label
                     htmlFor="course-type-select"
-                    className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+                    className="block text-xs font-medium text-slate-700 mb-1.5"
                   >
-                    Loại thẻ
+                    {t('study:courses.typeLabel')}
                   </label>
                   <Dropdown
                     id="course-type-select"
                     value={cardType}
                     onChange={setCardType}
-                    options={CARD_TYPES}
+                    options={getCardTypeOptions()}
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="course-level-select"
-                    className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+                    className="block text-xs font-medium text-slate-700 mb-1.5"
                   >
-                    Trình độ JLPT
+                    {t('study:courses.levelLabel')}
                   </label>
                   <Dropdown
                     id="course-level-select"
@@ -534,50 +644,139 @@ export default function CoursesPage() {
                 </div>
               </div>
 
-              <div>
-                <label
-                  htmlFor="course-desc-input"
-                  className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+              <div className="pt-2 border-t border-slate-200 flex flex-col gap-3.5">
+                <div
+                  role="tablist"
+                  aria-label={t('common:contentForm.languageTabsAria')}
+                  className="inline-flex bg-slate-100 border border-slate-200 p-1 rounded-control gap-1 self-start"
                 >
-                  Mô tả
-                </label>
-                <textarea
-                  id="course-desc-input"
-                  rows={2}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 resize-y"
-                />
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={contentLang === 'vi'}
+                    onClick={() => setContentLang('vi')}
+                    className={`px-3 py-1 text-xs font-medium rounded-control transition-colors duration-150 cursor-pointer ${
+                      contentLang === 'vi'
+                        ? 'bg-sky-700 text-white'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                    }`}
+                  >
+                    {t('common:contentForm.viTab')}
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={contentLang === 'en'}
+                    onClick={() => setContentLang('en')}
+                    className={`px-3 py-1 text-xs font-medium rounded-control transition-colors duration-150 cursor-pointer ${
+                      contentLang === 'en'
+                        ? 'bg-sky-700 text-white'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                    }`}
+                  >
+                    {t('common:contentForm.enTab')}
+                  </button>
+                </div>
+
+                {contentLang === 'vi' ? (
+                  <>
+                    <div>
+                      <label
+                        htmlFor="course-title-input"
+                        className="block text-xs font-medium text-slate-700 mb-1.5"
+                      >
+                        {t('study:courses.titleLabel')}
+                      </label>
+                      <input
+                        id="course-title-input"
+                        type="text"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        className="w-full min-h-10 px-3.5 py-2 rounded-control border border-slate-200 bg-white hover:border-slate-300 text-slate-900 text-sm transition-colors duration-150 focus:border-sky-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="course-desc-input"
+                        className="block text-xs font-medium text-slate-700 mb-1.5"
+                      >
+                        {t('study:courses.descriptionLabel')}
+                      </label>
+                      <textarea
+                        id="course-desc-input"
+                        rows={2}
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        className="w-full px-3.5 py-2 rounded-control border border-slate-200 bg-white hover:border-slate-300 text-slate-900 text-sm transition-colors duration-150 focus:border-sky-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 resize-y"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label
+                        htmlFor="course-title-en-input"
+                        className="block text-xs font-medium text-slate-700 mb-1.5"
+                      >
+                        {t('study:courses.titleEnLabel')}
+                      </label>
+                      <input
+                        id="course-title-en-input"
+                        type="text"
+                        value={enTitle}
+                        onChange={(e) => setEnTitle(e.target.value)}
+                        className="w-full min-h-10 px-3.5 py-2 rounded-control border border-slate-200 bg-white hover:border-slate-300 text-slate-900 text-sm transition-colors duration-150 focus:border-sky-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="course-desc-en-input"
+                        className="block text-xs font-medium text-slate-700 mb-1.5"
+                      >
+                        {t('study:courses.descriptionEnLabel')}
+                      </label>
+                      <textarea
+                        id="course-desc-en-input"
+                        rows={2}
+                        value={enDescription}
+                        onChange={(e) => setEnDescription(e.target.value)}
+                        className="w-full px-3.5 py-2 rounded-control border border-slate-200 bg-white hover:border-slate-300 text-slate-900 text-sm transition-colors duration-150 focus:border-sky-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 resize-y"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               <div>
-                <span className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Quyền hiển thị
+                <span className="block text-xs font-medium text-slate-700 mb-1.5">
+                  {t('study:courses.visibilityLabel')}
                 </span>
-                <div className="flex bg-slate-100 border border-slate-200 rounded-lg p-1 gap-1">
+                <div className="flex bg-slate-100 border border-slate-200 rounded-control p-1 gap-1">
                   <button
                     type="button"
                     aria-pressed={Boolean(isPublic)}
                     onClick={() => setIsPublic(true)}
-                    className={`flex-1 min-h-9 text-xs sm:text-sm font-semibold rounded-md cursor-pointer transition-colors duration-150 ${
+                    className={`flex-1 min-h-9 text-xs sm:text-sm font-medium rounded-control cursor-pointer transition-colors duration-150 ${
                       isPublic
-                        ? 'bg-sky-700 text-white shadow-sm'
+                        ? 'bg-sky-700 text-white'
                         : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
                     }`}
                   >
-                    Công khai
+                    {t('study:courses.publicOption')}
                   </button>
                   <button
                     type="button"
                     aria-pressed={!isPublic}
                     onClick={() => setIsPublic(false)}
-                    className={`flex-1 min-h-9 text-xs sm:text-sm font-semibold rounded-md cursor-pointer transition-colors duration-150 ${
+                    className={`flex-1 min-h-9 text-xs sm:text-sm font-medium rounded-control cursor-pointer transition-colors duration-150 ${
                       !isPublic
-                        ? 'bg-sky-700 text-white shadow-sm'
+                        ? 'bg-sky-700 text-white'
                         : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
                     }`}
                   >
-                    Riêng tư
+                    {t('study:courses.privateOption')}
                   </button>
                 </div>
               </div>
@@ -590,10 +789,12 @@ export default function CoursesPage() {
                     if (!submitting) setIsFormOpen(false);
                   }}
                 >
-                  Hủy
+                  {t('common:actions.cancel')}
                 </Button>
                 <Button type="submit" variant="primary" disabled={submitting}>
-                  {submitting ? 'Đang lưu...' : 'Lưu khoá học'}
+                  {submitting
+                    ? t('common:actions.saving')
+                    : t('study:courses.saveCourseButton')}
                 </Button>
               </div>
             </form>
@@ -606,8 +807,8 @@ export default function CoursesPage() {
           <button
             type="button"
             onClick={openSidebar}
-            aria-label="Mở menu điều hướng"
-            className="w-9 h-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center cursor-pointer transition-colors duration-150"
+            aria-label={t('common:nav.openMenu')}
+            className="w-9 h-9 rounded-control border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center cursor-pointer transition-colors duration-150"
           >
             <EllipsisHorizontalIcon className="w-5 h-5" aria-hidden="true" />
           </button>
@@ -616,53 +817,51 @@ export default function CoursesPage() {
 
       {error ? (
         <EmptyState
-          title="Không thể tải danh sách khoá học"
+          title={t('study:courses.loadErrorTitle')}
           description={error}
-          actionLabel="Thử lại"
+          actionLabel={t('common:actions.retry')}
           onAction={reloadCourses}
         />
       ) : loading && courses.length === 0 ? (
         <Skeleton variant="courses" />
       ) : courses.length === 0 ? (
         <EmptyState
-          title="Chưa có khoá học nào"
-          description="Hãy tạo khoá học đầu tiên để nhóm các thẻ học theo chủ đề."
-          actionLabel={!isGuest && user ? 'Tạo khoá học' : undefined}
-          onAction={!isGuest && user ? handleOpenCreate : undefined}
+          title={t('study:courses.emptyTitle')}
+          description={t('study:courses.emptyDesc')}
+          actionLabel={
+            canCreateCourse ? t('study:courses.createButton') : undefined
+          }
+          onAction={canCreateCourse ? handleOpenCreate : undefined}
         />
       ) : (
-        <div className="flex flex-col gap-5">
-          {/* 1. TIẾP TỤC HỌC — Most Recently Accessed Course Card (with integrated Create Course & Mobile Menu buttons) */}
+        <div className="flex flex-col gap-4 sm:gap-5">
+          {/* Resume most recently accessed course */}
           {recentCourse && (
-            <Card
-              rounded="2xl"
-              className="p-4 sm:p-5 flex flex-col gap-3.5 bg-white border border-sky-200/90 shadow-sm"
-            >
+            <Card className="p-4 sm:p-5 flex flex-col gap-3.5 border-sky-200">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="flex h-2 w-2 rounded-full bg-sky-600 animate-pulse shrink-0" />
-                  <span className="text-xs font-bold text-sky-800 uppercase tracking-wider truncate">
-                    Tiếp tục tiến độ học tập
+                  <span className="flex h-2 w-2 rounded-full bg-sky-600 shrink-0" />
+                  <span className="text-xs font-semibold text-sky-800 truncate">
+                    {t('study:courses.resumeLabel')}
                   </span>
                   <div className="hidden sm:flex items-center gap-1.5 ml-1 shrink-0">
                     <Badge variant="level">{recentCourse.level || 'N3'}</Badge>
                     <Badge variant="secondary">
-                      {CARD_TYPE_LABELS[recentCourse.card_type] ||
+                      {getCardTypeLabel(recentCourse.card_type) ||
                         recentCourse.card_type}
                     </Badge>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  {!isGuest && user && (
+                  {canCreateCourse && (
                     <Button
                       variant="secondary"
                       size="sm"
                       onClick={handleOpenCreate}
-                      className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-lg text-xs font-semibold"
                     >
                       <PlusIcon className="w-4 h-4" aria-hidden="true" />
-                      <span>Tạo khoá học</span>
+                      <span>{t('study:courses.createButton')}</span>
                     </Button>
                   )}
 
@@ -670,8 +869,8 @@ export default function CoursesPage() {
                     <button
                       type="button"
                       onClick={openSidebar}
-                      aria-label="Mở menu điều hướng"
-                      className="lg:hidden w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center cursor-pointer transition-colors duration-150"
+                      aria-label={t('common:nav.openMenu')}
+                      className="lg:hidden w-8 h-8 sm:w-9 sm:h-9 rounded-control border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center cursor-pointer transition-colors duration-150"
                     >
                       <EllipsisHorizontalIcon className="w-5 h-5" aria-hidden="true" />
                     </button>
@@ -680,19 +879,22 @@ export default function CoursesPage() {
               </div>
 
               <div className="flex items-center gap-3.5 sm:gap-4">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl bg-sky-100/80 text-sky-700 flex items-center justify-center shrink-0">
-                  <BookOpenIcon className="w-7 h-7" aria-hidden="true" />
+                <div className="w-12 h-12 rounded-surface bg-sky-50 border border-sky-200 text-sky-700 flex items-center justify-center shrink-0">
+                  <BookOpenIcon className="w-5 h-5" aria-hidden="true" />
                 </div>
 
                 <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900 truncate">
+                  <h2 className="text-sm sm:text-base font-semibold text-slate-900 truncate">
                     {recentCourse.title}
                   </h2>
 
-                  <span className="text-xs sm:text-sm text-slate-500 font-medium">
-                    {CARD_TYPE_LABELS[recentCourse.card_type] ||
+                  <span className="text-xs text-slate-500 tabular-nums">
+                    {getCardTypeLabel(recentCourse.card_type) ||
                       recentCourse.card_type}{' '}
-                    · {recentProgress.total} thẻ học
+                    ·{' '}
+                    {t('study:courses.cardsCount', {
+                      count: recentProgress.total,
+                    })}
                   </span>
 
                   <div
@@ -701,7 +903,10 @@ export default function CoursesPage() {
                     aria-valuenow={recentProgress.studied}
                     aria-valuemin={0}
                     aria-valuemax={recentProgress.total}
-                    aria-label={`Đã học ${recentProgress.studied} trên ${recentProgress.total} thẻ`}
+                    aria-label={t('study:courses.studiedAria', {
+                      studied: recentProgress.studied,
+                      total: recentProgress.total,
+                    })}
                   >
                     <div
                       className="h-full bg-sky-600 rounded-full transition-all duration-300"
@@ -709,8 +914,11 @@ export default function CoursesPage() {
                     />
                   </div>
 
-                  <span className="text-xs text-slate-500 font-medium">
-                    Đã học {recentProgress.studied}/{recentProgress.total} thẻ
+                  <span className="text-xs text-slate-500 tabular-nums">
+                    {t('study:courses.studiedCount', {
+                      studied: recentProgress.studied,
+                      total: recentProgress.total,
+                    })}
                   </span>
                 </div>
               </div>
@@ -719,76 +927,65 @@ export default function CoursesPage() {
                 variant="primary"
                 size="md"
                 onClick={() => handleSelectCourseToStudy(recentCourse)}
-                className="w-full min-h-10 sm:min-h-11 rounded-xl"
+                className="w-full"
               >
-                <span>Tiếp tục học</span>
-                <ArrowRightIcon className="w-4 h-4" aria-hidden="true" />
+                <span>{t('study:courses.continueStudy')}</span>
               </Button>
             </Card>
           )}
 
-          {/* 2. Summary Statistics Row (Khóa học / Thẻ học / Hoàn thành) */}
+          {/* Summary Statistics Row */}
           <div className="grid grid-cols-3 gap-3 sm:gap-4">
-            <Card rounded="xl" className="p-3.5 sm:p-4 flex flex-col gap-1.5">
-              <BookOpenIcon
-                className="w-5 h-5 text-sky-700"
-                aria-hidden="true"
-              />
-              <span className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">
-                {summaryStats.courseCount}
+            <Card className="p-3.5 sm:p-4 flex flex-col gap-1">
+              <span className="text-xs font-medium text-slate-500">
+                {t('study:courses.stats.courses')}
               </span>
-              <span className="text-xs sm:text-sm text-slate-500 font-medium">
-                Khóa học
+              <span className="text-xl sm:text-2xl font-semibold text-slate-900 leading-tight tabular-nums">
+                {formatNumber(summaryStats.courseCount)}
               </span>
             </Card>
 
-            <Card rounded="xl" className="p-3.5 sm:p-4 flex flex-col gap-1.5">
-              <RectangleStackIcon
-                className="w-5 h-5 text-sky-700"
-                aria-hidden="true"
-              />
-              <span className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">
-                {summaryStats.totalCards}
+            <Card className="p-3.5 sm:p-4 flex flex-col gap-1">
+              <span className="text-xs font-medium text-slate-500">
+                {t('study:courses.stats.cards')}
               </span>
-              <span className="text-xs sm:text-sm text-slate-500 font-medium">
-                Thẻ học
+              <span className="text-xl sm:text-2xl font-semibold text-slate-900 leading-tight tabular-nums">
+                {formatNumber(summaryStats.totalCards)}
               </span>
             </Card>
 
-            <Card rounded="xl" className="p-3.5 sm:p-4 flex flex-col gap-1.5">
-              <CheckCircleIcon
-                className="w-5 h-5 text-emerald-600"
-                aria-hidden="true"
-              />
-              <span className="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">
+            <Card className="p-3.5 sm:p-4 flex flex-col gap-1">
+              <span className="text-xs font-medium text-slate-500">
+                {t('study:courses.stats.completion')}
+              </span>
+              <span className="text-xl sm:text-2xl font-semibold text-slate-900 leading-tight tabular-nums">
                 {summaryStats.completionPercent}%
-              </span>
-              <span className="text-xs sm:text-sm text-slate-500 font-medium">
-                Hoàn thành
               </span>
             </Card>
           </div>
 
-          {/* 3. Thư viện khóa học Section */}
-          <div className="flex flex-col gap-3.5">
+          {/* Course Library Section */}
+          <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                Thư viện khóa học
+              <h2 className="text-sm sm:text-base font-semibold text-slate-900">
+                {t('study:courses.libraryHeading')}
               </h2>
-              <button
-                type="button"
-                onClick={() => navigate('/study')}
-                className="text-xs sm:text-sm font-semibold text-sky-700 hover:text-sky-800 cursor-pointer transition-colors duration-150"
-              >
-                Học tất cả thẻ
-              </button>
+              {canViewCards && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/study')}
+                  className="text-xs sm:text-sm font-medium text-sky-700 hover:text-sky-800 cursor-pointer transition-colors duration-150"
+                >
+                  {t('study:courses.studyAllCards')}
+                </button>
+              )}
             </div>
 
-            {/* Filter Pill Tabs (Tất cả / Đang học / Chưa học) */}
+            {/* Filter Tabs */}
             <div
               className="flex items-center gap-2 flex-wrap"
               role="tablist"
-              aria-label="Lọc thư viện khóa học"
+              aria-label={t('study:courses.filterAria')}
             >
               {FILTER_TABS.map((tab) => {
                 const isActive = activeFilter === tab.id;
@@ -799,12 +996,13 @@ export default function CoursesPage() {
                     role="tab"
                     aria-selected={isActive}
                     onClick={() => setActiveFilter(tab.id)}
-                    className={`px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold border cursor-pointer transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 ${isActive
+                    className={`h-8 px-3.5 rounded-control text-xs sm:text-sm font-medium border cursor-pointer transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 ${
+                      isActive
                         ? 'bg-sky-700 text-white border-sky-700'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                      }`}
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
                   >
-                    {tab.label}
+                    {t(tab.labelKey)}
                   </button>
                 );
               })}
@@ -812,8 +1010,8 @@ export default function CoursesPage() {
 
             {/* Course List */}
             {filteredCourses.length === 0 ? (
-              <Card rounded="2xl" className="p-6 text-center text-sm text-slate-500">
-                Không có khoá học nào trong mục này.
+              <Card className="p-6 text-center text-sm text-slate-500">
+                {t('study:courses.emptyFiltered')}
               </Card>
             ) : (
               <div className="flex flex-col gap-3">
@@ -828,7 +1026,6 @@ export default function CoursesPage() {
                   return (
                     <Card
                       key={course.id}
-                      rounded="2xl"
                       role="button"
                       tabIndex={0}
                       onClick={() => handleSelectCourseToStudy(course)}
@@ -838,67 +1035,85 @@ export default function CoursesPage() {
                           handleSelectCourseToStudy(course);
                         }
                       }}
-                      className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:border-slate-300 cursor-pointer transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+                      className="p-4 sm:p-5 flex items-center justify-between gap-4 hover:border-slate-300 cursor-pointer transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
                     >
-                      <div className="flex items-center gap-3.5 sm:gap-4 min-w-0 flex-1">
+                      <div className="flex items-center gap-3.5 min-w-0 flex-1">
                         <div
-                          className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center shrink-0 ${visual.boxClass}`}
+                          className={`w-10 h-10 sm:w-11 sm:h-11 rounded-surface flex items-center justify-center shrink-0 ${visual.boxClass}`}
                         >
-                          <CourseIcon className="w-6 h-6" aria-hidden="true" />
+                          <CourseIcon className="w-5 h-5" aria-hidden="true" />
                         </div>
 
                         <div className="flex flex-col gap-0.5 min-w-0">
-                          <h3 className="text-base font-bold text-slate-900 truncate">
+                          <h3 className="text-sm sm:text-base font-semibold text-slate-900 truncate">
                             {course.title}
                           </h3>
-                          <span className="text-xs sm:text-sm text-slate-500 font-medium">
-                            {CARD_TYPE_LABELS[course.card_type] ||
+                          <span className="text-xs text-slate-500">
+                            {getCardTypeLabel(course.card_type) ||
                               course.card_type}{' '}
                             · {course.level}
-                            {!course.is_public ? ' · Riêng tư' : ''}
+                            {!course.is_public
+                              ? ` · ${t('study:courses.privateTag')}`
+                              : ''}
                           </span>
-                          <span className="text-xs sm:text-sm text-slate-500">
-                            {prog.total} thẻ học
+                          <span className="text-xs text-slate-500 tabular-nums">
+                            {t('study:courses.cardsCount', {
+                              count: prog.total,
+                            })}
                             {prog.studied > 0
-                              ? ` · Đã học ${prog.studied}/${prog.total}`
+                              ? ` · ${t('study:courses.studiedInline', {
+                                  studied: prog.studied,
+                                  total: prog.total,
+                                })}`
                               : ''}
                           </span>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {course.is_owner && (
+                        {((course.can_edit ?? (course.can_manage || course.is_owner)) ||
+                          (course.can_delete ?? (course.can_manage || course.is_owner))) && (
                           <div
                             className="inline-flex items-center gap-1 mr-1"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <Button
-                              variant="secondary"
-                              size="icon"
-                              onClick={() => handleOpenEdit(course)}
-                              aria-label={`Sửa khoá học ${course.title}`}
-                            >
-                              <PencilSquareIcon
-                                className="w-4 h-4"
-                                aria-hidden="true"
-                              />
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="icon"
-                              onClick={() => handleDeleteCourse(course)}
-                              aria-label={`Xóa khoá học ${course.title}`}
-                            >
-                              <TrashIcon
-                                className="w-4 h-4"
-                                aria-hidden="true"
-                              />
-                            </Button>
+                            {(course.can_edit ??
+                              (course.can_manage || course.is_owner)) && (
+                              <Button
+                                variant="secondary"
+                                size="icon"
+                                onClick={() => handleOpenEdit(course)}
+                                aria-label={t('study:courses.editAria', {
+                                  title: course.title,
+                                })}
+                              >
+                                <PencilSquareIcon
+                                  className="w-4 h-4"
+                                  aria-hidden="true"
+                                />
+                              </Button>
+                            )}
+                            {(course.can_delete ??
+                              (course.can_manage || course.is_owner)) && (
+                              <Button
+                                variant="destructive"
+                                size="icon"
+                                onClick={() => handleDeleteCourse(course)}
+                                aria-label={t('study:courses.deleteAria', {
+                                  title: course.title,
+                                })}
+                              >
+                                <TrashIcon
+                                  className="w-4 h-4"
+                                  aria-hidden="true"
+                                />
+                              </Button>
+                            )}
                           </div>
                         )}
 
                         <ChevronRightIcon
-                          className="w-5 h-5 text-slate-400"
+                          className="w-4 h-4 text-slate-400"
                           aria-hidden="true"
                         />
                       </div>

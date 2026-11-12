@@ -3,6 +3,7 @@ import re
 from urllib.parse import parse_qs, urlparse
 
 from django.conf import settings
+from django.utils.translation import gettext as _
 import pykakasi
 from youtube_transcript_api import (
     NoTranscriptFound,
@@ -245,7 +246,7 @@ def extract_youtube_transcript(youtube_url_or_id: str) -> list:
     """
     video_id = extract_youtube_id(youtube_url_or_id)
     if not video_id:
-        raise ValueError("Không thể nhận diện YouTube Video ID hợp lệ.")
+        raise ValueError(_("Không thể nhận diện YouTube Video ID hợp lệ."))
 
     ytt = YouTubeTranscriptApi()
     try:
@@ -264,10 +265,15 @@ def extract_youtube_transcript(youtube_url_or_id: str) -> list:
             )
         except Exception as exc:
             logger.warning("YouTube transcript lookup failed for %s: %s", video_id, exc)
-            raise ValueError(f"Không tìm thấy phụ đề tiếng Nhật cho video YouTube {video_id}.") from exc
+            raise ValueError(
+                _("Không tìm thấy phụ đề tiếng Nhật cho video YouTube %(video_id)s.")
+                % {"video_id": video_id}
+            ) from exc
     except Exception as exc:
         logger.warning("YouTube transcript fetch error for %s: %s", video_id, exc)
-        raise ValueError(f"Lỗi khi trích xuất phụ đề YouTube: {exc}") from exc
+        raise ValueError(
+            _("Lỗi khi trích xuất phụ đề YouTube: %(error)s") % {"error": exc}
+        ) from exc
 
     segments = []
     for idx, item in enumerate(raw_snippets):
@@ -390,10 +396,16 @@ def generate_exercises_from_segments(segments: list) -> list:
                 "id": exercise_id,
                 "type": "vocabulary",
                 "segment_id": seg.get("id", 1),
-                "question": f"Từ「{target_text}」trong câu sau có cách đọc Furigana đúng là gì?\n「{full_text}」",
+                "question": _(
+                    "Từ「%(target)s」trong câu sau có cách đọc Furigana đúng là gì?\n「%(sentence)s」"
+                )
+                % {"target": target_text, "sentence": full_text},
                 "options": options,
                 "correct_index": 0,
-                "explanation": f"「{target_text}」được đọc là「{reading}」trong ngữ cảnh này.",
+                "explanation": _(
+                    "「%(target)s」được đọc là「%(reading)s」trong ngữ cảnh này."
+                )
+                % {"target": target_text, "reading": reading},
             }
         )
         exercise_id += 1
@@ -425,10 +437,16 @@ def generate_exercises_from_segments(segments: list) -> list:
                 "id": exercise_id,
                 "type": "cloze",
                 "segment_id": seg.get("id", 1),
-                "question": f"Lắng nghe đoạn âm thanh và điền từ thích hợp vào chỗ trống:\n「{cloze_sentence}」",
+                "question": _(
+                    "Lắng nghe đoạn âm thanh và điền từ thích hợp vào chỗ trống:\n「%(sentence)s」"
+                )
+                % {"sentence": cloze_sentence},
                 "options": cloze_options,
                 "correct_index": 0,
-                "explanation": f"Đáp án chính xác là「{target_text}」({reading}).",
+                "explanation": _(
+                    "Đáp án chính xác là「%(target)s」(%(reading)s)."
+                )
+                % {"target": target_text, "reading": reading},
             }
         )
         exercise_id += 1
@@ -443,15 +461,18 @@ def generate_exercises_from_segments(segments: list) -> list:
                 "id": 1,
                 "type": "comprehension",
                 "segment_id": first_seg.get("id", 1),
-                "question": f"Nội dung của câu mở đầu「{first_seg.get('text')}」là gì?",
+                "question": _("Nội dung của câu mở đầu「%(sentence)s」là gì?")
+                % {"sentence": first_seg.get("text")},
                 "options": [
-                    "Lời chào hỏi và giới thiệu mở đầu bài học",
-                    "Đưa ra kết luận của bài giảng",
-                    "Đặt câu hỏi kiểm tra ngữ pháp",
-                    "Tạm biệt người nghe",
+                    _("Lời chào hỏi và giới thiệu mở đầu bài học"),
+                    _("Đưa ra kết luận của bài giảng"),
+                    _("Đặt câu hỏi kiểm tra ngữ pháp"),
+                    _("Tạm biệt người nghe"),
                 ],
                 "correct_index": 0,
-                "explanation": "Câu mở đầu dùng để chào hỏi và bắt đầu chủ đề buổi nói chuyện.",
+                "explanation": _(
+                    "Câu mở đầu dùng để chào hỏi và bắt đầu chủ đề buổi nói chuyện."
+                ),
             }
         )
     return exercises

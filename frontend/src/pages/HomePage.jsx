@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom';
-import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import { useTranslation } from 'react-i18next';
+import {
+  ArrowRightOnRectangleIcon,
+  EllipsisHorizontalIcon,
+} from '@heroicons/react/24/outline';
 import FilterBar from '../components/FilterBar';
 import FlashcardView from '../components/FlashcardView';
 import PracticeView from '../components/PracticeView';
@@ -12,9 +16,10 @@ import Button from '../components/ui/Button';
 import Skeleton from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
 import { useAuth } from '../context/useAuth';
+import { useSystemConfig } from '../context/useSystemConfig';
 import { useToast } from '../context/useToast';
 import {
-  STUDY_STATUS_LABELS,
+  getStudyStatusLabel,
   getEffectiveCardStatus,
 } from '../constants/cards';
 import {
@@ -86,8 +91,58 @@ export default function HomePage({ defaultScope = 'all' }) {
   const { openSidebar } = outletContext;
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const { user, isGuest, loading: authLoading, openAuthModal, isAuthModalOpen } = useAuth();
+  const {
+    user,
+    isGuest,
+    loading: authLoading,
+    openAuthModal,
+    isAuthModalOpen,
+    hasPermission,
+    hasAnyPermission,
+  } = useAuth();
+  const { isModuleEnabled, getModuleBlockReason, getModuleInfo } =
+    useSystemConfig();
   const { showToast } = useToast();
+  const { t, i18n } = useTranslation(['study', 'common']);
+
+  useEffect(() => {
+    document.title =
+      defaultScope === 'mine'
+        ? t('study:pageTitles.myDeck')
+        : t('study:pageTitles.study');
+  }, [defaultScope, t]);
+
+  const cardsModuleEnabled = isModuleEnabled('study.cards');
+  const personalCardsEnabled = isModuleEnabled('study.personal_cards');
+  const canViewStudyCards = Boolean(
+    cardsModuleEnabled &&
+      (isGuest ||
+        hasAnyPermission([
+          'cards.view',
+          'cards.view_all',
+          'cards.edit',
+          'cards.delete',
+        ]))
+  );
+  const canViewPersonalCards = Boolean(
+    cardsModuleEnabled &&
+      personalCardsEnabled &&
+      (isGuest ||
+        hasAnyPermission([
+          'personal_cards.view',
+          'cards.view_all',
+          'cards.edit',
+          'cards.delete',
+        ]))
+  );
+  const canViewCurrentScope =
+    defaultScope === 'mine' ? canViewPersonalCards : canViewStudyCards;
+  const canCreateCard = Boolean(
+    !isGuest &&
+      user &&
+      (hasPermission('cards.create') ||
+        (hasPermission('cards.create_own') && personalCardsEnabled))
+  );
 
   const userStorageKey = user?.id ? `user_${user.id}` : 'guest';
 
@@ -129,7 +184,9 @@ export default function HomePage({ defaultScope = 'all' }) {
   const [selectedLesson, setSelectedLesson] = useState('');
   const [selectedStatus, setSelectedStatus] = useState(() => {
     const raw = searchParams.get('status') || '';
-    return raw in STUDY_STATUS_LABELS ? raw : '';
+    return ['unseen', 'learned', 'remembered', 'mastered'].includes(raw)
+      ? raw
+      : '';
   });
   const selectedStatusRef = useRef(selectedStatus);
   useEffect(() => {
@@ -213,7 +270,7 @@ export default function HomePage({ defaultScope = 'all' }) {
     return () => {
       ignore = true;
     };
-  }, [authLoading, user]);
+  }, [authLoading, user, i18n.language]);
 
   const buildCardParams = useCallback(() => {
     const params = {};
@@ -256,17 +313,17 @@ export default function HomePage({ defaultScope = 'all' }) {
         }));
       }
     } catch {
-      setError('Không thể tải dữ liệu thẻ học. Vui lòng thử lại.');
+      setError(t('study:home.loadError'));
     } finally {
       setLoadingCards(false);
     }
-  }, [authLoading, buildCardParams, user, userStorageKey]);
+  }, [authLoading, buildCardParams, user, userStorageKey, t]);
 
   const deckContextKey = `${userStorageKey}|${effectiveScope}|${effectiveCourse}|${selectedType}|${selectedLevel}|${selectedLesson}|${debouncedSearch}`;
 
   // Reactive card loader with race-condition protection & Anki SRS deck resume
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !canViewCurrentScope) return;
     let ignore = false;
 
     fetchCards(buildCardParams())
@@ -355,7 +412,7 @@ export default function HomePage({ defaultScope = 'all' }) {
       })
       .catch(() => {
         if (!ignore) {
-          setError('Không thể tải dữ liệu thẻ học. Vui lòng thử lại.');
+          setError(t('study:home.loadError'));
         }
       })
       .finally(() => {
@@ -369,12 +426,15 @@ export default function HomePage({ defaultScope = 'all' }) {
     };
   }, [
     authLoading,
+    canViewCurrentScope,
     isGuest,
     user,
     userStorageKey,
     effectiveCourse,
     buildCardParams,
     deckContextKey,
+    i18n.language,
+    t,
   ]);
 
   const currentDeckCardIds = useMemo(() => cards.map((c) => c.id), [cards]);
@@ -590,13 +650,17 @@ export default function HomePage({ defaultScope = 'all' }) {
           cardSrs.status,
           cardSrs
         );
-        const label = STUDY_STATUS_LABELS[effectiveStatus] || 'Đã học';
+        const label =
+          getStudyStatusLabel(effectiveStatus) || t('study:studyStatus.LEARNED');
         showToast(
-          `Đã đánh dấu: ${label} · Ôn lại sau ${cardSrs.interval_display}`,
+          t('study:home.markedToast', {
+            label,
+            interval: cardSrs.interval_display,
+          }),
           'success'
         );
       } else {
-        showToast('Đã đặt lại trạng thái: Chưa học', 'info');
+        showToast(t('study:home.resetToast'), 'info');
       }
 
       return {
@@ -614,25 +678,27 @@ export default function HomePage({ defaultScope = 'all' }) {
       safeIndex,
       recordStudySession,
       showToast,
+      t,
     ]
   );
 
   const handleSaveCard = async (payload, id) => {
     if (id) {
       await updateCard(id, payload);
-      showToast('Đã cập nhật thẻ học thành công.', 'success');
+      showToast(t('study:home.updateSuccess'), 'success');
     } else {
       await createCard(payload);
-      showToast('Đã tạo thẻ học mới thành công.', 'success');
+      showToast(t('study:home.createSuccess'), 'success');
     }
     await reloadCards();
     await refreshCourses();
   };
 
   const handleDeleteCard = async (card) => {
-    const cardTitle = card.front_text || card.grammar || 'thẻ này';
+    const cardTitle =
+      card.front_text || card.grammar || t('study:home.defaultCardTitle');
     const confirmed = window.confirm(
-      `Bạn có chắc muốn xóa thẻ "${cardTitle}" không?`
+      t('study:home.deleteConfirm', { title: cardTitle })
     );
     if (!confirmed) return;
 
@@ -644,11 +710,11 @@ export default function HomePage({ defaultScope = 'all' }) {
       if (String(currentCardId) === String(card.id)) {
         setCurrentCardId(null);
       }
-      showToast(`Đã xóa thẻ "${cardTitle}".`, 'info');
+      showToast(t('study:home.deleteToast', { title: cardTitle }), 'info');
       await reloadCards();
       await refreshCourses();
     } catch (err) {
-      showToast(err.message || 'Không thể xóa thẻ học.', 'error');
+      showToast(err.message || t('study:home.deleteError'), 'error');
     }
   };
 
@@ -662,26 +728,65 @@ export default function HomePage({ defaultScope = 'all' }) {
     setIsCardModalOpen(true);
   };
 
+  if (!canViewCurrentScope) {
+    const disabledKey =
+      defaultScope === 'mine' && !canViewPersonalCards
+        ? 'study.personal_cards'
+        : 'study.cards';
+    const blockReason = getModuleBlockReason(disabledKey);
+    const isRoleRestricted =
+      blockReason === 'role_restricted' ||
+      (blockReason === null &&
+        ((defaultScope === 'mine' && personalCardsEnabled && cardsModuleEnabled) ||
+          (defaultScope !== 'mine' && cardsModuleEnabled)));
+    const note = getModuleInfo(disabledKey)?.maintenance_note;
+    return (
+      <main className="w-full mx-auto px-3 sm:px-5 pt-3 pb-16 flex-1 flex flex-col gap-3.5">
+        {openSidebar && (
+          <div className="flex lg:hidden items-center justify-end">
+            <button
+              type="button"
+              onClick={openSidebar}
+              aria-label={t('common:nav.openMenu')}
+              className="w-9 h-9 rounded-control border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center cursor-pointer transition-colors duration-150"
+            >
+              <EllipsisHorizontalIcon className="w-5 h-5" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+        <EmptyState
+          title={
+            isRoleRestricted
+              ? t('study:home.blockedTitle')
+              : t('study:home.disabledTitle')
+          }
+          description={
+            isRoleRestricted
+              ? t('study:home.blockedDesc')
+              : note || t('study:home.disabledDescFallback')
+          }
+        />
+      </main>
+    );
+  }
+
   if (defaultScope === 'mine' && !authLoading && isGuest) {
     return (
-      <main className="w-full mx-auto px-4 sm:px-6 py-8">
-        <Card className="p-10 text-center flex flex-col items-center gap-4">
-          <h2 className="text-lg font-bold text-slate-900">
-            Đăng nhập để quản lý bộ thẻ cá nhân
+      <main className="w-full mx-auto px-3 sm:px-5 pt-3 pb-16 flex-1 flex flex-col gap-3.5">
+        <Card className="p-6 sm:p-10 text-center flex flex-col items-center gap-4">
+          <h2 className="text-sm sm:text-base font-semibold text-slate-900">
+            {t('study:home.guestPersonalTitle')}
           </h2>
-          <p className="text-sm text-slate-600 max-w-md">
-            Bạn có thể học toàn bộ khoá học công khai tại mục Học thẻ. Hãy đăng nhập để tự tạo và lưu bộ thẻ của riêng bạn.
-          </p>
           <div className="flex items-center gap-3">
             <Button variant="primary" onClick={() => openAuthModal('login')}>
               <ArrowRightOnRectangleIcon className="w-4 h-4" aria-hidden="true" />
-              <span>Đăng nhập ngay</span>
+              <span>{t('study:home.loginNow')}</span>
             </Button>
             <Link
               to="/study"
-              className="min-h-10 inline-flex items-center px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-sm font-semibold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+              className="min-h-10 inline-flex items-center px-4 py-2 rounded-control border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
             >
-              Học thẻ công khai
+              {t('study:home.publicCards')}
             </Link>
           </div>
         </Card>
@@ -691,12 +796,12 @@ export default function HomePage({ defaultScope = 'all' }) {
 
   return (
     <>
-      <main className="w-full mx-auto px-3 sm:px-6 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
+      <main className="w-full mx-auto px-3 sm:px-5 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
         {/* Filter & Mode Toolbar */}
         <FilterBar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          onOpenCreateCard={handleOpenCreateCard}
+          onOpenCreateCard={canCreateCard ? handleOpenCreateCard : undefined}
           onOpenSidebar={openSidebar}
           searchQuery={searchQuery}
           setSearchQuery={(val) => {
@@ -764,7 +869,7 @@ export default function HomePage({ defaultScope = 'all' }) {
           }}
           courses={courses}
           lessons={lessons}
-          hideScopeToggle={defaultScope === 'mine'}
+          hideScopeToggle={defaultScope === 'mine' || !personalCardsEnabled}
           currentCardNumber={filteredCards.length > 0 ? safeIndex + 1 : 0}
           totalCount={cards.length}
           learnedCount={progressStats.learnedCount}
@@ -778,9 +883,9 @@ export default function HomePage({ defaultScope = 'all' }) {
         <div className="flex-1 flex flex-col">
           {error ? (
             <EmptyState
-              title="Không thể tải dữ liệu thẻ học"
+              title={t('study:home.loadErrorTitle')}
               description={error}
-              actionLabel="Thử lại"
+              actionLabel={t('common:actions.retry')}
               onAction={reloadCards}
             />
           ) : (loadingCards || authLoading) && cards.length === 0 ? (

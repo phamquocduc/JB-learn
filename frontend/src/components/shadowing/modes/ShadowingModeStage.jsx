@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Card from '../../ui/Card';
 import RubyText from '../../ui/RubyText';
 import WordTokenPopover from '../WordTokenPopover';
@@ -10,8 +11,8 @@ import ShadowingControls from '../controls/ShadowingControls';
  * - 16:9 Video Player (YouTube or HTML5)
  * - Centered Tokenized Japanese Subtitle Box (bg-slate-800 text-white)
  * - Underlined, clickable word tokens opening WordTokenPopover
- * - Bold Vietnamese translation underneath
- * - Bottom control bar with Phụ đề, Bản dịch, Furigana toggles and speed/loop controls
+ * - Bold translation underneath
+ * - Bottom control bar with Subtitles, Translation, Furigana toggles and speed/loop controls
  */
 export default function ShadowingModeStage({
   video,
@@ -29,6 +30,7 @@ export default function ShadowingModeStage({
   onToggleTranscript,
   currentUser = null,
 }) {
+  const { t } = useTranslation('shadowing');
   const [selectedToken, setSelectedToken] = useState(null);
 
   const activeSegment = player?.activeSegment;
@@ -58,10 +60,7 @@ export default function ShadowingModeStage({
   return (
     <div className="flex flex-col gap-3 w-full">
       {/* 1. 16:9 Video/Audio Player Stage */}
-      <Card
-        rounded="2xl"
-        className="overflow-hidden bg-slate-950 aspect-video w-full relative flex items-center justify-center border border-slate-900 shadow-sm"
-      >
+      <Card className="overflow-hidden bg-slate-950 aspect-video w-full relative flex items-center justify-center border border-slate-900">
         {player.isYouTube ? (
           <div
             id={player.youtubeContainerId}
@@ -81,7 +80,7 @@ export default function ShadowingModeStage({
       {/* 2. Centered Tokenized Japanese Subtitle Box (stable min-height prevents layout jump) */}
       {showSubtitle && (
         <div className="min-h-[76px] sm:min-h-[88px] flex flex-col items-center justify-center gap-1.5 px-0.5 sm:px-2">
-          <div className="bg-slate-800 text-white rounded-xl px-3.5 py-2.5 sm:px-5 sm:py-3 text-center max-w-3xl w-full shadow-sm">
+          <div className="bg-slate-800 text-white rounded-surface px-3.5 py-2.5 sm:px-5 sm:py-3 text-center max-w-3xl w-full">
             {activeSegment ? (
               <div
                 className={`text-base sm:text-lg md:text-xl font-jp ${
@@ -93,8 +92,8 @@ export default function ShadowingModeStage({
                     key={idx}
                     type="button"
                     onClick={() => handleTokenClick(tokenObj)}
-                    className="inline-block px-1 py-0.5 rounded underline decoration-slate-400 underline-offset-4 cursor-pointer hover:bg-slate-700 active:bg-slate-700 hover:text-sky-300 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-sky-400"
-                    title="Bấm để tra từ & lưu vào bộ thẻ"
+                    className="inline-block px-1 py-0.5 rounded-control underline decoration-slate-400 underline-offset-4 cursor-pointer hover:bg-slate-700 active:bg-slate-700 hover:text-sky-300 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-sky-400"
+                    title={t('shadowingStage.tokenHint')}
                   >
                     {showFurigana && tokenObj.ruby ? (
                       <RubyText text={tokenObj.ruby} />
@@ -110,14 +109,14 @@ export default function ShadowingModeStage({
               </div>
             ) : (
               <p className="text-xs sm:text-sm text-slate-300 py-1">
-                Bấm phát video để hiển thị phụ đề tương ứng
+                {t('shadowingStage.emptySubtitle')}
               </p>
             )}
           </div>
 
-          {/* Bold Vietnamese Translation underneath */}
+          {/* Vietnamese Translation underneath */}
           {showTranslation && activeSegment?.meaning && (
-            <p className="text-xs sm:text-base font-bold text-slate-900 text-center max-w-2xl leading-snug px-1">
+            <p className="text-xs sm:text-base font-semibold text-slate-900 text-center max-w-2xl leading-snug px-1">
               {activeSegment.meaning}
             </p>
           )}

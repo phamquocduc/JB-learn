@@ -1,8 +1,18 @@
 import json
 
+from django.utils import translation
+from django.utils.translation import gettext as _
 from rest_framework import serializers
 
+from core.i18n import (
+    apply_translated_fields,
+    is_raw_content_request,
+    merge_shadowing_translations,
+    normalize_translations_input,
+    resolve_request_language,
+)
 from shadowing.models import ShadowingVideo, UserShadowingProgress
+from users.permissions import can_user_delete_object, can_user_edit_object
 
 
 class TranscriptSegmentSerializer(serializers.Serializer):
@@ -20,7 +30,9 @@ class TranscriptSegmentSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if attrs["end"] < attrs["start"]:
-            raise serializers.ValidationError("Thời điểm kết thúc (end) phải lớn hơn thời điểm bắt đầu (start).")
+            raise serializers.ValidationError(
+                _("Thời điểm kết thúc (end) phải lớn hơn thời điểm bắt đầu (start).")
+            )
         return attrs
 
 
@@ -46,20 +58,37 @@ class ShadowingExerciseSerializer(serializers.Serializer):
         correct_index = attrs.get("correct_index", 0)
         if correct_index >= len(options):
             raise serializers.ValidationError(
-                f"correct_index ({correct_index}) vượt quá số lượng đáp án ({len(options)})."
+                _(
+                    "correct_index (%(index)s) vượt quá số lượng đáp án (%(total)s)."
+                )
+                % {"index": correct_index, "total": len(options)}
             )
         return attrs
 
 
-class ShadowingVideoListSerializer(serializers.ModelSerializer):
+class _ShadowingBaseSerializerMixin(serializers.ModelSerializer):
+    """Shared localized helpers for Shadowing list and detail serializers."""
+
+    topic_display = serializers.SerializerMethodField()
+
+    def get_topic_display(self, obj) -> str:
+        lang = resolve_request_language(self.context.get("request"))
+        with translation.override(lang):
+            return str(obj.get_topic_display())
+
+
+class ShadowingVideoListSerializer(_ShadowingBaseSerializerMixin):
     """Compact summary serializer for video cards and library grids."""
 
-    topic_display = serializers.CharField(source="get_topic_display", read_only=True)
     level_display = serializers.CharField(source="get_level_display", read_only=True)
     media_file_url = serializers.SerializerMethodField()
     total_segments = serializers.IntegerField(read_only=True)
     total_exercises = serializers.IntegerField(read_only=True)
-    creator_username = serializers.CharField(source="created_by.username", read_only=True)
+    creator_username = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
+    can_manage = serializers.SerializerMethodField()
 
     class Meta:
         model = ShadowingVideo
@@ -82,6 +111,10 @@ class ShadowingVideoListSerializer(serializers.ModelSerializer):
             "is_public",
             "created_by",
             "creator_username",
+            "is_owner",
+            "can_edit",
+            "can_delete",
+            "can_manage",
             "created_at",
             "updated_at",
         ]
@@ -93,9 +126,51 @@ class ShadowingVideoListSerializer(serializers.ModelSerializer):
             "total_exercises",
             "created_by",
             "creator_username",
+            "is_owner",
+            "can_edit",
+            "can_delete",
+            "can_manage",
             "created_at",
             "updated_at",
         ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if is_raw_content_request(request):
+            return data
+        lang = resolve_request_language(request)
+        include_source = bool(self.context.get("include_source") or data.get("can_edit"))
+        return apply_translated_fields(
+            data,
+            instance,
+            lang,
+            ("title", "description"),
+            include_source=include_source,
+        )
+
+    def get_creator_username(self, obj) -> str:
+        return obj.created_by.username if obj.created_by else str(_("Hệ thống"))
+
+    def get_is_owner(self, obj) -> bool:
+        request = self.context.get("request")
+        return bool(
+            request
+            and request.user
+            and request.user.is_authenticated
+            and obj.created_by_id == request.user.id
+        )
+
+    def get_can_edit(self, obj) -> bool:
+        request = self.context.get("request")
+        return can_user_edit_object(getattr(request, "user", None), obj, "shadowing")
+
+    def get_can_delete(self, obj) -> bool:
+        request = self.context.get("request")
+        return can_user_delete_object(getattr(request, "user", None), obj, "shadowing")
+
+    def get_can_manage(self, obj) -> bool:
+        return self.get_can_edit(obj) or self.get_can_delete(obj)
 
     def get_media_file_url(self, obj):
         if obj.media_file:
@@ -106,15 +181,19 @@ class ShadowingVideoListSerializer(serializers.ModelSerializer):
         return None
 
 
-class ShadowingVideoDetailSerializer(serializers.ModelSerializer):
+class ShadowingVideoDetailSerializer(_ShadowingBaseSerializerMixin):
     """Full detail serializer with full transcript timeline and exercises."""
 
-    topic_display = serializers.CharField(source="get_topic_display", read_only=True)
     level_display = serializers.CharField(source="get_level_display", read_only=True)
     media_file_url = serializers.SerializerMethodField()
     total_segments = serializers.IntegerField(read_only=True)
     total_exercises = serializers.IntegerField(read_only=True)
-    creator_username = serializers.CharField(source="created_by.username", read_only=True)
+    creator_username = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
+    can_manage = serializers.SerializerMethodField()
+    translations = serializers.JSONField(required=False)
 
     class Meta:
         model = ShadowingVideo
@@ -135,11 +214,16 @@ class ShadowingVideoDetailSerializer(serializers.ModelSerializer):
             "duration_seconds",
             "segments",
             "exercises",
+            "translations",
             "total_segments",
             "total_exercises",
             "is_public",
             "created_by",
             "creator_username",
+            "is_owner",
+            "can_edit",
+            "can_delete",
+            "can_manage",
             "created_at",
             "updated_at",
         ]
@@ -151,9 +235,68 @@ class ShadowingVideoDetailSerializer(serializers.ModelSerializer):
             "total_exercises",
             "created_by",
             "creator_username",
+            "is_owner",
+            "can_edit",
+            "can_delete",
+            "can_manage",
             "created_at",
             "updated_at",
         ]
+
+    def validate_translations(self, value):
+        if isinstance(value, str):
+            val_str = value.strip()
+            if not val_str:
+                return {}
+            try:
+                value = json.loads(val_str)
+            except json.JSONDecodeError as exc:
+                raise serializers.ValidationError(
+                    _("translations không phải là chuỗi JSON hợp lệ.")
+                ) from exc
+        try:
+            return normalize_translations_input(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(
+                _("translations phải là một đối tượng JSON hợp lệ.")
+            ) from exc
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if is_raw_content_request(request):
+            return data
+        lang = resolve_request_language(request)
+        include_source = bool(self.context.get("include_source") or data.get("can_edit"))
+        return merge_shadowing_translations(
+            data,
+            instance,
+            lang,
+            include_source=include_source,
+        )
+
+    def get_creator_username(self, obj) -> str:
+        return obj.created_by.username if obj.created_by else str(_("Hệ thống"))
+
+    def get_is_owner(self, obj) -> bool:
+        request = self.context.get("request")
+        return bool(
+            request
+            and request.user
+            and request.user.is_authenticated
+            and obj.created_by_id == request.user.id
+        )
+
+    def get_can_edit(self, obj) -> bool:
+        request = self.context.get("request")
+        return can_user_edit_object(getattr(request, "user", None), obj, "shadowing")
+
+    def get_can_delete(self, obj) -> bool:
+        request = self.context.get("request")
+        return can_user_delete_object(getattr(request, "user", None), obj, "shadowing")
+
+    def get_can_manage(self, obj) -> bool:
+        return self.get_can_edit(obj) or self.get_can_delete(obj)
 
     def get_media_file_url(self, obj):
         if obj.media_file:
@@ -171,9 +314,9 @@ class ShadowingVideoDetailSerializer(serializers.ModelSerializer):
             try:
                 value = json.loads(val_str)
             except json.JSONDecodeError as exc:
-                raise serializers.ValidationError("segments không phải là chuỗi JSON hợp lệ.") from exc
+                raise serializers.ValidationError(_("segments không phải là chuỗi JSON hợp lệ.")) from exc
         if not isinstance(value, list):
-            raise serializers.ValidationError("segments phải là danh sách phân đoạn.")
+            raise serializers.ValidationError(_("segments phải là danh sách phân đoạn."))
         serializer = TranscriptSegmentSerializer(data=value, many=True)
         serializer.is_valid(raise_exception=True)
         return serializer.validated_data
@@ -186,9 +329,9 @@ class ShadowingVideoDetailSerializer(serializers.ModelSerializer):
             try:
                 value = json.loads(val_str)
             except json.JSONDecodeError as exc:
-                raise serializers.ValidationError("exercises không phải là chuỗi JSON hợp lệ.") from exc
+                raise serializers.ValidationError(_("exercises không phải là chuỗi JSON hợp lệ.")) from exc
         if not isinstance(value, list):
-            raise serializers.ValidationError("exercises phải là danh sách bài tập.")
+            raise serializers.ValidationError(_("exercises phải là danh sách bài tập."))
 
         normalized = []
         for item in value:

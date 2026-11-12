@@ -31,11 +31,11 @@ export default function AnswerOption({
       type="button"
       disabled={disabled}
       onClick={onSelect}
-      className={`w-full min-h-12 p-3.5 rounded-lg border text-left flex items-center justify-between gap-3 transition-colors duration-150 cursor-pointer disabled:cursor-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 ${styleCls}`}
+      className={`w-full min-h-12 p-3.5 rounded-control border text-left flex items-center justify-between gap-3 transition-colors duration-150 cursor-pointer disabled:cursor-default focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 ${styleCls}`}
     >
       <div className="flex items-center gap-3 min-w-0">
         <span
-          className={`w-7 h-7 rounded-md border text-xs font-bold inline-flex items-center justify-center shrink-0 ${badgeCls}`}
+          className={`w-7 h-7 rounded-badge border text-xs font-semibold inline-flex items-center justify-center shrink-0 ${badgeCls}`}
         >
           {badgeLetter}
         </span>

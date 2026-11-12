@@ -4,12 +4,12 @@ import {
   ArrowLeftIcon,
   BookOpenIcon,
   ChartBarIcon,
-  ChevronDownIcon,
   FlagIcon,
-  GlobeAltIcon,
   SparklesIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/ui/LanguageSwitcher';
 import {
   AppleLogoSvg,
   BotanicalLeavesSvg,
@@ -32,9 +32,9 @@ function LoginIllustration() {
       <BotanicalLeavesSvg className="absolute left-7 top-12 w-10 h-12 text-sky-600" />
 
       {/* Back card: 日本語 + Mount Fuji */}
-      <div className="relative z-10 translate-x-7 -translate-y-2 w-36 h-36 rounded-2xl bg-white border border-sky-100 shadow-sm p-3.5 flex flex-col justify-between overflow-hidden">
+      <div className="relative z-10 translate-x-7 -translate-y-2 w-36 h-36 rounded-surface bg-white border border-sky-200 p-3.5 flex flex-col justify-between overflow-hidden">
         <div className="flex items-start justify-between">
-          <span className="text-lg font-extrabold text-sky-700 tracking-wide mt-2">
+          <span className="text-lg font-bold font-jp text-sky-700 tracking-wide mt-2">
             日本語
           </span>
           <span className="w-5 h-5 rounded-full bg-orange-300 shrink-0" />
@@ -44,7 +44,7 @@ function LoginIllustration() {
       </div>
 
       {/* Front tilted study notebook card */}
-      <div className="absolute z-20 left-5 bottom-3 w-36 h-28 -rotate-12 rounded-xl bg-white shadow-sm p-3 flex flex-col justify-between">
+      <div className="absolute z-20 left-5 bottom-3 w-36 h-28 -rotate-12 rounded-surface bg-white border border-slate-200 p-3 flex flex-col justify-between">
         <div className="grid grid-cols-2 gap-2.5 pt-1">
           <div className="flex flex-col gap-1.5">
             <span className="h-1.5 w-full rounded-full bg-sky-200" />
@@ -59,7 +59,7 @@ function LoginIllustration() {
             <span className="h-1.5 w-4/5 rounded-full bg-slate-100" />
           </div>
         </div>
-        <div className="h-2.5 w-full rounded-md bg-sky-600" />
+        <div className="h-2.5 w-full rounded-badge bg-sky-700" />
       </div>
     </div>
   );
@@ -75,20 +75,20 @@ function RegisterIllustration() {
 
       {/* Flag at summit */}
       <div className="absolute top-3 right-[74px] flex flex-col items-center">
-        <FlagIcon className="w-6 h-6 text-sky-600 fill-sky-600" />
+        <FlagIcon className="w-5 h-5 text-sky-700 fill-sky-700" />
       </div>
 
       {/* JLPT Milestone Badges */}
-      <span className="absolute top-10 right-[58px] px-3.5 py-1 rounded-full bg-sky-600 text-white text-xs font-bold shadow-sm">
+      <span className="absolute top-10 right-[58px] px-2.5 py-1 rounded-badge bg-sky-700 text-white text-xs font-semibold">
         N3
       </span>
-      <span className="absolute top-[86px] left-[86px] px-2.5 py-0.5 rounded-full bg-sky-600 text-white text-[11px] font-bold shadow-sm">
+      <span className="absolute top-[86px] left-[86px] px-2 py-0.5 rounded-badge bg-sky-700 text-white text-[11px] font-medium">
         N2
       </span>
-      <span className="absolute bottom-[54px] left-[38px] px-2.5 py-0.5 rounded-full bg-sky-600 text-white text-[11px] font-bold shadow-sm">
+      <span className="absolute bottom-[54px] left-[38px] px-2 py-0.5 rounded-badge bg-sky-700 text-white text-[11px] font-medium">
         N1
       </span>
-      <span className="absolute bottom-[30px] right-[42px] px-2.5 py-0.5 rounded-full bg-sky-600 text-white text-[11px] font-bold shadow-sm">
+      <span className="absolute bottom-[30px] right-[42px] px-2 py-0.5 rounded-badge bg-sky-700 text-white text-[11px] font-medium">
         N5
       </span>
     </div>
@@ -96,51 +96,41 @@ function RegisterIllustration() {
 }
 
 export function AuthBrandPanel({ mode = 'login' }) {
+  const { t } = useTranslation('auth');
   const isLogin = mode === 'login';
 
   return (
-    <div className="hidden md:flex md:col-span-5 h-full bg-sky-50/80 p-7 lg:p-10 flex-col justify-between relative overflow-hidden">
-      {/* Decorative top corner shape */}
-      <div
-        className="pointer-events-none absolute -top-10 -right-10 w-36 h-36 rounded-full bg-sky-100/70"
-        aria-hidden="true"
-      />
-
+    <div className="hidden md:flex md:col-span-5 h-full bg-sky-50 border-r border-slate-200 p-6 lg:p-8 flex-col justify-between relative overflow-hidden">
       {/* Brand header */}
       <div className="relative z-10">
         <Link
           to="/"
-          className="inline-flex items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+          className="inline-flex items-center gap-2.5 rounded-control focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
         >
-          <div className="w-9 h-9 rounded-xl bg-sky-600 text-white flex items-center justify-center shadow-sm">
-            <BookOpenIcon className="w-5 h-5" aria-hidden="true" />
+          <div className="w-8 h-8 rounded-control bg-sky-700 text-white flex items-center justify-center">
+            <BookOpenIcon className="w-4 h-4" aria-hidden="true" />
           </div>
-          <span className="text-base font-bold text-slate-900 tracking-tight">
-            JB Learn
+          <span className="text-base font-semibold text-slate-900 tracking-tight">
+            {t('brand.name')}
           </span>
         </Link>
 
-        <div className="mt-8">
-          <h2 className="text-xl lg:text-2xl font-bold text-slate-900 leading-snug">
+        <div className="mt-6">
+          <h2 className="text-lg lg:text-xl font-semibold text-slate-900 leading-snug tracking-tight">
             {isLogin ? (
               <>
-                Học ngôn ngữ
+                {t('brand.loginHeadline1')}
                 <br />
-                với lộ trình rõ ràng
+                {t('brand.loginHeadline2')}
               </>
             ) : (
               <>
-                Bắt đầu hành trình
+                {t('brand.registerHeadline1')}
                 <br />
-                học ngôn ngữ của bạn
+                {t('brand.registerHeadline2')}
               </>
             )}
           </h2>
-          <p className="mt-2.5 text-xs lg:text-sm text-slate-600 leading-relaxed">
-            {isLogin
-              ? 'Từ vựng, ngữ pháp, nghe, nói — tất cả trong một nơi.'
-              : 'Cùng JB Learn xây dựng thói quen học tập tốt hơn mỗi ngày.'}
-          </p>
         </div>
       </div>
 
@@ -150,29 +140,29 @@ export function AuthBrandPanel({ mode = 'login' }) {
       </div>
 
       {/* Bottom 3 value highlights */}
-      <div className="relative z-10 grid grid-cols-3 divide-x divide-sky-200/80 pt-4">
+      <div className="relative z-10 grid grid-cols-3 divide-x divide-sky-200 pt-4 border-t border-sky-200">
         <div className="pr-3 flex flex-col gap-1.5">
-          <SparklesIcon className="w-5 h-5 text-sky-600" aria-hidden="true" />
+          <SparklesIcon className="w-4 h-4 text-sky-700" aria-hidden="true" />
           <span className="text-xs font-medium text-slate-600 leading-tight">
-            Lộ trình
+            {t('brand.highlight1Line1')}
             <br />
-            cá nhân hóa
+            {t('brand.highlight1Line2')}
           </span>
         </div>
         <div className="px-3 flex flex-col gap-1.5">
-          <BookOpenIcon className="w-5 h-5 text-sky-600" aria-hidden="true" />
+          <BookOpenIcon className="w-4 h-4 text-sky-700" aria-hidden="true" />
           <span className="text-xs font-medium text-slate-600 leading-tight">
-            Học mọi lúc
+            {t('brand.highlight2Line1')}
             <br />
-            mọi nơi
+            {t('brand.highlight2Line2')}
           </span>
         </div>
         <div className="pl-3 flex flex-col gap-1.5">
-          <ChartBarIcon className="w-5 h-5 text-sky-600" aria-hidden="true" />
+          <ChartBarIcon className="w-4 h-4 text-sky-700" aria-hidden="true" />
           <span className="text-xs font-medium text-slate-600 leading-tight">
-            Theo dõi
+            {t('brand.highlight3Line1')}
             <br />
-            tiến độ
+            {t('brand.highlight3Line2')}
           </span>
         </div>
       </div>
@@ -181,46 +171,42 @@ export function AuthBrandPanel({ mode = 'login' }) {
 }
 
 export function AuthFormTopBar({ onClose, showBackLink = false }) {
+  const { t } = useTranslation('auth');
+
   return (
     <div className="flex items-center justify-between gap-2">
       <div className="flex items-center gap-2.5">
         <Link
           to="/"
-          className="inline-flex items-center gap-2 md:hidden rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+          className="inline-flex items-center gap-2 md:hidden rounded-control focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
         >
-          <div className="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded-control bg-sky-700 text-white flex items-center justify-center shrink-0">
             <BookOpenIcon className="w-4 h-4" aria-hidden="true" />
           </div>
-          <span className="text-sm font-bold text-slate-900">JB Learn</span>
+          <span className="text-sm font-semibold text-slate-900">
+            {t('brand.name')}
+          </span>
         </Link>
 
         {showBackLink && (
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 rounded-lg"
+            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 rounded-control"
           >
             <ArrowLeftIcon className="w-4 h-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Trang chủ</span>
+            <span className="hidden sm:inline">{t('topBar.home')}</span>
           </Link>
         )}
       </div>
 
-      <div className="flex items-center gap-2 ml-auto">
-        <div
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-600 bg-slate-50 border border-slate-200 select-none"
-          aria-label="Ngôn ngữ hiển thị: Tiếng Việt"
-        >
-          <GlobeAltIcon className="w-4 h-4 text-slate-500" aria-hidden="true" />
-          <span>VI</span>
-          <ChevronDownIcon className="w-3 h-3 text-slate-400" aria-hidden="true" />
-        </div>
-
+      <div className="flex items-center gap-2 ml-auto shrink-0">
+        <LanguageSwitcher variant="compact" />
         {onClose && (
           <button
             type="button"
             onClick={onClose}
-            aria-label="Đóng cửa sổ"
-            className="w-8 h-8 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+            aria-label={t('topBar.closeAria')}
+            className="w-8 h-8 inline-flex items-center justify-center rounded-control border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
           >
             <XMarkIcon className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -231,8 +217,9 @@ export function AuthFormTopBar({ onClose, showBackLink = false }) {
 }
 
 export function AuthOAuthSection({ mode = 'login', onOAuthClick }) {
+  const { t } = useTranslation('auth');
   const dividerText =
-    mode === 'login' ? 'Hoặc đăng nhập với' : 'Hoặc đăng ký với';
+    mode === 'login' ? t('oauth.loginDivider') : t('oauth.registerDivider');
 
   return (
     <div className="flex flex-col gap-3">
@@ -248,19 +235,19 @@ export function AuthOAuthSection({ mode = 'login', onOAuthClick }) {
         <button
           type="button"
           onClick={() => onOAuthClick?.('Google')}
-          className="min-h-10 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+          className="min-h-10 px-3 py-2 rounded-control border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
         >
           <GoogleLogoSvg />
-          <span>Google</span>
+          <span>{t('oauth.google')}</span>
         </button>
 
         <button
           type="button"
           onClick={() => onOAuthClick?.('Apple')}
-          className="min-h-10 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+          className="min-h-10 px-3 py-2 rounded-control border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
         >
           <AppleLogoSvg />
-          <span>Apple</span>
+          <span>{t('oauth.apple')}</span>
         </button>
       </div>
     </div>

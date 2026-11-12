@@ -1,0 +1,130 @@
+{
+  "roles": {
+    "guest": "Guest (Not signed in)",
+    "admin": "Administrator",
+    "moderator": "Moderator",
+    "learner": "Learner"
+  },
+  "moduleGroups": {
+    "access": "Access & Accounts",
+    "cards": "Courses & Flashcards",
+    "shadowing": "Shadowing Practice"
+  },
+  "modules": {
+    "auth_registration": {
+      "label": "New account registration",
+      "description": "Allow new users to sign up for an account"
+    },
+    "auth_guest_mode": {
+      "label": "Study without signing in",
+      "description": "Allow guests to explore courses and practice without an account"
+    },
+    "courses": {
+      "label": "Courses & Decks",
+      "description": "Access JLPT courses and structured learning paths"
+    },
+    "study_cards": {
+      "label": "Flashcards & Lookup",
+      "description": "Study vocabulary, grammar, kanji, and listening"
+    },
+    "study_personal_cards": {
+      "label": "My Personal Deck",
+      "description": "Manage user-created flashcards and courses"
+    },
+    "shadowing": {
+      "label": "Shadowing Practice",
+      "description": "Access video library and Shadowing workspace"
+    },
+    "shadowing_pronunciation": {
+      "label": "Pronunciation Mode",
+      "description": "Record your voice and score pronunciation per line"
+    },
+    "shadowing_listening": {
+      "label": "Listening Dictation Mode",
+      "description": "Listen to spoken lines and fill in missing words"
+    },
+    "shadowing_exercise": {
+      "label": "Quiz Exercise Mode",
+      "description": "Answer multiple-choice comprehension questions"
+    },
+    "shadowing_extraction": {
+      "label": "Add Video & Caption Extraction",
+      "description": "Import YouTube videos and auto-extract subtitles"
+    }
+  },
+  "permissionGroups": {
+    "courses": "Courses",
+    "cards": "Flashcards",
+    "personal_cards": "My Deck",
+    "shadowing": "Shadowing Practice",
+    "users": "Accounts",
+    "roles": "Roles & Permissions",
+    "modules": "System Features",
+    "system": "Admin & Audit Logs"
+  },
+  "permissions": {
+    "courses_view": "View courses",
+    "courses_create_own": "Create personal courses",
+    "courses_edit_own": "Edit personal courses",
+    "courses_delete_own": "Delete personal courses",
+    "courses_view_all": "View all admin courses",
+    "courses_create": "Create system courses",
+    "courses_edit": "Edit any course",
+    "courses_delete": "Delete any course",
+    "cards_view": "View & study cards",
+    "cards_view_all": "View all admin cards",
+    "cards_create": "Create system cards",
+    "cards_edit": "Edit any card",
+    "cards_delete": "Delete any card",
+    "cards_create_own": "Create personal cards",
+    "cards_edit_own": "Edit personal cards",
+    "cards_delete_own": "Delete personal cards",
+    "personal_cards_view": "View my deck",
+    "shadowing_view": "View Shadowing lessons",
+    "shadowing_create_own": "Create personal Shadowing lessons",
+    "shadowing_edit_own": "Edit personal Shadowing lessons",
+    "shadowing_delete_own": "Delete personal Shadowing lessons",
+    "shadowing_view_all": "View all admin Shadowing lessons",
+    "shadowing_create": "Create system Shadowing lessons",
+    "shadowing_edit": "Edit any Shadowing lesson",
+    "shadowing_delete": "Delete any Shadowing lesson",
+    "users_view": "View accounts",
+    "users_create": "Create accounts",
+    "users_edit": "Edit account details & roles",
+    "users_lock": "Lock / unlock accounts",
+    "users_reset_password": "Reset account passwords",
+    "users_delete": "Delete accounts",
+    "roles_view": "View roles",
+    "roles_create": "Create roles",
+    "roles_edit": "Edit & configure role permissions",
+    "roles_delete": "Delete roles",
+    "modules_view": "View feature status",
+    "modules_toggle": "Toggle features",
+    "modules_assign_roles": "Assign roles to features",
+    "admin_access": "Access admin dashboard",
+    "system_status_view": "View system overview",
+    "system_audit_view": "View audit logs"
+  },
+  "auditActions": {
+    "user_create": "Create account",
+    "user_update": "Update account",
+    "user_lock": "Lock account",
+    "user_unlock": "Unlock account",
+    "user_reset_password": "Reset password",
+    "user_delete": "Delete account",
+    "user_grant_admin": "Update admin role",
+    "role_create": "Create role",
+    "role_update": "Update role",
+    "role_delete": "Delete role",
+    "module_toggle": "Update feature settings",
+    "course_create": "Create course",
+    "course_update": "Update course",
+    "course_delete": "Delete course",
+    "card_create": "Create flashcard",
+    "card_update": "Update flashcard",
+    "card_delete": "Delete flashcard",
+    "video_create": "Create Shadowing video",
+    "video_update": "Update Shadowing video",
+    "video_delete": "Delete Shadowing video"
+  }
+}

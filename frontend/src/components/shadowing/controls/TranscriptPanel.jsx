@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   PlayIcon,
   XMarkIcon,
@@ -7,10 +8,11 @@ import {
 import Card from '../../ui/Card';
 import RubyText from '../../ui/RubyText';
 import { BilingualIconSvg } from '../../ui/SvgIcons';
+import { formatNumber } from '../../../utils/formatters';
 
 /**
  * TranscriptPanel
- * Right synchronized "Phụ đề" transcript panel:
+ * Right synchronized transcript panel:
  * - Header with title, export transcript, bilingual toggle (AB), and close button
  * - Scrollable list of segments with active highlight (bg-sky-50 border-sky-200)
  * - Auto-scrolls active segment into view
@@ -25,6 +27,7 @@ export default function TranscriptPanel({
   isOpen = true,
   videoTitle = 'transcript',
 }) {
+  const { t } = useTranslation('shadowing');
   const [isBilingual, setIsBilingual] = useState(true);
   const listRef = useRef(null);
   const activeItemRef = useRef(null);
@@ -72,15 +75,12 @@ export default function TranscriptPanel({
   };
 
   return (
-    <Card
-      rounded="2xl"
-      className="flex flex-col h-full max-h-[320px] sm:max-h-[420px] lg:max-h-[calc(100vh-140px)] bg-white border border-slate-200 overflow-hidden shadow-sm"
-    >
+    <Card className="flex flex-col h-full max-h-[320px] sm:max-h-[420px] lg:max-h-[calc(100vh-140px)] overflow-hidden">
       {/* Panel Header */}
-      <div className="flex items-center justify-between px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-slate-100 bg-white sticky top-0 z-10 shrink-0">
+      <div className="flex items-center justify-between px-3.5 sm:px-4 py-2.5 sm:py-3 border-b border-slate-200 bg-white sticky top-0 z-10 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
-          <h2 className="text-sm font-bold text-slate-900 tracking-tight truncate">
-            Phụ đề ({segments.length})
+          <h2 className="text-sm font-semibold text-slate-900 tracking-tight truncate tabular-nums">
+            {t('transcriptPanel.title', { count: formatNumber(segments.length) })}
           </h2>
         </div>
 
@@ -89,9 +89,9 @@ export default function TranscriptPanel({
           <button
             type="button"
             onClick={handleExport}
-            title="Tải phụ đề (.txt)"
-            aria-label="Tải xuống phụ đề"
-            className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+            title={t('transcriptPanel.exportTitle')}
+            aria-label={t('transcriptPanel.exportAria')}
+            className="w-8 h-8 inline-flex items-center justify-center rounded-control text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <ArrowDownTrayIcon className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -100,12 +100,16 @@ export default function TranscriptPanel({
           <button
             type="button"
             onClick={() => setIsBilingual((prev) => !prev)}
-            title={isBilingual ? 'Tắt bản dịch song ngữ' : 'Bật bản dịch song ngữ'}
-            aria-label="Bật tắt song ngữ"
-            aria-pressed={isBilingual}
-            className={`w-8 h-8 inline-flex items-center justify-center rounded-lg transition-colors cursor-pointer ${
+            title={
               isBilingual
-                ? 'bg-sky-50 text-sky-700'
+                ? t('transcriptPanel.disableBilingual')
+                : t('transcriptPanel.enableBilingual')
+            }
+            aria-label={t('transcriptPanel.toggleBilingualAria')}
+            aria-pressed={isBilingual}
+            className={`w-8 h-8 inline-flex items-center justify-center rounded-control transition-colors cursor-pointer ${
+              isBilingual
+                ? 'bg-sky-50 text-sky-700 border border-sky-200'
                 : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
             }`}
           >
@@ -117,8 +121,8 @@ export default function TranscriptPanel({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Đóng bảng phụ đề"
-              className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              aria-label={t('transcriptPanel.closeAria')}
+              className="w-8 h-8 inline-flex items-center justify-center rounded-control text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <XMarkIcon className="w-4 h-4" aria-hidden="true" />
             </button>
@@ -129,7 +133,7 @@ export default function TranscriptPanel({
       {/* Scrollable Segment List */}
       <div
         ref={listRef}
-        className="flex-1 overflow-y-auto p-2.5 sm:p-3 flex flex-col gap-1.5 sm:gap-2"
+        className="flex-1 overflow-y-auto p-2.5 sm:p-3 flex flex-col gap-1.5"
       >
         {segments.map((seg, idx) => {
           const isActive = idx === activeSegmentIndex;
@@ -139,21 +143,21 @@ export default function TranscriptPanel({
               type="button"
               ref={isActive ? activeItemRef : null}
               onClick={() => onSeek?.(seg.start)}
-              className={`w-full p-2.5 sm:p-3 rounded-xl border transition-colors duration-150 cursor-pointer flex items-start gap-2.5 sm:gap-3 text-left ${
+              className={`w-full p-2.5 sm:p-3 rounded-control border transition-colors duration-150 cursor-pointer flex items-start gap-2.5 text-left ${
                 isActive
-                  ? 'bg-sky-50 border-sky-200 shadow-xs'
+                  ? 'bg-sky-50 border-sky-200'
                   : 'bg-white border-transparent hover:bg-slate-50 hover:border-slate-200'
               }`}
             >
               {/* Play Icon Indicator */}
               <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                className={`w-7 h-7 rounded-control flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
                   isActive
-                    ? 'bg-sky-600 text-white shadow-xs'
+                    ? 'bg-sky-700 text-white'
                     : 'bg-slate-100 text-slate-500'
                 }`}
               >
-                <PlayIcon className="w-3.5 h-3.5 ml-0.5" aria-hidden="true" />
+                <PlayIcon className="w-4 h-4" aria-hidden="true" />
               </div>
 
               {/* Japanese & Vietnamese text */}
@@ -162,7 +166,7 @@ export default function TranscriptPanel({
                   className={`text-sm font-jp break-words ${
                     showFurigana && seg.ruby_text ? 'leading-loose' : 'leading-relaxed'
                   } ${
-                    isActive ? 'font-bold text-sky-950' : 'text-slate-900 font-medium'
+                    isActive ? 'font-semibold text-sky-950' : 'text-slate-900 font-medium'
                   }`}
                 >
                   {showFurigana && seg.ruby_text ? (

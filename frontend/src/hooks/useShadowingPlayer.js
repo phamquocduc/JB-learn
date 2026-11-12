@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import i18n from '../i18n';
 
 /**
  * Unified Shadowing Player Hook
@@ -138,7 +139,9 @@ export function useShadowingPlayer({
             onError: (event) => {
               if (destroyed) return;
               const errCode = event.data;
-              setError(`Lỗi phát YouTube (mã ${errCode})`);
+              setError(
+                i18n.t('shadowing:player.youtubeError', { code: errCode })
+              );
               setIsReady(false);
             },
           },
@@ -153,7 +156,7 @@ export function useShadowingPlayer({
       tag.src = 'https://www.youtube.com/iframe_api';
       tag.onerror = () => {
         if (!destroyed) {
-          setError('Không thể tải YouTube Player API.');
+          setError(i18n.t('shadowing:player.youtubeApiLoadError'));
           setIsReady(false);
         }
       };

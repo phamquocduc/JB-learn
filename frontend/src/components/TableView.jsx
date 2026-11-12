@@ -1,13 +1,14 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
-import Card from './ui/Card';
+import CommonTable from './ui/CommonTable';
 import Button from './ui/Button';
 import Badge from './ui/Badge';
 import RubyText from './ui/RubyText';
 import AudioPlayer from './ui/AudioPlayer';
 import EmptyState from './ui/EmptyState';
 import {
-  STUDY_STATUS_LABELS,
+  getStudyStatusLabel,
   getEffectiveCardStatus,
 } from '../constants/cards';
 import { isCardDue } from '../services/ankiScheduler';
@@ -20,135 +21,193 @@ export default function TableView({
   onEditCard,
   onDeleteCard,
 }) {
-  if (!cards || cards.length === 0) {
-    return (
-      <EmptyState
-        title="Không tìm thấy thẻ học phù hợp"
-        description="Hãy thử đổi bộ lọc cấp độ, bài học hoặc từ khóa tìm kiếm."
-      />
+  const { t } = useTranslation(['study', 'common']);
+  const getCardMeta = (card) => {
+    const frontText = card.front_text || card.grammar;
+    const reading = card.extra_data?.reading || '';
+    const cardSrs = srsMap[String(card.id)] || null;
+    const status = statusMap[String(card.id)] || cardSrs?.status || 'unseen';
+    const displayStatus = getEffectiveCardStatus(status, cardSrs);
+    const isDue = Boolean(
+      cardSrs &&
+        cardSrs.state !== 'new' &&
+        (cardSrs.is_due || isCardDue(cardSrs))
     );
-  }
+    const canEdit = Boolean(card.can_edit ?? (card.can_manage || card.is_owner));
+    const canDelete = Boolean(
+      card.can_delete ?? (card.can_manage || card.is_owner)
+    );
+
+    return {
+      frontText,
+      reading,
+      cardSrs,
+      displayStatus,
+      isDue,
+      canEdit,
+      canDelete,
+    };
+  };
+
+  const renderRowActions = (card, meta) => (
+    <div
+      className="inline-flex items-center justify-end gap-1.5"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <AudioPlayer text={meta.frontText} compact />
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => onSelectCard(card)}
+      >
+        {t('study:table.detailButton')}
+      </Button>
+      {meta.canEdit && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onEditCard(card)}
+          aria-label={t('study:table.editAria', { frontText: meta.frontText })}
+        >
+          <PencilSquareIcon className="w-4 h-4" aria-hidden="true" />
+        </Button>
+      )}
+      {meta.canDelete && (
+        <Button
+          variant="destructive"
+          size="icon"
+          onClick={() => onDeleteCard(card)}
+          aria-label={t('study:table.deleteAria', { frontText: meta.frontText })}
+        >
+          <TrashIcon className="w-4 h-4" aria-hidden="true" />
+        </Button>
+      )}
+    </div>
+  );
+
+  const columns = [
+    {
+      key: 'lesson',
+      header: t('study:table.columns.lesson'),
+      headerClassName: 'w-24',
+      render: (card) => (
+        <Badge variant="lesson">
+          {card.lesson || t('study:table.generalLesson')}
+        </Badge>
+      ),
+    },
+    {
+      key: 'front',
+      header: t('study:table.columns.front'),
+      headerClassName: 'w-52',
+      cellClassName: 'font-semibold text-sm sm:text-base text-slate-900',
+      render: (card) => {
+        const { frontText, reading } = getCardMeta(card);
+        return <RubyText text={frontText} reading={reading} />;
+      },
+    },
+    {
+      key: 'meaning',
+      header: t('study:table.columns.meaning'),
+      cellClassName: 'text-sm text-slate-900',
+      render: (card) => card.meaning,
+    },
+    {
+      key: 'conjugation',
+      header: t('study:table.columns.conjugation'),
+      headerClassName: 'w-44',
+      cellClassName: 'text-sm text-sky-800 font-jp',
+      render: (card) => card.conjugation || '—',
+    },
+    {
+      key: 'status',
+      header: t('study:table.columns.status'),
+      align: 'center',
+      headerClassName: 'w-36',
+      render: (card) => {
+        const { cardSrs, displayStatus, isDue } = getCardMeta(card);
+        return (
+          <div className="inline-flex flex-col items-center gap-1">
+            <Badge variant={displayStatus}>
+              {getStudyStatusLabel(displayStatus)}
+            </Badge>
+            {cardSrs && cardSrs.state !== 'new' && (
+              <span
+                className={`text-[11px] font-medium tabular-nums ${
+                  isDue ? 'text-amber-700' : 'text-slate-500'
+                }`}
+              >
+                {isDue ? t('study:table.dueBadge') : cardSrs.interval_display}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'actions',
+      header: t('study:table.columns.actions'),
+      align: 'right',
+      headerClassName: 'w-40',
+      render: (card) => renderRowActions(card, getCardMeta(card)),
+    },
+  ];
 
   return (
-    <Card className="overflow-x-auto">
-      <table className="w-full border-collapse text-left">
-        <thead>
-          <tr className="bg-slate-50 border-b border-slate-200">
-            <th className="py-3.5 px-4 text-xs font-semibold text-slate-600 w-24">
-              Bài
-            </th>
-            <th className="py-3.5 px-4 text-xs font-semibold text-slate-600 w-52">
-              Mặt trước
-            </th>
-            <th className="py-3.5 px-4 text-xs font-semibold text-slate-600">
-              Ý nghĩa
-            </th>
-            <th className="py-3.5 px-4 text-xs font-semibold text-slate-600 w-44">
-              Cách chia / Đọc
-            </th>
-            <th className="py-3.5 px-4 text-xs font-semibold text-slate-600 w-36 text-center">
-              Trạng thái
-            </th>
-            <th className="py-3.5 px-4 text-xs font-semibold text-slate-600 w-40 text-right">
-              Thao tác
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-200">
-          {cards.map((card) => {
-            const frontText = card.front_text || card.grammar;
-            const reading = card.extra_data?.reading || '';
-            const cardSrs = srsMap[String(card.id)] || null;
-            const status =
-              statusMap[String(card.id)] || cardSrs?.status || 'unseen';
-            const displayStatus = getEffectiveCardStatus(status, cardSrs);
-            const isDue = Boolean(
-              cardSrs &&
-                cardSrs.state !== 'new' &&
-                (cardSrs.is_due || isCardDue(cardSrs))
-            );
-
-            return (
-              <tr
-                key={card.id || frontText}
-                onClick={() => onSelectCard(card)}
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onSelectCard(card);
-                  }
-                }}
-                className="cursor-pointer hover:bg-slate-50 transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-sky-700"
-              >
-                <td className="py-3.5 px-4 align-middle">
-                  <Badge variant="lesson">{card.lesson || 'Chung'}</Badge>
-                </td>
-                <td className="py-3.5 px-4 align-middle font-bold text-base text-slate-900">
-                  <RubyText text={frontText} reading={reading} />
-                </td>
-                <td className="py-3.5 px-4 align-middle text-sm text-slate-900">
-                  {card.meaning}
-                </td>
-                <td className="py-3.5 px-4 align-middle text-sm text-sky-800 font-jp">
-                  {card.conjugation || '—'}
-                </td>
-                <td className="py-3.5 px-4 align-middle text-center">
-                  <div className="inline-flex flex-col items-center gap-1">
-                    <Badge variant={displayStatus}>
-                      {STUDY_STATUS_LABELS[displayStatus] || 'Chưa học'}
-                    </Badge>
-                    {cardSrs && cardSrs.state !== 'new' && (
-                      <span
-                        className={`text-[11px] font-medium ${
-                          isDue ? 'text-amber-700' : 'text-slate-500'
-                        }`}
-                      >
-                        {isDue ? 'Đến hạn ôn' : cardSrs.interval_display}
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td className="py-3.5 px-4 align-middle text-right">
-                  <div
-                    className="inline-flex items-center justify-end gap-1.5"
-                    onClick={(e) => e.stopPropagation()}
+    <CommonTable
+      columns={columns}
+      data={cards}
+      getRowKey={(card, idx) => card.id || card.front_text || card.grammar || idx}
+      onRowClick={onSelectCard}
+      mobileRowClassName="flex flex-col gap-2.5"
+      renderMobileRow={(card) => {
+        const meta = getCardMeta(card);
+        return (
+          <>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex flex-col gap-1">
+                <div className="font-semibold text-base text-slate-900">
+                  <RubyText text={meta.frontText} reading={meta.reading} />
+                </div>
+                <span className="text-sm text-slate-700">{card.meaning}</span>
+                {card.conjugation && (
+                  <span className="text-xs text-sky-800 font-jp">
+                    {card.conjugation}
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <Badge variant={meta.displayStatus}>
+                  {getStudyStatusLabel(meta.displayStatus)}
+                </Badge>
+                {meta.cardSrs && meta.cardSrs.state !== 'new' && (
+                  <span
+                    className={`text-[11px] font-medium tabular-nums ${
+                      meta.isDue ? 'text-amber-700' : 'text-slate-500'
+                    }`}
                   >
-                    <AudioPlayer text={frontText} compact />
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => onSelectCard(card)}
-                    >
-                      Chi tiết
-                    </Button>
-                    {card.is_owner && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onEditCard(card)}
-                          aria-label={`Sửa thẻ ${frontText}`}
-                        >
-                          <PencilSquareIcon className="w-4 h-4" aria-hidden="true" />
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => onDeleteCard(card)}
-                          aria-label={`Xóa thẻ ${frontText}`}
-                        >
-                          <TrashIcon className="w-4 h-4" aria-hidden="true" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </Card>
+                    {meta.isDue ? t('study:table.dueBadge') : meta.cardSrs.interval_display}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200">
+              <Badge variant="lesson">
+                {card.lesson || t('study:table.generalLesson')}
+              </Badge>
+              {renderRowActions(card, meta)}
+            </div>
+          </>
+        );
+      }}
+      emptyState={
+        <EmptyState
+          title={t('study:flashcard.emptyTitle')}
+          description={t('study:flashcard.emptyDesc')}
+        />
+      }
+      ariaLabel={t('study:table.ariaLabel')}
+    />
   );
 }

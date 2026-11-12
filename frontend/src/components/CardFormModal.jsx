@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
 import Button from './ui/Button';
 import Dropdown from './ui/Dropdown';
-import { CARD_TYPES, JLPT_LEVELS } from '../constants/cards';
+import { getCardTypeOptions, JLPT_LEVELS } from '../constants/cards';
 import { createCourse } from '../services/api';
 
 const BASE_INPUT_CLASS =
-  'w-full min-h-10 px-3.5 py-2 rounded-lg border text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus-visible:outline-2 focus-visible:outline-offset-2';
+  'w-full min-h-10 px-3.5 py-2 rounded-control border text-slate-900 text-sm transition-colors duration-150 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1';
 const VALID_INPUT_CLASS =
-  'border-slate-200 bg-slate-50 focus:border-sky-700 focus-visible:outline-sky-700';
+  'border-slate-200 bg-white hover:border-slate-300 focus:border-sky-700 focus-visible:outline-sky-700';
 const INVALID_INPUT_CLASS =
   'border-red-400 bg-red-50/40 focus:border-red-600 focus-visible:outline-red-600';
 
@@ -24,6 +25,7 @@ export default function CardFormModal({
   defaultLesson = '',
   courses = [],
 }) {
+  const { t } = useTranslation(['study', 'common']);
   const isEditing = Boolean(initialCard && initialCard.id);
 
   const initialMatchedCourse = useMemo(() => {
@@ -52,19 +54,38 @@ export default function CardFormModal({
         : ''
   );
   const [lesson, setLesson] = useState(
-    () => initialCard?.lesson || defaultLesson || 'Bài 1'
+    () => initialCard?.lesson || defaultLesson || t('study:cardForm.defaultLesson')
   );
   const [frontText, setFrontText] = useState(
     () => initialCard?.front_text || initialCard?.grammar || ''
   );
-  const [meaning, setMeaning] = useState(() => initialCard?.meaning || '');
+  const [contentLang, setContentLang] = useState('vi');
+  const [meaning, setMeaning] = useState(
+    () => initialCard?.source_values?.meaning ?? initialCard?.meaning ?? ''
+  );
   const [conjugation, setConjugation] = useState(
-    () => initialCard?.conjugation || ''
+    () =>
+      initialCard?.source_values?.conjugation ?? initialCard?.conjugation ?? ''
   );
   const [usageNotes, setUsageNotes] = useState(
-    () => initialCard?.usage_notes || ''
+    () =>
+      initialCard?.source_values?.usage_notes ?? initialCard?.usage_notes ?? ''
   );
-  const [examples, setExamples] = useState(() => initialCard?.examples || '');
+  const [examples, setExamples] = useState(
+    () => initialCard?.source_values?.examples ?? initialCard?.examples ?? ''
+  );
+  const [enMeaning, setEnMeaning] = useState(
+    () => initialCard?.translations?.en?.meaning || ''
+  );
+  const [enConjugation, setEnConjugation] = useState(
+    () => initialCard?.translations?.en?.conjugation || ''
+  );
+  const [enUsageNotes, setEnUsageNotes] = useState(
+    () => initialCard?.translations?.en?.usage_notes || ''
+  );
+  const [enExamples, setEnExamples] = useState(
+    () => initialCard?.translations?.en?.examples || ''
+  );
   const [isPublic, setIsPublic] = useState(() =>
     initialCard
       ? (initialCard.is_public ?? true)
@@ -93,13 +114,13 @@ export default function CardFormModal({
 
   const courseOptions = useMemo(
     () => [
-      { value: '', label: 'Không gán khoá học' },
+      { value: '', label: t('study:cardForm.noCourse') },
       ...courses.map((c) => ({
         value: String(c.id),
         label: c.level ? `${c.title} · ${c.level}` : c.title,
       })),
     ],
-    [courses]
+    [courses, t]
   );
 
   const handleSafeClose = () => {
@@ -127,10 +148,16 @@ export default function CardFormModal({
   if (!isOpen) return null;
 
   const focusField = (fieldKey) => {
+    if (fieldKey === 'meaning') {
+      setContentLang('vi');
+      requestAnimationFrame(() => {
+        meaningInputRef.current?.focus();
+      });
+      return;
+    }
     const refMap = {
       lesson: lessonInputRef,
       frontText: frontInputRef,
-      meaning: meaningInputRef,
       newCourseTitle: newCourseInputRef,
     };
     refMap[fieldKey]?.current?.focus();
@@ -154,7 +181,7 @@ export default function CardFormModal({
 
   const handleQuickCreateCourse = async () => {
     if (!newCourseTitle.trim()) {
-      setNewCourseError('Vui lòng nhập tên khoá học mới.');
+      setNewCourseError(t('study:cardForm.errors.newCourseNameRequired'));
       newCourseInputRef.current?.focus();
       return;
     }
@@ -173,7 +200,9 @@ export default function CardFormModal({
       setNewCourseTitle('');
       setShowNewCourseForm(false);
     } catch (err) {
-      setErrorMessage(err.message || 'Không thể tạo khoá học mới.');
+      setErrorMessage(
+        err.message || t('study:cardForm.errors.newCourseCreateFailed')
+      );
     } finally {
       setCreatingCourse(false);
     }
@@ -182,17 +211,16 @@ export default function CardFormModal({
   const validateFields = () => {
     const nextErrors = {};
     if (!lesson.trim()) {
-      nextErrors.lesson = 'Vui lòng nhập bài học.';
+      nextErrors.lesson = t('study:cardForm.errors.lessonRequired');
     }
     if (showNewCourseForm && newCourseTitle.trim()) {
-      nextErrors.newCourseTitle =
-        'Vui lòng nhấn Lưu khoá học trước khi tạo thẻ.';
+      nextErrors.newCourseTitle = t('study:cardForm.errors.unsavedNewCourse');
     }
     if (!frontText.trim()) {
-      nextErrors.frontText = 'Vui lòng nhập nội dung mặt trước của thẻ.';
+      nextErrors.frontText = t('study:cardForm.errors.frontRequired');
     }
     if (!meaning.trim()) {
-      nextErrors.meaning = 'Vui lòng nhập ý nghĩa hoặc định nghĩa của thẻ.';
+      nextErrors.meaning = t('study:cardForm.errors.meaningRequired');
     }
     return nextErrors;
   };
@@ -219,6 +247,24 @@ export default function CardFormModal({
       return;
     }
 
+    const existingTranslations =
+      initialCard?.translations && typeof initialCard.translations === 'object'
+        ? initialCard.translations
+        : {};
+    const enFields = {
+      meaning: enMeaning.trim(),
+      conjugation: enConjugation.trim(),
+      usage_notes: enUsageNotes.trim(),
+      examples: enExamples.trim(),
+    };
+    const hasEnContent = Object.values(enFields).some(Boolean);
+    const nextTranslations = { ...existingTranslations };
+    if (hasEnContent) {
+      nextTranslations.en = enFields;
+    } else {
+      delete nextTranslations.en;
+    }
+
     const payload = {
       card_type: cardType,
       level,
@@ -229,6 +275,7 @@ export default function CardFormModal({
       conjugation: conjugation.trim(),
       usage_notes: usageNotes.trim(),
       examples: examples.trim(),
+      translations: nextTranslations,
       is_public: Boolean(isPublic),
     };
 
@@ -240,10 +287,15 @@ export default function CardFormModal({
       } else {
         setHasCreatedCard(true);
         setFrontText('');
+        setContentLang('vi');
         setMeaning('');
         setConjugation('');
         setUsageNotes('');
         setExamples('');
+        setEnMeaning('');
+        setEnConjugation('');
+        setEnUsageNotes('');
+        setEnExamples('');
         setFieldErrors({});
         setErrorMessage('');
         requestAnimationFrame(() => {
@@ -251,9 +303,7 @@ export default function CardFormModal({
         });
       }
     } catch (err) {
-      setErrorMessage(
-        err.message || 'Không thể lưu thẻ học. Vui lòng kiểm tra lại dữ liệu.'
-      );
+      setErrorMessage(err.message || t('study:cardForm.errors.saveFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -272,21 +322,23 @@ export default function CardFormModal({
       aria-labelledby="card-form-modal-title"
     >
       <div
-        className="bg-white border border-slate-200 rounded-2xl shadow-lg max-w-2xl w-full max-h-[90vh] flex flex-col animate-popup-in"
+        className="bg-white border border-slate-200 rounded-surface shadow-sm max-w-2xl w-full max-h-[90vh] flex flex-col animate-popup-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-4 sm:px-6 py-3.5 sm:py-4 bg-slate-50 border-b border-slate-200 rounded-t-2xl flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-3.5 bg-slate-50 border-b border-slate-200 rounded-t-surface flex items-center justify-between">
           <h2
             id="card-form-modal-title"
-            className="text-base sm:text-lg font-bold text-slate-900"
+            className="text-sm sm:text-base font-semibold text-slate-900"
           >
-            {isEditing ? 'Chỉnh sửa thẻ học' : 'Tạo thẻ học mới'}
+            {isEditing
+              ? t('study:cardForm.editTitle')
+              : t('study:cardForm.createTitle')}
           </h2>
           <Button
             variant="secondary"
             size="icon"
             onClick={handleSafeClose}
-            aria-label="Đóng biểu mẫu"
+            aria-label={t('study:cardForm.closeAria')}
           >
             <XMarkIcon className="w-5 h-5" aria-hidden="true" />
           </Button>
@@ -299,7 +351,7 @@ export default function CardFormModal({
         >
           {errorMessage && (
             <div
-              className="bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm rounded-lg p-3"
+              className="bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm rounded-control p-3"
               role="alert"
             >
               {errorMessage}
@@ -312,13 +364,13 @@ export default function CardFormModal({
               tabIndex={-1}
               role="alert"
               aria-labelledby="card-form-error-summary-title"
-              className="bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm rounded-lg p-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+              className="bg-red-50 border border-red-200 text-red-800 text-xs sm:text-sm rounded-control p-3 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-red-600"
             >
               <p
                 id="card-form-error-summary-title"
                 className="font-semibold mb-1"
               >
-                Vui lòng kiểm tra các trường bắt buộc:
+                {t('study:cardForm.requiredSummary')}
               </p>
               <ul className="list-disc list-inside flex flex-col gap-0.5">
                 {errorEntries.map(([key, msg]) => (
@@ -338,33 +390,33 @@ export default function CardFormModal({
 
           {/* Visibility Toggle */}
           <div>
-            <span className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-              Quyền hiển thị
+            <span className="block text-xs font-medium text-slate-700 mb-1.5">
+              {t('study:cardForm.visibilityLabel')}
             </span>
-            <div className="flex bg-slate-100 border border-slate-200 rounded-lg p-1 gap-1">
+            <div className="flex bg-slate-100 border border-slate-200 rounded-control p-1 gap-1">
               <button
                 type="button"
                 aria-pressed={Boolean(isPublic)}
                 onClick={() => setIsPublic(true)}
-                className={`flex-1 min-h-9 text-xs sm:text-sm font-semibold rounded-md transition-colors duration-150 cursor-pointer ${
+                className={`flex-1 min-h-9 text-xs sm:text-sm font-medium rounded-control transition-colors duration-150 cursor-pointer ${
                   isPublic
-                    ? 'bg-sky-700 text-white shadow-sm'
+                    ? 'bg-sky-700 text-white'
                     : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
                 }`}
               >
-                Công khai
+                {t('study:cardForm.publicOption')}
               </button>
               <button
                 type="button"
                 aria-pressed={!isPublic}
                 onClick={() => setIsPublic(false)}
-                className={`flex-1 min-h-9 text-xs sm:text-sm font-semibold rounded-md transition-colors duration-150 cursor-pointer ${
+                className={`flex-1 min-h-9 text-xs sm:text-sm font-medium rounded-control transition-colors duration-150 cursor-pointer ${
                   !isPublic
-                    ? 'bg-sky-700 text-white shadow-sm'
+                    ? 'bg-sky-700 text-white'
                     : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
                 }`}
               >
-                Riêng tư
+                {t('study:cardForm.privateOption')}
               </button>
             </div>
           </div>
@@ -374,24 +426,24 @@ export default function CardFormModal({
             <div>
               <label
                 htmlFor="card-type-select"
-                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+                className="block text-xs font-medium text-slate-700 mb-1.5"
               >
-                Loại thẻ
+                {t('study:cardForm.typeLabel')}
               </label>
               <Dropdown
                 id="card-type-select"
                 value={cardType}
                 onChange={setCardType}
-                options={CARD_TYPES}
+                options={getCardTypeOptions()}
               />
             </div>
 
             <div>
               <label
                 htmlFor="card-level-select"
-                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+                className="block text-xs font-medium text-slate-700 mb-1.5"
               >
-                Cấp độ JLPT
+                {t('study:cardForm.levelLabel')}
               </label>
               <Dropdown
                 id="card-level-select"
@@ -404,9 +456,9 @@ export default function CardFormModal({
             <div>
               <label
                 htmlFor="card-lesson-input"
-                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+                className="block text-xs font-medium text-slate-700 mb-1.5"
               >
-                Bài học *
+                {t('study:cardForm.lessonLabel')}
               </label>
               <input
                 ref={lessonInputRef}
@@ -445,9 +497,9 @@ export default function CardFormModal({
             <div className="flex items-center justify-between mb-1.5">
               <label
                 htmlFor="card-course-select"
-                className="block text-xs font-semibold text-slate-700 uppercase tracking-wider"
+                className="block text-xs font-medium text-slate-700"
               >
-                Khoá học / Bộ thẻ
+                {t('study:cardForm.courseLabel')}
               </label>
               <button
                 type="button"
@@ -456,22 +508,24 @@ export default function CardFormModal({
                   setNewCourseError('');
                   setFieldErrors((prev) => ({ ...prev, newCourseTitle: '' }));
                 }}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:text-sky-800 cursor-pointer"
+                className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:text-sky-800 cursor-pointer"
               >
-                <PlusIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                <PlusIcon className="w-4 h-4" aria-hidden="true" />
                 <span>
-                  {showNewCourseForm ? 'Đóng tạo khoá học' : 'Tạo khoá học mới'}
+                  {showNewCourseForm
+                    ? t('study:cardForm.toggleNewCourseClose')
+                    : t('study:cardForm.toggleNewCourseOpen')}
                 </span>
               </button>
             </div>
 
             {showNewCourseForm ? (
               <div>
-                <div className="flex flex-col sm:flex-row gap-2 p-3 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="flex flex-col sm:flex-row gap-2 p-3 rounded-surface bg-slate-50 border border-slate-200">
                   <input
                     ref={newCourseInputRef}
                     type="text"
-                    aria-label="Tên khoá học mới"
+                    aria-label={t('study:cardForm.newCourseAria')}
                     aria-invalid={Boolean(newCourseError)}
                     aria-describedby={
                       newCourseError ? 'new-course-title-error' : undefined
@@ -494,10 +548,10 @@ export default function CardFormModal({
                         handleQuickCreateCourse();
                       }
                     }}
-                    className={`flex-1 min-h-10 px-3.5 py-2 rounded-lg border bg-white text-slate-900 text-sm transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 ${
+                    className={`flex-1 min-h-10 px-3.5 py-2 rounded-control border bg-white text-slate-900 text-sm transition-colors duration-150 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 ${
                       newCourseError
                         ? 'border-red-400 focus:border-red-600 focus-visible:outline-red-600'
-                        : 'border-slate-200 focus:border-sky-700 focus-visible:outline-sky-700'
+                        : 'border-slate-200 hover:border-slate-300 focus:border-sky-700 focus-visible:outline-sky-700'
                     }`}
                   />
                   <Button
@@ -505,7 +559,9 @@ export default function CardFormModal({
                     disabled={creatingCourse}
                     onClick={handleQuickCreateCourse}
                   >
-                    {creatingCourse ? 'Đang tạo...' : 'Lưu khoá học'}
+                    {creatingCourse
+                      ? t('study:cardForm.creatingCourse')
+                      : t('study:cardForm.saveCourseButton')}
                   </Button>
                 </div>
                 {newCourseError && (
@@ -532,9 +588,9 @@ export default function CardFormModal({
           <div>
             <label
               htmlFor="card-front-text"
-              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+              className="block text-xs font-medium text-slate-700 mb-1.5"
             >
-              Mặt trước *
+              {t('study:cardForm.frontLabel')}
             </label>
             <input
               ref={frontInputRef}
@@ -567,94 +623,210 @@ export default function CardFormModal({
             )}
           </div>
 
-          {/* Meaning */}
-          <div>
-            <label
-              htmlFor="card-meaning"
-              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
+          {/* Bilingual Translatable Content Tabs */}
+          <div className="pt-2 border-t border-slate-200 flex flex-col gap-3.5">
+            <div
+              role="tablist"
+              aria-label={t('common:contentForm.languageTabsAria')}
+              className="inline-flex bg-slate-100 border border-slate-200 p-1 rounded-control gap-1 self-start"
             >
-              Ý nghĩa / Định nghĩa *
-            </label>
-            <input
-              ref={meaningInputRef}
-              id="card-meaning"
-              type="text"
-              value={meaning}
-              aria-invalid={Boolean(fieldErrors.meaning)}
-              aria-describedby={
-                fieldErrors.meaning ? 'card-meaning-error' : undefined
-              }
-              onChange={(e) => {
-                const val = e.target.value;
-                setMeaning(val);
-                if (fieldErrors.meaning && val.trim()) {
-                  setFieldErrors((prev) => ({ ...prev, meaning: '' }));
-                }
-              }}
-              className={`${BASE_INPUT_CLASS} ${
-                fieldErrors.meaning ? INVALID_INPUT_CLASS : VALID_INPUT_CLASS
-              }`}
-            />
-            {fieldErrors.meaning && (
-              <p
-                id="card-meaning-error"
-                role="alert"
-                className="mt-1.5 text-xs font-medium text-red-600"
+              <button
+                type="button"
+                role="tab"
+                aria-selected={contentLang === 'vi'}
+                onClick={() => setContentLang('vi')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-control transition-colors duration-150 cursor-pointer ${
+                  contentLang === 'vi'
+                    ? 'bg-sky-700 text-white'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                }`}
               >
-                {fieldErrors.meaning}
-              </p>
+                <span>{t('common:contentForm.viTab')}</span>
+                {fieldErrors.meaning && contentLang !== 'vi' && (
+                  <span
+                    className="w-1.5 h-1.5 rounded-full bg-red-600"
+                    aria-hidden="true"
+                  />
+                )}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={contentLang === 'en'}
+                onClick={() => setContentLang('en')}
+                className={`px-3 py-1 text-xs font-medium rounded-control transition-colors duration-150 cursor-pointer ${
+                  contentLang === 'en'
+                    ? 'bg-sky-700 text-white'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                }`}
+              >
+                {t('common:contentForm.enTab')}
+              </button>
+            </div>
+
+            {contentLang === 'vi' ? (
+              <>
+                {/* Meaning */}
+                <div>
+                  <label
+                    htmlFor="card-meaning"
+                    className="block text-xs font-medium text-slate-700 mb-1.5"
+                  >
+                    {t('study:cardForm.meaningLabel')}
+                  </label>
+                  <input
+                    ref={meaningInputRef}
+                    id="card-meaning"
+                    type="text"
+                    value={meaning}
+                    aria-invalid={Boolean(fieldErrors.meaning)}
+                    aria-describedby={
+                      fieldErrors.meaning ? 'card-meaning-error' : undefined
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setMeaning(val);
+                      if (fieldErrors.meaning && val.trim()) {
+                        setFieldErrors((prev) => ({ ...prev, meaning: '' }));
+                      }
+                    }}
+                    className={`${BASE_INPUT_CLASS} ${
+                      fieldErrors.meaning ? INVALID_INPUT_CLASS : VALID_INPUT_CLASS
+                    }`}
+                  />
+                  {fieldErrors.meaning && (
+                    <p
+                      id="card-meaning-error"
+                      role="alert"
+                      className="mt-1.5 text-xs font-medium text-red-600"
+                    >
+                      {fieldErrors.meaning}
+                    </p>
+                  )}
+                </div>
+
+                {/* Conjugation / Pronunciation */}
+                <div>
+                  <label
+                    htmlFor="card-conjugation"
+                    className="block text-xs font-medium text-slate-700 mb-1.5"
+                  >
+                    {t('study:cardForm.conjugationLabel')}
+                  </label>
+                  <input
+                    id="card-conjugation"
+                    type="text"
+                    value={conjugation}
+                    onChange={(e) => setConjugation(e.target.value)}
+                    className={`${BASE_INPUT_CLASS} ${VALID_INPUT_CLASS} font-jp`}
+                  />
+                </div>
+
+                {/* Usage Notes */}
+                <div>
+                  <label
+                    htmlFor="card-usage-notes"
+                    className="block text-xs font-medium text-slate-700 mb-1.5"
+                  >
+                    {t('study:cardForm.usageNotesLabel')}
+                  </label>
+                  <textarea
+                    id="card-usage-notes"
+                    rows={2}
+                    value={usageNotes}
+                    onChange={(e) => setUsageNotes(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-control border border-slate-200 bg-white hover:border-slate-300 text-slate-900 text-sm transition-colors duration-150 focus:border-sky-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 resize-y"
+                  />
+                </div>
+
+                {/* Examples */}
+                <div>
+                  <label
+                    htmlFor="card-examples"
+                    className="block text-xs font-medium text-slate-700 mb-1.5"
+                  >
+                    {t('study:cardForm.examplesLabel')}
+                  </label>
+                  <textarea
+                    id="card-examples"
+                    rows={3}
+                    value={examples}
+                    onChange={(e) => setExamples(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-control border border-slate-200 bg-white hover:border-slate-300 text-slate-900 text-sm font-jp transition-colors duration-150 focus:border-sky-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 resize-y"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                {/* English Meaning */}
+                <div>
+                  <label
+                    htmlFor="card-meaning-en"
+                    className="block text-xs font-medium text-slate-700 mb-1.5"
+                  >
+                    {t('study:cardForm.meaningEnLabel')}
+                  </label>
+                  <input
+                    id="card-meaning-en"
+                    type="text"
+                    value={enMeaning}
+                    onChange={(e) => setEnMeaning(e.target.value)}
+                    className={`${BASE_INPUT_CLASS} ${VALID_INPUT_CLASS}`}
+                  />
+                </div>
+
+                {/* English Conjugation / Reading note */}
+                <div>
+                  <label
+                    htmlFor="card-conjugation-en"
+                    className="block text-xs font-medium text-slate-700 mb-1.5"
+                  >
+                    {t('study:cardForm.conjugationEnLabel')}
+                  </label>
+                  <input
+                    id="card-conjugation-en"
+                    type="text"
+                    value={enConjugation}
+                    onChange={(e) => setEnConjugation(e.target.value)}
+                    className={`${BASE_INPUT_CLASS} ${VALID_INPUT_CLASS} font-jp`}
+                  />
+                </div>
+
+                {/* English Usage Notes */}
+                <div>
+                  <label
+                    htmlFor="card-usage-notes-en"
+                    className="block text-xs font-medium text-slate-700 mb-1.5"
+                  >
+                    {t('study:cardForm.usageNotesEnLabel')}
+                  </label>
+                  <textarea
+                    id="card-usage-notes-en"
+                    rows={2}
+                    value={enUsageNotes}
+                    onChange={(e) => setEnUsageNotes(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-control border border-slate-200 bg-white hover:border-slate-300 text-slate-900 text-sm transition-colors duration-150 focus:border-sky-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 resize-y"
+                  />
+                </div>
+
+                {/* English Examples */}
+                <div>
+                  <label
+                    htmlFor="card-examples-en"
+                    className="block text-xs font-medium text-slate-700 mb-1.5"
+                  >
+                    {t('study:cardForm.examplesEnLabel')}
+                  </label>
+                  <textarea
+                    id="card-examples-en"
+                    rows={3}
+                    value={enExamples}
+                    onChange={(e) => setEnExamples(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-control border border-slate-200 bg-white hover:border-slate-300 text-slate-900 text-sm font-jp transition-colors duration-150 focus:border-sky-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 resize-y"
+                  />
+                </div>
+              </>
             )}
-          </div>
-
-          {/* Conjugation / Pronunciation */}
-          <div>
-            <label
-              htmlFor="card-conjugation"
-              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
-            >
-              Cách chia / Cách đọc / Âm Hán Việt
-            </label>
-            <input
-              id="card-conjugation"
-              type="text"
-              value={conjugation}
-              onChange={(e) => setConjugation(e.target.value)}
-              className={`${BASE_INPUT_CLASS} ${VALID_INPUT_CLASS} font-jp`}
-            />
-          </div>
-
-          {/* Usage Notes */}
-          <div>
-            <label
-              htmlFor="card-usage-notes"
-              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
-            >
-              Cách dùng / Ghi chú
-            </label>
-            <textarea
-              id="card-usage-notes"
-              rows={2}
-              value={usageNotes}
-              onChange={(e) => setUsageNotes(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 resize-y"
-            />
-          </div>
-
-          {/* Examples */}
-          <div>
-            <label
-              htmlFor="card-examples"
-              className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5"
-            >
-              Câu ví dụ
-            </label>
-            <textarea
-              id="card-examples"
-              rows={3}
-              value={examples}
-              onChange={(e) => setExamples(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50 text-slate-900 text-sm font-jp transition-colors duration-150 focus:bg-white focus:border-sky-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 resize-y"
-            />
           </div>
 
           {/* Action Buttons */}
@@ -664,7 +836,7 @@ export default function CardFormModal({
               disabled={submitting || creatingCourse}
               onClick={handleSafeClose}
             >
-              {hasCreatedCard ? 'Đóng' : 'Hủy'}
+              {hasCreatedCard ? t('common:actions.close') : t('common:actions.cancel')}
             </Button>
             <Button
               variant="primary"
@@ -672,10 +844,10 @@ export default function CardFormModal({
               disabled={submitting || creatingCourse}
             >
               {submitting
-                ? 'Đang lưu...'
+                ? t('common:actions.saving')
                 : isEditing
-                  ? 'Lưu thay đổi'
-                  : 'Tạo thẻ học'}
+                  ? t('study:cardForm.saveChangesButton')
+                  : t('study:cardForm.createCardButton')}
             </Button>
           </div>
         </form>

@@ -1,7 +1,14 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import Button from './Button';
-import { ANKI_RATINGS, STUDY_STATUSES } from '../../constants/cards';
+import { STUDY_STATUSES, getAnkiRatings } from '../../constants/cards';
 import { getIntervalPreviews } from '../../services/ankiScheduler';
+
+const STATUS_I18N_KEY = {
+  learned: 'study:studyStatus.LEARNED',
+  remembered: 'study:studyStatus.REMEMBERED',
+  mastered: 'study:studyStatus.MASTERED',
+};
 
 const ACTIVE_BADGE_CLASSES = {
   again: '!bg-rose-50 !text-rose-800 !border-rose-300 hover:!bg-rose-100',
@@ -17,10 +24,12 @@ export default function ReviewRating({
   onRate,
   className = '',
 }) {
+  const { t } = useTranslation('study');
   const isAnkiMode = showIntervals || srsState !== undefined;
   const previews = isAnkiMode
     ? srsState?.next_intervals || getIntervalPreviews(srsState)
     : null;
+  const ankiRatings = getAnkiRatings();
 
   if (!isAnkiMode) {
     return (
@@ -42,7 +51,7 @@ export default function ReviewRating({
               aria-pressed={isSelected}
               className={isSelected ? activeCls : ''}
             >
-              {item.label}
+              {t(STATUS_I18N_KEY[item.value] || item.label)}
             </Button>
           );
         })}
@@ -55,7 +64,7 @@ export default function ReviewRating({
       onClick={(e) => e.stopPropagation()}
       className={`flex items-center justify-center gap-2 flex-wrap pt-2.5 border-t border-slate-200 ${className}`}
     >
-      {ANKI_RATINGS.map((item) => {
+      {ankiRatings.map((item) => {
         const hasLastRating = Number(srsState?.last_rating) > 0;
         const isSelected = hasLastRating
           ? Number(srsState?.last_rating) === item.rating
@@ -79,7 +88,7 @@ export default function ReviewRating({
             <span>{item.label}</span>
             {intervalText && (
               <span
-                className={`text-[11px] font-medium px-1.5 py-0.5 rounded ${
+                className={`text-[11px] font-medium px-1.5 py-0.5 rounded-badge tabular-nums ${
                   isSelected
                     ? 'bg-black/10 text-current'
                     : 'bg-slate-100 text-slate-600'

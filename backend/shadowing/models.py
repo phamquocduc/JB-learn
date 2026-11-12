@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
+from django.utils.translation import gettext_lazy as _
 
 
 class ShadowingVideoQuerySet(models.QuerySet):
@@ -33,11 +34,11 @@ class ShadowingVideo(models.Model):
     """
 
     class Topic(models.TextChoices):
-        LIFE = "life", "Đời sống & Thường nhật"
-        BUSINESS = "business", "Công sở & Kinh doanh"
-        CONVERSATION = "conversation", "Giao tiếp tự nhiên"
-        NEWS = "news", "Tin tức & Xã hội"
-        CULTURE = "culture", "Văn hoá & Đời sống Nhật"
+        LIFE = "life", _("Đời sống & Thường nhật")
+        BUSINESS = "business", _("Công sở & Kinh doanh")
+        CONVERSATION = "conversation", _("Giao tiếp tự nhiên")
+        NEWS = "news", _("Tin tức & Xã hội")
+        CULTURE = "culture", _("Văn hoá & Đời sống Nhật")
 
     class Level(models.TextChoices):
         N5 = "N5", "JLPT N5"
@@ -48,7 +49,7 @@ class ShadowingVideo(models.Model):
 
     class MediaSource(models.TextChoices):
         YOUTUBE = "youtube", "YouTube"
-        UPLOAD = "upload", "Tải lên tệp media"
+        UPLOAD = "upload", _("Tải lên tệp media")
 
     title = models.CharField(max_length=255, verbose_name="Tiêu đề video")
     description = models.TextField(blank=True, default="", verbose_name="Mô tả")
@@ -111,6 +112,11 @@ class ShadowingVideo(models.Model):
         default=list,
         blank=True,
         verbose_name="Danh sách bài tập tương tác",
+    )
+    translations = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Bản dịch đa ngôn ngữ",
     )
     is_public = models.BooleanField(
         default=True,

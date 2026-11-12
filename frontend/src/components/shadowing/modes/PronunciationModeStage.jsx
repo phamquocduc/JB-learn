@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   SpeakerWaveIcon,
   MicrophoneIcon,
@@ -13,7 +14,8 @@ import Button from '../../ui/Button';
 import Badge from '../../ui/Badge';
 import RubyText from '../../ui/RubyText';
 import ReviewRating from '../../ui/ReviewRating';
-import { STUDY_STATUS_LABELS } from '../../../constants/cards';
+import { getStudyStatusLabel } from '../../../constants/cards';
+import { formatNumber } from '../../../utils/formatters';
 
 export default function PronunciationModeStage({
   video,
@@ -24,6 +26,7 @@ export default function PronunciationModeStage({
   onRateSegment,
   segmentRatings = {},
 }) {
+  const { t } = useTranslation('shadowing');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingsBySentence, setRecordingsBySentence] = useState({});
   const [isPlayingNative, setIsPlayingNative] = useState(false);
@@ -51,7 +54,7 @@ export default function PronunciationModeStage({
         }
       }
       if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current.getTracks().forEach((track) => track.stop());
       }
       if (recognitionRef.current) {
         try {
@@ -177,9 +180,7 @@ export default function PronunciationModeStage({
         recognition.start();
       }
     } catch {
-      setMicError(
-        'Không thể truy cập microphone. Vui lòng cho phép quyền ghi âm trong trình duyệt.'
-      );
+      setMicError(t('pronunciation.micError'));
       setIsRecording(false);
     }
   };
@@ -232,34 +233,34 @@ export default function PronunciationModeStage({
   if (!activeSegment) {
     return (
       <Card className="p-8 text-center text-slate-500">
-        Không có dữ liệu câu phụ đề cho video này.
+        {t('pronunciation.noData')}
       </Card>
     );
   }
 
   return (
     <div className="flex-1 w-full flex flex-col justify-between gap-3">
-      <Card
-        rounded="2xl"
-        className="flex-1 min-h-[524px] sm:min-h-[622px] p-4 sm:p-8 flex flex-col justify-between gap-4 sm:gap-6"
-      >
+      <Card className="flex-1 min-h-[524px] sm:min-h-[622px] p-4 sm:p-6 flex flex-col justify-between gap-4 sm:gap-5">
         {/* 1. Card Header (synchronized with FlashcardView & PracticeView) */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="lesson">Phát âm</Badge>
+            <Badge variant="lesson">{t('modes.pronunciation')}</Badge>
             {video?.level && <Badge variant="level">{video.level}</Badge>}
             <Badge variant={currentStatus}>
-              {STUDY_STATUS_LABELS[currentStatus] || 'Chưa học'}
+              {getStudyStatusLabel(currentStatus)}
             </Badge>
           </div>
 
-          <span className="text-sm font-semibold text-slate-600 shrink-0">
-            Câu {currentSegmentIndex + 1} / {segments.length}
+          <span className="text-sm font-medium text-slate-600 tabular-nums shrink-0">
+            {t('pronunciation.sentenceCounter', {
+              current: formatNumber(currentSegmentIndex + 1),
+              total: formatNumber(segments.length),
+            })}
           </span>
         </div>
 
         {/* 2. Target Sentence & Voice Recording Prompt Box */}
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-6 flex flex-col items-center text-center gap-2.5 sm:gap-4">
+        <div className="bg-slate-50 border border-slate-200 rounded-surface p-4 sm:p-6 flex flex-col items-center text-center gap-2.5 sm:gap-4">
           <div
             className={`text-lg sm:text-2xl md:text-3xl font-bold font-jp text-slate-900 ${
               activeSegment.ruby_text ? 'leading-loose' : 'leading-relaxed'
@@ -279,7 +280,7 @@ export default function PronunciationModeStage({
           )}
 
           {micError && (
-            <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 w-full max-w-md">
+            <div className="p-2.5 rounded-control bg-red-50 border border-red-200 text-xs text-red-700 w-full max-w-md">
               {micError}
             </div>
           )}
@@ -291,20 +292,20 @@ export default function PronunciationModeStage({
                 variant="primary"
                 size="md"
                 onClick={handleStartRecording}
-                className="w-full sm:w-auto justify-center font-bold px-4 sm:px-5"
+                className="w-full sm:w-auto justify-center px-4 sm:px-5"
               >
                 <MicrophoneIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span>Bắt đầu thu âm giọng đọc</span>
+                <span>{t('pronunciation.startRecording')}</span>
               </Button>
             ) : (
               <Button
                 variant="destructive"
                 size="md"
                 onClick={handleStopRecording}
-                className="w-full sm:w-auto justify-center font-bold px-4 sm:px-5 animate-pulse"
+                className="w-full sm:w-auto justify-center px-4 sm:px-5 animate-pulse"
               >
                 <StopIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span>Dừng thu âm & chấm điểm</span>
+                <span>{t('pronunciation.stopRecording')}</span>
               </Button>
             )}
           </div>
@@ -316,19 +317,23 @@ export default function PronunciationModeStage({
             type="button"
             disabled={isPlayingNative}
             onClick={handlePlayNative}
-            className="w-full p-3 sm:p-3.5 rounded-xl flex items-center justify-between gap-2.5 bg-white border border-slate-200 hover:border-sky-300 transition-colors duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-default text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700"
+            className="w-full p-3 sm:p-3.5 rounded-surface flex items-center justify-between gap-2.5 bg-white border border-slate-200 hover:border-sky-300 transition-colors duration-150 cursor-pointer disabled:opacity-60 disabled:cursor-default text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-control bg-sky-50 border border-sky-200 text-sky-700 flex items-center justify-center shrink-0">
                 <SpeakerWaveIcon className="w-4 h-4" aria-hidden="true" />
               </div>
-              <span className="text-sm font-bold text-slate-900 truncate">
-                Phát âm mẫu
+              <span className="text-sm font-semibold text-slate-900 truncate">
+                {t('pronunciation.nativeAudio')}
               </span>
             </div>
-            <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-800 border border-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 shrink-0">
-              <PlayIcon className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{isPlayingNative ? 'Đang phát...' : 'Nghe'}</span>
+            <span className="h-8 px-2.5 rounded-control bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium inline-flex items-center gap-1.5 shrink-0">
+              <PlayIcon className="w-4 h-4" aria-hidden="true" />
+              <span>
+                {isPlayingNative
+                  ? t('pronunciation.playing')
+                  : t('pronunciation.play')}
+              </span>
             </span>
           </button>
 
@@ -336,23 +341,27 @@ export default function PronunciationModeStage({
             type="button"
             disabled={!recordedAudioUrl || isPlayingRecorded}
             onClick={recordedAudioUrl ? handlePlayRecorded : undefined}
-            className={`w-full p-3 sm:p-3.5 rounded-xl flex items-center justify-between gap-2.5 bg-white border transition-colors duration-150 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 ${
+            className={`w-full p-3 sm:p-3.5 rounded-surface flex items-center justify-between gap-2.5 bg-white border transition-colors duration-150 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 ${
               recordedAudioUrl && !isPlayingRecorded
                 ? 'border-slate-200 hover:border-sky-300 cursor-pointer'
-                : 'border-slate-100 opacity-60 cursor-not-allowed'
+                : 'border-slate-200 opacity-60 cursor-not-allowed'
             }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-control bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
                 <MicrophoneIcon className="w-4 h-4" aria-hidden="true" />
               </div>
-              <span className="text-sm font-bold text-slate-900 truncate">
-                Bản thu của bạn
+              <span className="text-sm font-semibold text-slate-900 truncate">
+                {t('pronunciation.yourRecording')}
               </span>
             </div>
-            <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-800 border border-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 shrink-0">
-              <PlayIcon className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{isPlayingRecorded ? 'Đang phát...' : 'Nghe'}</span>
+            <span className="h-8 px-2.5 rounded-control bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium inline-flex items-center gap-1.5 shrink-0">
+              <PlayIcon className="w-4 h-4" aria-hidden="true" />
+              <span>
+                {isPlayingRecorded
+                  ? t('pronunciation.playing')
+                  : t('pronunciation.play')}
+              </span>
             </span>
           </button>
         </div>
@@ -360,25 +369,28 @@ export default function PronunciationModeStage({
         {/* 4. Speech Accuracy & ReviewRating */}
         <div className="flex flex-col gap-3">
           {accuracyScore !== null && (
-            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-col gap-1.5">
+            <div className="p-3.5 rounded-surface bg-emerald-50 border border-emerald-200 flex flex-col gap-1.5">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-2">
                   <CheckBadgeIcon className="w-5 h-5 text-emerald-600 shrink-0" aria-hidden="true" />
-                  <span className="text-sm font-bold text-emerald-900">
-                    Điểm phát âm: {accuracyScore}%
+                  <span className="text-sm font-semibold text-emerald-900 tabular-nums">
+                    {t('pronunciation.scoreLabel', { score: accuracyScore })}
                   </span>
                 </div>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 shrink-0">
+                <Badge variant="mastered">
                   {accuracyScore >= 90
-                    ? 'Rất chuẩn!'
+                    ? t('pronunciation.ratings.veryGood')
                     : accuracyScore >= 75
-                    ? 'Khá tốt'
-                    : 'Cần luyện thêm'}
-                </span>
+                    ? t('pronunciation.ratings.good')
+                    : t('pronunciation.ratings.needsPractice')}
+                </Badge>
               </div>
               {recognizedTranscript && (
-                <p className="text-xs text-emerald-800 break-words">
-                  <span className="font-semibold">Nhận diện:</span> {recognizedTranscript}
+                <p className="text-xs text-emerald-800 break-words font-jp">
+                  <span className="font-sans font-semibold">
+                    {t('pronunciation.recognizedLabel')}
+                  </span>{' '}
+                  {recognizedTranscript}
                 </p>
               )}
             </div>
@@ -394,9 +406,9 @@ export default function PronunciationModeStage({
           variant="secondary"
           size="sm"
           onClick={handlePrevSentence}
-          aria-label="Câu trước"
-          title="Câu trước"
-          className="h-9 sm:h-10 sm:w-12 rounded-xl"
+          aria-label={t('pronunciation.prevAria')}
+          title={t('pronunciation.prevAria')}
+          className="h-9 sm:h-10 sm:w-12"
         >
           <ChevronLeftIcon className="w-4 h-4" aria-hidden="true" />
         </Button>
@@ -405,9 +417,9 @@ export default function PronunciationModeStage({
           variant="primary"
           size="sm"
           onClick={handleNextSentence}
-          aria-label="Câu tiếp theo"
-          title="Câu tiếp theo"
-          className="h-9 sm:h-10 sm:w-12 rounded-xl"
+          aria-label={t('pronunciation.nextAria')}
+          title={t('pronunciation.nextAria')}
+          className="h-9 sm:h-10 sm:w-12"
         >
           <ChevronRightIcon className="w-4 h-4" aria-hidden="true" />
         </Button>

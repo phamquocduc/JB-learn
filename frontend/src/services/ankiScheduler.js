@@ -1,3 +1,5 @@
+import i18n from '../i18n';
+
 export const ANKI_DEFAULT_CONFIG = Object.freeze({
   learningStepsMinutes: [1, 10],
   relearningStepsMinutes: [10],
@@ -32,11 +34,11 @@ const RATING_MAP = Object.freeze({
 
 export function normalizeRating(rating) {
   if (typeof rating === 'boolean' || rating === null || rating === undefined) {
-    throw new Error('Giá trị đánh giá không hợp lệ.');
+    throw new Error(i18n.t('study:errors.invalidRating'));
   }
   const key = String(rating).trim().toLowerCase();
   if (!(key in RATING_MAP)) {
-    throw new Error('Giá trị đánh giá không hợp lệ.');
+    throw new Error(i18n.t('study:errors.invalidRating'));
   }
   return RATING_MAP[key];
 }
@@ -156,22 +158,22 @@ export function formatIntervalVi(state, intervalDays, learningMinutes) {
   ) {
     const mins = Math.max(1, Math.round(Number(learningMinutes) || 1));
     if (mins < 60) {
-      return `${mins} phút`;
+      return i18n.t('study:intervals.minutes', { value: mins });
     }
     const hours = Math.round((mins / 60) * 10) / 10;
-    return `${hours} giờ`;
+    return i18n.t('study:intervals.hours', { value: hours });
   }
 
   const days = Math.max(1, Math.round(Number(intervalDays) || 1));
   if (days < 30) {
-    return `${days} ngày`;
+    return i18n.t('study:intervals.days', { value: days });
   }
   if (days < 365) {
     const months = Math.round((days / 30) * 10) / 10;
-    return `${months} tháng`;
+    return i18n.t('study:intervals.months', { value: months });
   }
   const years = Math.round((days / 365) * 10) / 10;
-  return `${years} năm`;
+  return i18n.t('study:intervals.years', { value: years });
 }
 
 export function scheduleCardReview(currentRaw, rating, now = new Date()) {
@@ -180,7 +182,7 @@ export function scheduleCardReview(currentRaw, rating, now = new Date()) {
     return {
       ...defaultSrsState(),
       is_due: false,
-      interval_display: 'Chưa học',
+      interval_display: i18n.t('study:studyStatus.NEW'),
     };
   }
 
@@ -450,7 +452,7 @@ export function serializeSrsState(srsRaw, now = new Date()) {
   const due = isCardDue(cur, nowDt);
   const intervalDisplay =
     cur.state === 'new'
-      ? 'Chưa học'
+      ? i18n.t('study:studyStatus.NEW')
       : formatIntervalVi(cur.state, cur.interval, cur.learning_minutes);
 
   return {

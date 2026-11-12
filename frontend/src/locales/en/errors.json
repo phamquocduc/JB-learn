@@ -1,0 +1,9 @@
+{
+  "httpFallback": "An error occurred (HTTP {{status}})",
+  "networkError": "Unable to reach the server. Please try again.",
+  "sessionExpired": "Your session has expired. Please sign in again.",
+  "unauthorized": "Please sign in to perform this action.",
+  "forbidden": "You do not have permission to perform this action.",
+  "notFound": "The requested resource could not be found.",
+  "serverError": "A server error occurred. Please try again later."
+}

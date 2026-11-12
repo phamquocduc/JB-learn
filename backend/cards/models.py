@@ -51,6 +51,8 @@ class CardQuerySet(models.QuerySet):
             Q(front_text__icontains=q)
             | Q(meaning__icontains=q)
             | Q(examples__icontains=q)
+            | Q(translations__en__meaning__icontains=q)
+            | Q(translations__en__examples__icontains=q)
         )
 
     def distinct_lessons(self) -> list[str]:
@@ -150,6 +152,11 @@ class Card(models.Model):
         blank=True,
         verbose_name="Dữ liệu mở rộng",
     )
+    translations = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Bản dịch đa ngôn ngữ",
+    )
     source = models.CharField(
         max_length=255,
         blank=True,
@@ -208,6 +215,8 @@ class CourseQuerySet(models.QuerySet):
         return self.filter(
             Q(title__icontains=q)
             | Q(description__icontains=q)
+            | Q(translations__en__title__icontains=q)
+            | Q(translations__en__description__icontains=q)
         )
 
 
@@ -220,6 +229,11 @@ class Course(models.Model):
         blank=True,
         default="",
         verbose_name="Mô tả khoá học",
+    )
+    translations = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Bản dịch đa ngôn ngữ",
     )
     level = models.CharField(
         max_length=5,
