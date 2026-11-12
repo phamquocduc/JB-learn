@@ -457,3 +457,110 @@ class ShadowingAPITestCase(TestCase):
         self.assertIsNotNone(ref_video)
         self.assertEqual(len(ref_video.segments), 12)
         self.assertEqual(len(ref_video.exercises), 3)
+
+
+class ShadowingI18nTestCase(TestCase):
+    def setUp(self):
+        from users.rbac import ensure_default_rbac_and_modules
+
+        ensure_default_rbac_and_modules()
+        self.client = APIClient()
+        self.owner = User.objects.create_user(
+            username="shadow_i18n_owner",
+            email="shadow_i18n_owner@example.com",
+            password="StrongPassword123!",
+        )
+        self.video = ShadowingVideo.objects.create(
+            title="Thói quen buổi sáng",
+            description="Luyện nghe hội thoại buổi sáng tại Tokyo",
+            topic=ShadowingVideo.Topic.LIFE,
+            level="N4",
+            youtube_id="i18nTestVid1",
+            youtube_url="https://www.youtube.com/watch?v=i18nTestVid1",
+            duration_seconds=30,
+            is_public=True,
+            created_by=self.owner,
+            segments=[
+                {
+                    "id": 1,
+                    "start": 0.0,
+                    "end": 3.5,
+                    "text": "毎朝コーヒーを飲みます。",
+                    "ruby_text": "毎朝(まいあさ)コーヒーを飲(の)みます。",
+                    "meaning": "Tôi uống cà phê mỗi sáng.",
+                    "words": [{"text": "毎朝", "reading": "まいあさ", "is_kanji": True}],
+                }
+            ],
+            exercises=[
+                {
+                    "id": 1,
+                    "question": "Người nói uống gì vào mỗi sáng?",
+                    "options": ["Cà phê", "Trà xanh", "Nước ép"],
+                    "correct_index": 0,
+                    "explanation": "Trong đoạn hội thoại có nói uống cà phê mỗi sáng.",
+                }
+            ],
+            translations={
+                "en": {
+                    "title": "Morning Habits",
+                    "description": "Listening practice on morning conversations in Tokyo",
+                    "segments": {"1": {"meaning": "I drink coffee every morning."}},
+                    "exercises": {
+                        "1": {
+                            "question": "What does the speaker drink every morning?",
+                            "options": ["Coffee", "Green tea", "Juice"],
+                            "explanation": "The conversation mentions drinking coffee every morning.",
+                        }
+                    },
+                }
+            },
+        )
+
+    def test_topics_and_video_detail_localize_without_mutating_japanese_fields(self):
+        self.client.force_authenticate(user=self.owner)
+
+        # Topic labels switch dynamically by Accept-Language
+        topics_en = self.client.get(
+            "/api/shadowing/videos/topics/",
+            HTTP_ACCEPT_LANGUAGE="en",
+        )
+        self.assertEqual(topics_en.status_code, status.HTTP_200_OK)
+        topic_list = topics_en.data["topics"]
+        life_topic_en = next(t for t in topic_list if t["code"] == "life")
+        self.assertEqual(life_topic_en["label"], "Daily Life")
+
+        # Detail returns English translations + preserves Japanese text/ruby_text/words/correct_index
+        detail_en = self.client.get(
+            f"/api/shadowing/videos/{self.video.id}/",
+            HTTP_ACCEPT_LANGUAGE="en",
+        )
+        self.assertEqual(detail_en.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_en.data["title"], "Morning Habits")
+        self.assertEqual(detail_en.data["topic_display"], "Daily Life")
+        self.assertEqual(detail_en.data["segments"][0]["text"], "毎朝コーヒーを飲みます。")
+        self.assertEqual(detail_en.data["segments"][0]["ruby_text"], "毎朝(まいあさ)コーヒーを飲(の)みます。")
+        self.assertEqual(detail_en.data["segments"][0]["meaning"], "I drink coffee every morning.")
+        self.assertEqual(detail_en.data["exercises"][0]["question"], "What does the speaker drink every morning?")
+        self.assertEqual(detail_en.data["exercises"][0]["options"], ["Coffee", "Green tea", "Juice"])
+        self.assertEqual(detail_en.data["exercises"][0]["correct_index"], 0)
+        self.assertEqual(detail_en.data["source_values"]["title"], "Thói quen buổi sáng")
+
+        # ?raw=1 bypasses translation overlay
+        detail_raw = self.client.get(
+            f"/api/shadowing/videos/{self.video.id}/?raw=1",
+            HTTP_ACCEPT_LANGUAGE="en",
+        )
+        self.assertEqual(detail_raw.data["title"], "Thói quen buổi sáng")
+        self.assertEqual(detail_raw.data["segments"][0]["meaning"], "Tôi uống cà phê mỗi sáng.")
+
+        # Nested English JSONField search
+        list_search = self.client.get(
+            "/api/shadowing/videos/",
+            {"search": "Morning Habits"},
+            HTTP_ACCEPT_LANGUAGE="en",
+        )
+        self.assertEqual(list_search.status_code, status.HTTP_200_OK)
+        rows = list_search.data["results"] if isinstance(list_search.data, dict) else list_search.data
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["title"], "Morning Habits")
+

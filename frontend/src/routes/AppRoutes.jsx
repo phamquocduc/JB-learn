@@ -8,6 +8,7 @@ import LoginPage from '../pages/LoginPage';
 import RegisterPage from '../pages/RegisterPage';
 import ShadowingLibraryPage from '../pages/ShadowingLibraryPage';
 import ShadowingWorkspacePage from '../pages/ShadowingWorkspacePage';
+import AdminPage from '../pages/AdminPage';
 
 export default function AppRoutes() {
   return (
@@ -20,6 +21,7 @@ export default function AppRoutes() {
         <Route path="/my-cards" element={<HomePage key="home-mine" defaultScope="mine" />} />
         <Route path="shadowing" element={<ShadowingLibraryPage />} />
         <Route path="shadowing/:videoId" element={<ShadowingWorkspacePage />} />
+        <Route path="/admin" element={<AdminPage />} />
       </Route>
 
       {/* Dedicated Authentication Layout for /login & /register URLs */}

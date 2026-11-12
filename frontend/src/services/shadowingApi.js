@@ -1,3 +1,4 @@
+import i18n, { getActiveLanguage } from '../i18n';
 import { getStoredToken } from './api';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -27,6 +28,7 @@ async function request(endpoint, options = {}) {
   const isFormData = options.body instanceof FormData;
   const headers = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+    'Accept-Language': getActiveLanguage(),
     ...(options.headers || {}),
   };
 
@@ -52,7 +54,7 @@ async function request(endpoint, options = {}) {
   }
 
   if (!response.ok) {
-    let errorMessage = `Yêu cầu thất bại với mã lỗi ${response.status}`;
+    let errorMessage = i18n.t('errors:httpFallback', { status: response.status });
     if (data) {
       if (typeof data.error === 'string') {
         errorMessage = data.error;

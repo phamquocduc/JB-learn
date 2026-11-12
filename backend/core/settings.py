@@ -57,6 +57,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -116,6 +117,11 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "vi"
+LANGUAGES = [
+    ("vi", "Tiếng Việt"),
+    ("en", "English"),
+]
+LOCALE_PATHS = [BASE_DIR / "locale"]
 TIME_ZONE = "Asia/Ho_Chi_Minh"
 USE_I18N = True
 USE_TZ = True
@@ -150,7 +156,13 @@ CSRF_TRUSTED_ORIGINS = [
     ).split(",")
     if origin.strip()
 ]
+from corsheaders.defaults import default_headers
+
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    *default_headers,
+    "accept-language",
+]
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

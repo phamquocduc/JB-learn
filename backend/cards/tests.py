@@ -1129,3 +1129,195 @@ class AnkiSpacedRepetitionTestCase(APITestCase):
         self.assertTrue(res_null_due.data["srs_states"][str(self.card2.pk)]["is_due"])
 
 
+class LearningContentI18nTestCase(APITestCase):
+    def setUp(self):
+        from users.rbac import ensure_default_rbac_and_modules
+
+        ensure_default_rbac_and_modules()
+        self.owner = User.objects.create_user(
+            username="i18n_owner",
+            email="i18n_owner@example.com",
+            password="StrongPassword123!",
+        )
+        self.viewer = User.objects.create_user(
+            username="i18n_viewer",
+            email="i18n_viewer@example.com",
+            password="StrongPassword123!",
+        )
+        self.course = Course.objects.create(
+            title="Từ vựng N5",
+            description="Khoá học nền tảng tiếng Nhật",
+            level=Card.JLPTLevel.N5,
+            card_type=Card.CardType.VOCABULARY,
+            is_public=True,
+            created_by=self.owner,
+            translations={
+                "en": {
+                    "title": "N5 Vocabulary Foundation",
+                    "description": "Essential beginner Japanese vocabulary course",
+                }
+            },
+        )
+        self.card_translated = Card.objects.create(
+            course=self.course,
+            card_type=Card.CardType.VOCABULARY,
+            level=Card.JLPTLevel.N5,
+            lesson="Bài 1",
+            front_text="食べる",
+            meaning="Ăn",
+            conjugation="Vる",
+            usage_notes="Dùng cho bữa ăn hằng ngày",
+            examples="ご飯を食べる。 (Ăn cơm.)",
+            is_public=True,
+            created_by=self.owner,
+            translations={
+                "en": {
+                    "meaning": "To eat",
+                    "conjugation": "Verb (ru-verb)",
+                    "usage_notes": "Used for daily meals",
+                    "examples": "Ex: ご飯を食べる。 (Eat rice.)",
+                }
+            },
+        )
+        self.card_untranslated = Card.objects.create(
+            course=self.course,
+            card_type=Card.CardType.VOCABULARY,
+            level=Card.JLPTLevel.N5,
+            lesson="Bài 1",
+            front_text="飲む",
+            meaning="Uống",
+            is_public=True,
+            created_by=self.owner,
+        )
+
+    def test_anki_intervals_and_auth_errors_switch_by_accept_language(self):
+        from .anki import serialize_srs_state
+
+        res_login_en = self.client.post(
+            reverse("cards:auth_login"),
+            {"username": "nobody", "password": "wrong"},
+            format="json",
+            HTTP_ACCEPT_LANGUAGE="en",
+        )
+        self.assertEqual(res_login_en.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Incorrect username/email or password", str(res_login_en.data))
+
+        self.client.force_authenticate(user=self.viewer)
+        review_url = reverse("cards:card-review", kwargs={"pk": self.card_translated.pk})
+        r_en = self.client.post(
+            review_url,
+            {"rating": "again"},
+            format="json",
+            HTTP_ACCEPT_LANGUAGE="en",
+        )
+        self.assertEqual(r_en.status_code, status.HTTP_200_OK)
+        self.assertEqual(r_en.data["interval_display"], "1 min")
+        self.assertEqual(r_en.data["next_intervals"]["again"], "1 min")
+
+        from django.utils import translation
+
+        with translation.override("en"):
+            unseen_en = serialize_srs_state(None)
+            self.assertEqual(unseen_en["interval_display"], "Unseen")
+
+    def test_course_and_card_translations_overlay_fallback_raw_and_search(self):
+        list_url = reverse("cards:card-list")
+        course_url = reverse("cards:course-list")
+
+        # 1. Authenticated editor gets English overlay + untouched Vietnamese source_values
+        self.client.force_authenticate(user=self.owner)
+        res_en = self.client.get(list_url, HTTP_ACCEPT_LANGUAGE="en")
+        self.assertEqual(res_en.status_code, status.HTTP_200_OK)
+        cards_by_id = {row["id"]: row for row in res_en.data["results"]}
+
+        t_card = cards_by_id[self.card_translated.pk]
+        self.assertEqual(t_card["front_text"], "食べる")
+        self.assertEqual(t_card["meaning"], "To eat")
+        self.assertEqual(t_card["course_title"], "N5 Vocabulary Foundation")
+        self.assertEqual(t_card["source_values"]["meaning"], "Ăn")
+
+        # Card without English translation falls back automatically to Vietnamese
+        f_card = cards_by_id[self.card_untranslated.pk]
+        self.assertEqual(f_card["meaning"], "Uống")
+
+        # 2. ?raw=1 returns original Vietnamese base strings even with Accept-Language: en
+        res_raw = self.client.get(list_url, {"raw": "1"}, HTTP_ACCEPT_LANGUAGE="en")
+        raw_by_id = {row["id"]: row for row in res_raw.data["results"]}
+        self.assertEqual(raw_by_id[self.card_translated.pk]["meaning"], "Ăn")
+        self.assertNotIn("source_values", raw_by_id[self.card_translated.pk])
+
+        # 3. Search hits nested English JSONField translation (`translations.en`)
+        res_search_card = self.client.get(
+            list_url,
+            {"search": "To eat"},
+            HTTP_ACCEPT_LANGUAGE="en",
+        )
+        self.assertEqual(res_search_card.data["total"], 1)
+        self.assertEqual(res_search_card.data["results"][0]["id"], self.card_translated.pk)
+
+        res_search_course = self.client.get(
+            course_url,
+            {"search": "Foundation"},
+            HTTP_ACCEPT_LANGUAGE="en",
+        )
+        course_rows = res_search_course.data["results"] if isinstance(res_search_course.data, dict) else res_search_course.data
+        self.assertEqual(len(course_rows), 1)
+        self.assertEqual(course_rows[0]["title"], "N5 Vocabulary Foundation")
+
+    def test_translate_learning_content_management_command(self):
+        import json
+
+        with TemporaryDirectory() as tmpdir:
+            export_path = Path(tmpdir) / "bundle_en.json"
+            out = StringIO()
+            call_command(
+                "translate_learning_content",
+                "export",
+                "--lang",
+                "en",
+                "--missing-only",
+                "--file",
+                str(export_path),
+                stdout=out,
+            )
+            bundle = json.loads(export_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(bundle["courses"]), 0)
+            self.assertEqual(len(bundle["cards"]), 1)
+            self.assertEqual(bundle["cards"][0]["id"], self.card_untranslated.pk)
+
+            # Populate translation and run dry-run first, then real import
+            bundle["cards"][0]["translation"]["meaning"] = "To drink"
+            export_path.write_text(json.dumps(bundle, ensure_ascii=False), encoding="utf-8")
+
+            call_command(
+                "translate_learning_content",
+                "import",
+                "--lang",
+                "en",
+                "--dry-run",
+                "--file",
+                str(export_path),
+                stdout=out,
+            )
+            self.card_untranslated.refresh_from_db()
+            self.assertEqual(self.card_untranslated.translations, {})
+
+            call_command(
+                "translate_learning_content",
+                "import",
+                "--lang",
+                "en",
+                "--file",
+                str(export_path),
+                stdout=out,
+            )
+            self.card_untranslated.refresh_from_db()
+            self.assertEqual(
+                self.card_untranslated.translations.get("en", {}).get("meaning"),
+                "To drink",
+            )
+            self.assertEqual(self.card_untranslated.front_text, "飲む")
+            self.assertEqual(self.card_untranslated.meaning, "Uống")
+
+
+

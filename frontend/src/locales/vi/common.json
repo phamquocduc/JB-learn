@@ -1,0 +1,159 @@
+{
+  "app": {
+    "name": "JB Learn App",
+    "defaultTitle": "JB Learn App — Học tiếng Nhật JLPT",
+    "shortTagline": "Học tiếng Nhật JLPT",
+    "skipToContent": "Bỏ qua đến nội dung chính"
+  },
+  "language": {
+    "label": "Ngôn ngữ",
+    "selectAria": "Chọn ngôn ngữ hiển thị",
+    "vi": "Tiếng Việt",
+    "en": "English",
+    "shortVi": "VI",
+    "shortEn": "EN",
+    "saved": "Đã chuyển sang Tiếng Việt",
+    "saveFailed": "Đã chuyển ngôn ngữ trên thiết bị, chưa đồng bộ được lên tài khoản."
+  },
+  "nav": {
+    "courses": "Khoá học",
+    "study": "Học thẻ",
+    "myDeck": "Bộ thẻ của tôi",
+    "shadowing": "Luyện Shadowing",
+    "admin": "Quản trị",
+    "adminSystem": "Quản trị hệ thống",
+    "openMenu": "Mở menu điều hướng",
+    "closeMenu": "Đóng menu điều hướng",
+    "closeSidebar": "Đóng thanh điều hướng",
+    "sidebarNavigation": "Điều hướng chính",
+    "navigationMenu": "Menu điều hướng"
+  },
+  "actions": {
+    "save": "Lưu",
+    "saveChanges": "Lưu thay đổi",
+    "saving": "Đang lưu...",
+    "cancel": "Huỷ",
+    "close": "Đóng",
+    "closeDialog": "Đóng hộp thoại",
+    "closeWindow": "Đóng cửa sổ",
+    "confirm": "Xác nhận",
+    "delete": "Xoá",
+    "deleting": "Đang xoá...",
+    "edit": "Chỉnh sửa",
+    "create": "Tạo mới",
+    "add": "Thêm",
+    "search": "Tìm kiếm",
+    "clearSearch": "Xoá từ khoá tìm kiếm",
+    "filter": "Bộ lọc",
+    "resetFilters": "Đặt lại bộ lọc",
+    "clearFilters": "Xoá bộ lọc",
+    "selectAll": "Chọn tất cả",
+    "clearSelection": "Bỏ chọn",
+    "apply": "Áp dụng",
+    "back": "Quay lại",
+    "backToHome": "Về trang chính",
+    "prev": "Trước",
+    "next": "Tiếp",
+    "retry": "Thử lại",
+    "reload": "Tải lại",
+    "viewAll": "Xem tất cả",
+    "copy": "Sao chép",
+    "copied": "Đã sao chép"
+  },
+  "pagination": {
+    "pageOf": "Trang {{page}} / {{totalPages}}",
+    "itemsCount": "{{count}} mục",
+    "prevPage": "Trang trước",
+    "nextPage": "Trang tiếp"
+  },
+  "status": {
+    "loading": "Đang tải dữ liệu...",
+    "emptyTitle": "Chưa có dữ liệu",
+    "emptyAction": "Tải lại",
+    "featureDisabled": "Tính năng tạm đóng",
+    "noPermission": "Bạn chưa có quyền truy cập chức năng này."
+  },
+  "guestBlocked": {
+    "title": "Yêu cầu đăng nhập để học tập",
+    "description": "Chế độ học không cần đăng nhập hiện đang tạm ngưng. Vui lòng đăng nhập tài khoản của bạn để tiếp tục.",
+    "actionLabel": "Đăng nhập ngay"
+  },
+  "contentForm": {
+    "languageTabsAria": "Ngôn ngữ nhập nội dung",
+    "viTab": "Tiếng Việt",
+    "enTab": "English",
+    "viRequiredHint": "Nội dung Tiếng Việt là dữ liệu gốc bắt buộc.",
+    "enOptionalHint": "Bản dịch Tiếng Anh tuỳ chọn — nếu để trống sẽ hiển thị Tiếng Việt."
+  },
+  "account": {
+    "guest": "Khách",
+    "guestMode": "Chế độ Khách",
+    "defaultName": "Tài khoản",
+    "loginPrompt": "Đăng nhập để đồng bộ tiến độ",
+    "accountMenu": "Menu tài khoản",
+    "openMenuAria": "Mở menu tài khoản",
+    "profile": "Hồ sơ tài khoản",
+    "personalCardCount": "{{count}} thẻ cá nhân",
+    "role": "Vai trò",
+    "defaultLearnerRole": "Học viên",
+    "email": "Email",
+    "username": "Tên đăng nhập",
+    "joinedAt": "Tham gia",
+    "joinedDate": "Ngày tham gia",
+    "fullName": "Họ và tên",
+    "notUpdated": "Chưa cập nhật",
+    "preferences": "Tuỳ chọn hiển thị"
+  },
+  "audio": {
+    "play": "Phát âm thanh",
+    "pause": "Tạm dừng",
+    "playCompact": "Nghe",
+    "playingCompact": "Đang phát",
+    "stopCompactAria": "Dừng phát âm",
+    "listenTextAria": "Nghe phát âm {{text}}",
+    "playButton": "Nghe phát âm",
+    "stopButton": "Dừng",
+    "playJapaneseAria": "Phát âm tiếng Nhật",
+    "replay": "Phát lại từ đầu",
+    "speedAria": "Tốc độ đọc hiện tại {{rate}}x. Bấm để đổi tốc độ.",
+    "playbackSpeed": "Tốc độ phát: {{rate}}x",
+    "seekAudio": "Tua âm thanh",
+    "loadError": "Không thể phát tệp âm thanh."
+  },
+  "dropdown": {
+    "placeholder": "Chọn...",
+    "searchPlaceholder": "Tìm nhanh...",
+    "clearSearchAria": "Xóa từ khóa lọc",
+    "empty": "Không có kết quả phù hợp"
+  },
+  "emptyState": {
+    "defaultTitle": "Chưa có nội dung phù hợp"
+  },
+  "progress": {
+    "learningLabel": "Tiến độ học tập",
+    "cardCounter": "• Thẻ {{current}}/{{total}}",
+    "learnedStat": "Đã học: {{count}}",
+    "rememberedStat": "Đã nhớ: {{count}}",
+    "masteredStat": "Thành thạo: {{count}}",
+    "defaultAria": "Tiến độ hoàn thành",
+    "percent": "{{percent}}%"
+  },
+  "toast": {
+    "dismiss": "Đóng thông báo"
+  },
+  "table": {
+    "empty": "Chưa có dữ liệu hiển thị"
+  },
+  "skeleton": {
+    "courses": "Đang tải danh sách khoá học",
+    "flashcard": "Đang tải thẻ học",
+    "practice": "Đang tải bài luyện nghe",
+    "table": "Đang tải bảng tra cứu",
+    "shadowingLibrary": "Đang tải thư viện shadowing",
+    "shadowingWorkspace": "Đang tải phòng luyện shadowing",
+    "adminOverview": "Đang tải tổng quan hệ thống",
+    "adminList": "Đang tải danh sách quản trị",
+    "adminModules": "Đang tải cấu hình tính năng",
+    "adminPage": "Đang tải trang quản trị"
+  }
+}

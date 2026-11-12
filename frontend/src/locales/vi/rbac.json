@@ -1,0 +1,130 @@
+{
+  "roles": {
+    "guest": "Khách chưa đăng nhập",
+    "admin": "Quản trị viên",
+    "moderator": "Biên tập viên",
+    "learner": "Học viên"
+  },
+  "moduleGroups": {
+    "access": "Truy cập & Tài khoản",
+    "cards": "Khoá học & Thẻ học",
+    "shadowing": "Luyện Shadowing"
+  },
+  "modules": {
+    "auth_registration": {
+      "label": "Đăng ký tài khoản mới",
+      "description": "Cho phép người dùng tự tạo tài khoản học mới"
+    },
+    "auth_guest_mode": {
+      "label": "Học không cần đăng nhập",
+      "description": "Cho phép khách dùng thử khoá học và luyện tập không cần tài khoản"
+    },
+    "courses": {
+      "label": "Khoá học & Bộ thẻ",
+      "description": "Truy cập danh sách khoá học JLPT và lộ trình học"
+    },
+    "study_cards": {
+      "label": "Học thẻ & Tra cứu",
+      "description": "Học từ vựng, ngữ pháp, hán tự và luyện nghe"
+    },
+    "study_personal_cards": {
+      "label": "Bộ thẻ cá nhân",
+      "description": "Quản lý thẻ và khoá học do người dùng tự tạo"
+    },
+    "shadowing": {
+      "label": "Luyện Shadowing",
+      "description": "Truy cập thư viện video và phòng luyện Shadowing"
+    },
+    "shadowing_pronunciation": {
+      "label": "Chế độ Phát âm",
+      "description": "Thu âm và chấm điểm phát âm theo từng câu thoại"
+    },
+    "shadowing_listening": {
+      "label": "Chế độ Luyện nghe điền từ",
+      "description": "Nghe câu thoại và điền từ còn thiếu"
+    },
+    "shadowing_exercise": {
+      "label": "Chế độ Bài tập trắc nghiệm",
+      "description": "Làm bài tập đọc hiểu theo hội thoại"
+    },
+    "shadowing_extraction": {
+      "label": "Thêm bài & Trích xuất phụ đề",
+      "description": "Nhập video YouTube và tự động trích xuất phụ đề"
+    }
+  },
+  "permissionGroups": {
+    "courses": "Khoá học",
+    "cards": "Học thẻ",
+    "personal_cards": "Bộ thẻ của tôi",
+    "shadowing": "Luyện Shadowing",
+    "users": "Tài khoản",
+    "roles": "Vai trò & Quyền hạn",
+    "modules": "Tính năng hệ thống",
+    "system": "Quản trị & Nhật ký"
+  },
+  "permissions": {
+    "courses_view": "Xem khoá học",
+    "courses_create_own": "Thêm khoá học cá nhân",
+    "courses_edit_own": "Sửa khoá học cá nhân",
+    "courses_delete_own": "Xoá khoá học cá nhân",
+    "courses_view_all": "Xem khoá học quản trị",
+    "courses_create": "Thêm khoá học hệ thống",
+    "courses_edit": "Sửa mọi khoá học",
+    "courses_delete": "Xoá mọi khoá học",
+    "cards_view": "Xem & học thẻ",
+    "cards_view_all": "Xem thẻ quản trị",
+    "cards_create": "Thêm thẻ hệ thống",
+    "cards_edit": "Sửa mọi thẻ học",
+    "cards_delete": "Xoá mọi thẻ học",
+    "cards_create_own": "Thêm thẻ cá nhân",
+    "cards_edit_own": "Sửa thẻ cá nhân",
+    "cards_delete_own": "Xoá thẻ cá nhân",
+    "personal_cards_view": "Xem bộ thẻ của tôi",
+    "shadowing_view": "Xem bài Shadowing",
+    "shadowing_create_own": "Thêm bài Shadowing cá nhân",
+    "shadowing_edit_own": "Sửa bài Shadowing cá nhân",
+    "shadowing_delete_own": "Xoá bài Shadowing cá nhân",
+    "shadowing_view_all": "Xem bài Shadowing quản trị",
+    "shadowing_create": "Thêm bài Shadowing hệ thống",
+    "shadowing_edit": "Sửa mọi bài Shadowing",
+    "shadowing_delete": "Xoá mọi bài Shadowing",
+    "users_view": "Xem danh sách tài khoản",
+    "users_create": "Tạo tài khoản",
+    "users_edit": "Sửa thông tin & vai trò tài khoản",
+    "users_lock": "Khoá / mở khoá tài khoản",
+    "users_reset_password": "Đặt lại mật khẩu tài khoản",
+    "users_delete": "Xoá tài khoản",
+    "roles_view": "Xem danh sách vai trò",
+    "roles_create": "Tạo vai trò mới",
+    "roles_edit": "Sửa & phân quyền vai trò",
+    "roles_delete": "Xoá vai trò",
+    "modules_view": "Xem trạng thái tính năng",
+    "modules_toggle": "Bật / tắt tính năng",
+    "modules_assign_roles": "Phân quyền vai trò cho tính năng",
+    "admin_access": "Truy cập bảng điều khiển quản trị",
+    "system_status_view": "Xem tổng quan hệ thống",
+    "system_audit_view": "Xem nhật ký hoạt động"
+  },
+  "auditActions": {
+    "user_create": "Tạo tài khoản",
+    "user_update": "Cập nhật tài khoản",
+    "user_lock": "Khoá tài khoản",
+    "user_unlock": "Mở khoá tài khoản",
+    "user_reset_password": "Đặt lại mật khẩu",
+    "user_delete": "Xoá tài khoản",
+    "user_grant_admin": "Cấp / hạ quyền quản trị",
+    "role_create": "Tạo vai trò",
+    "role_update": "Cập nhật vai trò",
+    "role_delete": "Xoá vai trò",
+    "module_toggle": "Cập nhật tính năng",
+    "course_create": "Tạo khoá học",
+    "course_update": "Cập nhật khoá học",
+    "course_delete": "Xoá khoá học",
+    "card_create": "Tạo thẻ học",
+    "card_update": "Cập nhật thẻ học",
+    "card_delete": "Xoá thẻ học",
+    "video_create": "Tạo bài Shadowing",
+    "video_update": "Cập nhật bài Shadowing",
+    "video_delete": "Xoá bài Shadowing"
+  }
+}

@@ -5,6 +5,7 @@ from typing import Any
 
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django.utils.translation import gettext as _
 
 ANKI_DEFAULT_CONFIG = {
     "learning_steps_minutes": (1, 10),
@@ -47,14 +48,16 @@ RATING_MAP = {
 def normalize_rating(rating: Any) -> int:
     """Convert numeric (0-4), Anki ('again'|'hard'|'good'|'easy'), or JB status ('learned'|'remembered'|'mastered'|'unseen') into 0..4."""
     if isinstance(rating, bool) or rating is None:
-        raise ValueError("Giá trị đánh giá (rating) không hợp lệ.")
+        raise ValueError(_("Giá trị đánh giá (rating) không hợp lệ."))
     if isinstance(rating, str):
         key = rating.strip().lower()
     else:
         key = rating
     if key not in RATING_MAP:
         raise ValueError(
-            "Giá trị rating không hợp lệ. Chấp nhận: 1-4, 'again', 'hard', 'good', 'easy', 'learned', 'remembered', 'mastered', 'unseen'."
+            _(
+                "Giá trị rating không hợp lệ. Chấp nhận: 1-4, 'again', 'hard', 'good', 'easy', 'learned', 'remembered', 'mastered', 'unseen'."
+            )
         )
     return RATING_MAP[key]
 
@@ -180,22 +183,22 @@ def normalize_srs_state(raw: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def format_interval_vi(state: str, interval_days: int, learning_minutes: int) -> str:
-    """Format an Anki interval into natural Vietnamese."""
+    """Format an Anki interval into the active language (Vietnamese by default)."""
     if state in ("learning", "relearning") or (interval_days <= 0 and learning_minutes > 0):
         mins = max(1, int(learning_minutes or 1))
         if mins < 60:
-            return f"{mins} phút"
+            return _("%(count)s phút") % {"count": mins}
         hours = round(mins / 60, 1)
-        return f"{hours:g} giờ"
+        return _("%(count)s giờ") % {"count": f"{hours:g}"}
 
     days = max(1, int(interval_days or 1))
     if days < 30:
-        return f"{days} ngày"
+        return _("%(count)s ngày") % {"count": days}
     if days < 365:
         months = round(days / 30.0, 1)
-        return f"{months:g} tháng"
+        return _("%(count)s tháng") % {"count": f"{months:g}"}
     years = round(days / 365.0, 1)
-    return f"{years:g} năm"
+    return _("%(count)s năm") % {"count": f"{years:g}"}
 
 
 def schedule_card_review(
@@ -446,7 +449,7 @@ def serialize_srs_state(
     cur = normalize_srs_state(srs_raw)
     due = is_card_due(cur, now=now_dt)
     interval_display = (
-        "Chưa học"
+        _("Chưa học")
         if cur["state"] == "new"
         else format_interval_vi(cur["state"], cur["interval"], cur["learning_minutes"])
     )

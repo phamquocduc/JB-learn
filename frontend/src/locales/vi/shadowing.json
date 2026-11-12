@@ -1,0 +1,235 @@
+{
+  "pageTitles": {
+    "library": "Luyện Shadowing — JB Learn App",
+    "workspace": "{{title}} — Shadowing — JB Learn App",
+    "workspaceFallback": "Luyện Shadowing — JB Learn App"
+  },
+  "topics": {
+    "all": "Tất cả",
+    "allTopics": "Tất cả chủ đề",
+    "life": "Đời sống",
+    "conversation": "Hội thoại",
+    "business": "Công việc",
+    "news": "Tin tức",
+    "culture": "Văn hóa",
+    "general": "Chủ đề chung"
+  },
+  "levels": {
+    "all": "Tất cả",
+    "allLevels": "Tất cả trình độ"
+  },
+  "sources": {
+    "all": "Tất cả nguồn",
+    "youtube": "YouTube",
+    "upload": "File tải lên"
+  },
+  "modes": {
+    "shadowing": "Shadowing",
+    "pronunciation": "Phát âm",
+    "listening": "Luyện nghe",
+    "exercise": "Bài tập"
+  },
+  "library": {
+    "blockedRoleTitle": "Phân hệ không khả dụng với vai trò hiện tại",
+    "blockedMaintenanceTitle": "Luyện Shadowing đang tạm ngưng",
+    "blockedRoleDesc": "Tài khoản của bạn hiện chưa được cấp quyền truy cập phân hệ Luyện Shadowing.",
+    "blockedMaintenanceFallback": "Phân hệ luyện nghe nói Shadowing hiện đang tạm đóng.",
+    "loadError": "Không thể tải danh sách video Shadowing.",
+    "stats": {
+      "videos": "Video",
+      "practicedSegments": "Câu đã luyện",
+      "completion": "Hoàn thành"
+    },
+    "filters": {
+      "topicLabel": "Chủ đề:",
+      "levelLabel": "Trình độ:",
+      "searchAria": "Tìm kiếm video Shadowing",
+      "searchPlaceholder": "Tìm kiếm video...",
+      "clearSearchAria": "Xóa từ khóa tìm kiếm",
+      "filterAria": "Bộ lọc",
+      "removeFilterAria": "Xóa lọc {{label}}",
+      "clearAll": "Xóa lọc"
+    },
+    "empty": {
+      "title": "Không tìm thấy video Shadowing phù hợp",
+      "description": "Hãy thử đổi bộ lọc chủ đề hoặc thêm bài học mới từ YouTube hoặc tệp âm thanh/video của bạn.",
+      "actionLabel": "Thêm Video mới"
+    }
+  },
+  "hero": {
+    "continueHeading": "Tiếp tục tiến độ học tập",
+    "latestFallback": "Bài luyện Shadowing gần nhất",
+    "emptyTitle": "Chưa có bài học Shadowing",
+    "addAria": "Thêm Video hoặc Audio",
+    "addShort": "Thêm bài",
+    "addFull": "Thêm Video / Audio",
+    "segmentStatus": "Đoạn số {{num}} · {{status}}",
+    "inProgress": "Đang học dở",
+    "ready": "Sẵn sàng luyện tập",
+    "resumeCta": "Tiếp tục Shadowing"
+  },
+  "videoCard": {
+    "segmentsCount": "{{count}} câu",
+    "notPracticed": "Chưa luyện",
+    "progressAria": "Hoàn thành {{percent}}%"
+  },
+  "filterSheet": {
+    "dialogAria": "Bộ lọc Shadowing",
+    "title": "Bộ lọc",
+    "closeAria": "Đóng bộ lọc",
+    "topicLabel": "Chủ đề",
+    "levelLabel": "Trình độ JLPT",
+    "sourceLabel": "Nguồn",
+    "reset": "Đặt lại",
+    "apply": "Áp dụng"
+  },
+  "addVideoModal": {
+    "title": "Thêm bài học Shadowing mới",
+    "closeAria": "Đóng biểu mẫu",
+    "youtubeTab": "Đường dẫn YouTube",
+    "uploadTab": "Tải tệp lên",
+    "youtubeUrlLabel": "Đường dẫn video YouTube",
+    "mediaFileLabel": "Tệp âm thanh hoặc video",
+    "extracting": "Đang trích xuất phụ đề...",
+    "extractAction": "Trích xuất phụ đề tự động",
+    "extractedSummary": "Đã trích xuất {{segments}} câu phụ đề & {{exercises}} bài tập",
+    "titleLabel": "Tiêu đề bài học *",
+    "titleEnLabel": "Tiêu đề tiếng Anh",
+    "titleEnPlaceholder": "Tùy chọn: nhập tiêu đề hiển thị khi chuyển sang tiếng Anh...",
+    "topicLabel": "Chủ đề",
+    "levelLabel": "Trình độ JLPT",
+    "visibilityLabel": "Quyền hiển thị",
+    "publicOption": "Công khai",
+    "privateOption": "Riêng tư",
+    "submitting": "Đang lưu bài học...",
+    "submitAction": "Lưu và bắt đầu học ngay",
+    "errors": {
+      "missingYoutubeUrl": "Vui lòng nhập đường dẫn YouTube.",
+      "missingMediaFile": "Vui lòng chọn tệp âm thanh hoặc video để tải lên.",
+      "extractFailed": "Quá trình trích xuất phụ đề tự động gặp lỗi.",
+      "missingTitle": "Vui lòng nhập tiêu đề cho bài học Shadowing.",
+      "createFailed": "Không thể tạo video bài học."
+    }
+  },
+  "workspace": {
+    "loadError": "Không thể tải video Shadowing này.",
+    "notFoundTitle": "Không tìm thấy bài học Shadowing",
+    "notFoundDesc": "Video này có thể đã bị xóa hoặc bạn không có quyền truy cập.",
+    "backToLibrary": "Quay lại Thư viện",
+    "backToLibraryAria": "Quay lại thư viện Shadowing",
+    "modesTabAria": "Chế độ luyện Shadowing"
+  },
+  "controls": {
+    "subtitle": "Phụ đề",
+    "translation": "Bản dịch",
+    "furigana": "Furigana",
+    "speedGroupAria": "Tốc độ phát",
+    "loopSentenceAria": "Lặp lại câu hiện tại",
+    "loopSentenceShort": "Lặp câu",
+    "favoriteAria": "Yêu thích bài này",
+    "unfavoriteAria": "Bỏ yêu thích",
+    "toggleTranscriptAria": "Đóng mở bảng phụ đề",
+    "showTranscript": "Hiện bảng phụ đề",
+    "hideTranscript": "Ẩn bảng phụ đề"
+  },
+  "transcriptPanel": {
+    "title": "Phụ đề ({{count}})",
+    "exportTitle": "Tải phụ đề (.txt)",
+    "exportAria": "Tải xuống phụ đề",
+    "enableBilingual": "Bật bản dịch song ngữ",
+    "disableBilingual": "Tắt bản dịch song ngữ",
+    "toggleBilingualAria": "Bật tắt song ngữ",
+    "closeAria": "Đóng bảng phụ đề"
+  },
+  "shadowingStage": {
+    "tokenHint": "Bấm để tra từ & lưu vào bộ thẻ",
+    "emptySubtitle": "Bấm phát video để hiển thị phụ đề tương ứng"
+  },
+  "wordPopover": {
+    "dialogAria": "Thông tin từ vựng",
+    "closeAria": "Đóng bảng tra từ",
+    "speakAria": "Phát âm từ này",
+    "meaningLabel": "Ý nghĩa",
+    "noMeaning": "Chưa có bản dịch chi tiết",
+    "savedButton": "Đã lưu vào bộ thẻ",
+    "savingButton": "Đang lưu...",
+    "saveButton": "Lưu vào bộ thẻ",
+    "saveError": "Không thể lưu thẻ. Vui lòng đăng nhập để đồng bộ!"
+  },
+  "pronunciation": {
+    "noData": "Không có dữ liệu câu phụ đề cho video này.",
+    "sentenceCounter": "Câu {{current}} / {{total}}",
+    "micError": "Không thể truy cập microphone. Vui lòng cho phép quyền ghi âm trong trình duyệt.",
+    "startRecording": "Bắt đầu thu âm giọng đọc",
+    "stopRecording": "Dừng thu âm & chấm điểm",
+    "nativeAudio": "Phát âm mẫu",
+    "yourRecording": "Bản thu của bạn",
+    "playing": "Đang phát...",
+    "play": "Nghe",
+    "scoreLabel": "Điểm phát âm: {{score}}%",
+    "ratings": {
+      "veryGood": "Rất chuẩn",
+      "good": "Khá tốt",
+      "needsPractice": "Cần luyện thêm"
+    },
+    "recognizedLabel": "Nhận diện:",
+    "prevAria": "Câu trước",
+    "nextAria": "Câu tiếp theo"
+  },
+  "listening": {
+    "noData": "Không có dữ liệu bài luyện nghe cho video này.",
+    "sentenceCounter": "Câu {{current}} / {{total}}",
+    "playingAudio": "Đang phát âm thanh...",
+    "listenAudio": "Nghe âm thanh",
+    "correctMatch": "Chính xác! Từ cần điền là \"{{word}}\".",
+    "incorrectMatch": "Chưa chính xác. Đáp án đúng là \"{{word}}\".",
+    "fullSentenceLabel": "Câu hoàn chỉnh: ",
+    "translationLabel": "Dịch nghĩa:",
+    "prevAria": "Câu trước",
+    "nextAria": "Câu tiếp theo"
+  },
+  "exercise": {
+    "completedTitle": "Hoàn thành bài tập",
+    "retryButton": "Làm lại bài tập",
+    "questionCounter": "Câu {{current}} / {{total}}",
+    "pauseDialogue": "Tạm dừng hội thoại",
+    "listenDialogue": "Nghe đoạn hội thoại",
+    "correctBadge": "Chính xác!",
+    "incorrectBadge": "Chưa đúng!",
+    "explanationLabel": "Giải thích: ",
+    "prevAria": "Câu trước",
+    "nextAria": "Câu tiếp theo",
+    "defaultQuestions": [
+      {
+        "id": 1,
+        "question": "Chủ đề chính được thảo luận trong đoạn video này là gì?",
+        "options": [
+          "Cách quản lý và sử dụng tiền bạc hợp lý",
+          "Phương pháp học ngoại ngữ nhanh chóng",
+          "Du lịch vòng quanh nước Nhật",
+          "Kỹ năng nấu ăn các món truyền thống"
+        ],
+        "correct_index": 0,
+        "explanation": "Video chia sẻ về góc nhìn và tư duy quản lý tài chính cá nhân.",
+        "fallbackStart": 0
+      },
+      {
+        "id": 2,
+        "question": "Người nói nhấn mạnh điều gì đối với việc chi tiêu hàng ngày?",
+        "options": [
+          "Chi tiêu tùy hứng theo cảm xúc",
+          "Phân biệt rõ giữa lãng phí và đầu tư cho bản thân",
+          "Tuyệt đối không mua bất kỳ món đồ nào",
+          "Chỉ vay mượn từ bạn bè"
+        ],
+        "correct_index": 1,
+        "explanation": "Người nói khuyên nên suy nghĩ kỹ trước khi mua để tránh lãng phí (無駄遣い).",
+        "fallbackStart": 10
+      }
+    ]
+  },
+  "player": {
+    "youtubeError": "Lỗi phát YouTube (mã {{code}})",
+    "youtubeApiLoadError": "Không thể tải YouTube Player API."
+  }
+}

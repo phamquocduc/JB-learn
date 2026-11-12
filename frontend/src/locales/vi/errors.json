@@ -1,0 +1,9 @@
+{
+  "httpFallback": "Có lỗi xảy ra (HTTP {{status}})",
+  "networkError": "Không thể kết nối tới máy chủ. Vui lòng thử lại.",
+  "sessionExpired": "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+  "unauthorized": "Bạn cần đăng nhập để thực hiện thao tác này.",
+  "forbidden": "Bạn không có quyền thực hiện thao tác này.",
+  "notFound": "Không tìm thấy nội dung yêu cầu.",
+  "serverError": "Máy chủ đang gặp sự cố. Vui lòng thử lại sau."
+}

@@ -6,15 +6,11 @@ import {
   Link,
   useOutletContext,
 } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowLeftIcon,
-  PlayCircleIcon,
-  MicrophoneIcon,
-  SpeakerWaveIcon,
-  ClipboardDocumentCheckIcon,
   EllipsisHorizontalIcon,
 } from '@heroicons/react/24/outline';
-import Card from '../components/ui/Card';
 import Badge from '../components/ui/Badge';
 import Skeleton from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
@@ -24,6 +20,7 @@ import ListeningModeStage from '../components/shadowing/modes/ListeningModeStage
 import ExerciseModeStage from '../components/shadowing/modes/ExerciseModeStage';
 import TranscriptPanel from '../components/shadowing/controls/TranscriptPanel';
 import { useAuth } from '../context/useAuth';
+import { useSystemConfig } from '../context/useSystemConfig';
 import { fetchShadowingVideo, updateVideoProgress } from '../services/shadowingApi';
 import {
   saveLastShadowingSession,
@@ -32,20 +29,52 @@ import {
 } from '../services/shadowingProgress';
 import { useShadowingPlayer } from '../hooks/useShadowingPlayer';
 
+// Keep internal mode IDs invariant for URL query params & saved progress compatibility.
 const MODES = [
-  { id: 'Shadowing', label: 'Shadowing', icon: PlayCircleIcon },
-  { id: 'Phát âm', label: 'Phát âm', icon: MicrophoneIcon },
-  { id: 'Luyện nghe', label: 'Luyện nghe', icon: SpeakerWaveIcon },
-  { id: 'Bài tập', label: 'Bài tập', icon: ClipboardDocumentCheckIcon },
+  { id: 'Shadowing', labelKey: 'shadowing:modes.shadowing', moduleKey: '' },
+  {
+    id: 'Phát âm',
+    labelKey: 'shadowing:modes.pronunciation',
+    moduleKey: 'shadowing.pronunciation',
+  },
+  {
+    id: 'Luyện nghe',
+    labelKey: 'shadowing:modes.listening',
+    moduleKey: 'shadowing.listening',
+  },
+  {
+    id: 'Bài tập',
+    labelKey: 'shadowing:modes.exercise',
+    moduleKey: 'shadowing.exercise',
+  },
 ];
 
 export default function ShadowingWorkspacePage() {
+  const { t, i18n } = useTranslation(['shadowing', 'common']);
   const outletContext = useOutletContext() || {};
   const { openSidebar } = outletContext;
   const { videoId } = useParams();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, isGuest, hasAnyPermission } = useAuth();
+  const { isModuleEnabled, getModuleBlockReason, getModuleInfo } =
+    useSystemConfig();
+
+  const shadowingEnabled = isModuleEnabled('shadowing');
+  const canViewShadowing = Boolean(
+    shadowingEnabled &&
+      (isGuest ||
+        hasAnyPermission([
+          'shadowing.view',
+          'shadowing.view_all',
+          'shadowing.edit',
+          'shadowing.delete',
+        ]))
+  );
+  const availableModes = useMemo(
+    () => MODES.filter((m) => !m.moduleKey || isModuleEnabled(m.moduleKey)),
+    [isModuleEnabled]
+  );
 
   const [video, setVideo] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,6 +84,9 @@ export default function ShadowingWorkspacePage() {
   const [activeMode, setActiveMode] = useState(
     searchParams.get('mode') || 'Shadowing'
   );
+  const effectiveMode = availableModes.some((m) => m.id === activeMode)
+    ? activeMode
+    : 'Shadowing';
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(
     Number(searchParams.get('seg')) || 0
   );
@@ -72,6 +104,12 @@ export default function ShadowingWorkspacePage() {
   );
 
   useEffect(() => {
+    document.title = video?.title
+      ? t('shadowing:pageTitles.workspace', { title: video.title })
+      : t('shadowing:pageTitles.workspaceFallback');
+  }, [video?.title, i18n.language, t]);
+
+  useEffect(() => {
     let ignore = false;
     if (!videoId) return;
     fetchShadowingVideo(videoId)
@@ -83,14 +121,14 @@ export default function ShadowingWorkspacePage() {
       })
       .catch((err) => {
         if (!ignore) {
-          setError(err.message || 'Không thể tải video Shadowing này.');
+          setError(err.message || t('shadowing:workspace.loadError'));
           setIsLoading(false);
         }
       });
     return () => {
       ignore = true;
     };
-  }, [videoId]);
+  }, [videoId, i18n.language, t]);
 
   const segments = useMemo(() => video?.segments || [], [video]);
 
@@ -106,12 +144,12 @@ export default function ShadowingWorkspacePage() {
   // Keep URL query params synchronized
   useEffect(() => {
     const params = new URLSearchParams();
-    if (activeMode) params.set('mode', activeMode);
+    if (effectiveMode) params.set('mode', effectiveMode);
     if (currentSegmentIndex !== undefined) {
       params.set('seg', String(currentSegmentIndex));
     }
     setSearchParams(params, { replace: true });
-  }, [activeMode, currentSegmentIndex, setSearchParams]);
+  }, [effectiveMode, currentSegmentIndex, setSearchParams]);
 
   // Record session state for "Tiếp tục Shadowing"
   useEffect(() => {
@@ -123,9 +161,9 @@ export default function ShadowingWorkspacePage() {
       videoTitle: video.title,
       topic: video.topic,
       level: video.level,
-      mode: activeMode,
+      mode: effectiveMode,
     });
-  }, [video, currentSegmentIndex, activeMode, segments, user]);
+  }, [video, currentSegmentIndex, effectiveMode, segments, user]);
 
   // Save segment rating
   const handleRateSegment = useCallback(
@@ -147,9 +185,33 @@ export default function ShadowingWorkspacePage() {
     player.seekTo(startSeconds, true);
   };
 
+  if (!canViewShadowing) {
+    const isRoleRestricted =
+      !shadowingEnabled
+        ? getModuleBlockReason('shadowing') === 'role_restricted'
+        : true;
+    const note = getModuleInfo('shadowing')?.maintenance_note;
+    return (
+      <main className="w-full mx-auto px-3 sm:px-5 pt-3 pb-16 flex-1 flex flex-col gap-3.5">
+        <EmptyState
+          title={
+            isRoleRestricted
+              ? t('shadowing:library.blockedRoleTitle')
+              : t('shadowing:library.blockedMaintenanceTitle')
+          }
+          description={
+            isRoleRestricted
+              ? t('shadowing:library.blockedRoleDesc')
+              : note || t('shadowing:library.blockedMaintenanceFallback')
+          }
+        />
+      </main>
+    );
+  }
+
   if (isLoading) {
     return (
-      <main className="w-full mx-auto px-3 sm:px-6 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
+      <main className="w-full mx-auto px-3 sm:px-5 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
         <Skeleton variant="shadowing-workspace" />
       </main>
     );
@@ -157,11 +219,11 @@ export default function ShadowingWorkspacePage() {
 
   if (error || !video) {
     return (
-      <main className="w-full mx-auto px-3 sm:px-6 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
+      <main className="w-full mx-auto px-3 sm:px-5 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
         <EmptyState
-          title="Không tìm thấy bài học Shadowing"
-          description={error || 'Video này có thể đã bị xóa hoặc bạn không có quyền truy cập.'}
-          actionLabel="Quay lại Thư viện"
+          title={t('shadowing:workspace.notFoundTitle')}
+          description={error || t('shadowing:workspace.notFoundDesc')}
+          actionLabel={t('shadowing:workspace.backToLibrary')}
           onAction={() => navigate('/shadowing')}
         />
       </main>
@@ -169,24 +231,21 @@ export default function ShadowingWorkspacePage() {
   }
 
   return (
-    <main className="w-full mx-auto px-3 sm:px-6 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
-      {/* 1. Top Header Toolbar (synchronized with FilterBar on HomePage) */}
-      <Card
-        rounded="xl"
-        className="p-2.5 sm:p-3 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5"
-      >
+    <main className="w-full mx-auto px-3 sm:px-5 pt-3 pb-20 sm:pb-5 flex-1 flex flex-col gap-3">
+      {/* 1. Top Header Toolbar */}
+      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
         {/* Left: Back button, Video title, Level badge, and Mobile Sidebar button */}
         <div className="flex items-center justify-between gap-2 min-w-0">
           <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
             <Link
               to="/shadowing"
-              aria-label="Quay lại thư viện Shadowing"
-              className="w-9 h-9 inline-flex items-center justify-center rounded-lg text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors duration-150 border border-slate-200 shrink-0"
+              aria-label={t('shadowing:workspace.backToLibraryAria')}
+              className="w-8 h-8 sm:w-9 sm:h-9 inline-flex items-center justify-center rounded-control text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 transition-colors duration-150 border border-slate-200 shrink-0"
             >
               <ArrowLeftIcon className="w-4 h-4" aria-hidden="true" />
             </Link>
 
-            <h1 className="text-sm sm:text-base font-bold text-slate-900 truncate min-w-0 flex-1">
+            <h1 className="text-sm sm:text-base font-semibold text-slate-900 truncate min-w-0 flex-1">
               {video.title}
             </h1>
             <Badge variant="level" className="shrink-0">
@@ -198,23 +257,30 @@ export default function ShadowingWorkspacePage() {
             <button
               type="button"
               onClick={openSidebar}
-              aria-label="Mở menu điều hướng"
-              className="lg:hidden w-9 h-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center shrink-0 cursor-pointer transition-colors duration-150"
+              aria-label={t('common:nav.openMenu')}
+              className="lg:hidden w-8 h-8 sm:w-9 sm:h-9 rounded-control border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center shrink-0 cursor-pointer transition-colors duration-150"
             >
               <EllipsisHorizontalIcon className="w-5 h-5" aria-hidden="true" />
             </button>
           )}
         </div>
 
-        {/* Right: 4 Mode Switcher Pill Buttons (stacked icon+label on mobile so labels never truncate) */}
+        {/* Right: Mode Switcher Segmented Tabs */}
         <div
           role="tablist"
-          aria-label="Chế độ luyện Shadowing"
-          className="grid grid-cols-4 sm:flex sm:items-center gap-1 bg-slate-100 p-1 rounded-xl sm:rounded-lg shrink-0"
+          aria-label={t('shadowing:workspace.modesTabAria')}
+          className={`grid ${
+            availableModes.length === 4
+              ? 'grid-cols-4'
+              : availableModes.length === 3
+                ? 'grid-cols-3'
+                : availableModes.length === 2
+                  ? 'grid-cols-2'
+                  : 'grid-cols-1'
+          } sm:flex sm:items-center gap-1 bg-white border border-slate-200 p-1 rounded-control shrink-0`}
         >
-          {MODES.map((mode) => {
-            const Icon = mode.icon;
-            const isActive = activeMode === mode.id;
+          {availableModes.map((mode) => {
+            const isActive = effectiveMode === mode.id;
             return (
               <button
                 key={mode.id}
@@ -225,23 +291,23 @@ export default function ShadowingWorkspacePage() {
                   setActiveMode(mode.id);
                   player.pause();
                 }}
-                className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 min-h-11 sm:min-h-9 px-1 sm:px-3 py-1.5 rounded-lg sm:rounded-md text-[11px] sm:text-xs font-bold leading-tight transition-colors duration-150 cursor-pointer ${isActive
-                    ? 'bg-sky-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                className={`inline-flex items-center justify-center h-8 px-2 sm:px-3 rounded-control text-xs font-medium leading-tight transition-colors duration-150 cursor-pointer ${
+                  isActive
+                    ? 'bg-sky-700 text-white'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
+                }`}
               >
-                <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span className="whitespace-nowrap">{mode.label}</span>
+                <span className="whitespace-nowrap">{t(mode.labelKey)}</span>
               </button>
             );
           })}
         </div>
-      </Card>
+      </header>
 
       {/* 2. Main Study Workspace (synchronized flex-1 container with HomePage) */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Persistent player mounted across all modes with hidden class to preserve player.youtubeContainerId iframe and snippet playback */}
-        <div className={activeMode === 'Shadowing' ? 'flex-1 flex flex-col min-w-0' : 'hidden'}>
+        <div className={effectiveMode === 'Shadowing' ? 'flex-1 flex flex-col min-w-0' : 'hidden'}>
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-4 items-start flex-1 min-w-0">
             {/* Left Video Player & Subtitles Stage (lg:col-span-8) */}
             <div
@@ -282,7 +348,7 @@ export default function ShadowingWorkspacePage() {
           </div>
         </div>
 
-        {activeMode === 'Phát âm' && (
+        {effectiveMode === 'Phát âm' && (
           <PronunciationModeStage
             video={video}
             player={player}
@@ -294,7 +360,7 @@ export default function ShadowingWorkspacePage() {
           />
         )}
 
-        {activeMode === 'Luyện nghe' && (
+        {effectiveMode === 'Luyện nghe' && (
           <ListeningModeStage
             video={video}
             player={player}
@@ -304,7 +370,7 @@ export default function ShadowingWorkspacePage() {
           />
         )}
 
-        {activeMode === 'Bài tập' && (
+        {effectiveMode === 'Bài tập' && (
           <ExerciseModeStage
             video={video}
             player={player}

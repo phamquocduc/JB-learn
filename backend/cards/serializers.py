@@ -2,9 +2,17 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework.authtoken.models import Token
 
+from core.i18n import (
+    DEFAULT_LANGUAGE,
+    apply_translated_fields,
+    is_raw_content_request,
+    normalize_translations_input,
+    resolve_request_language,
+)
 from .anki import (
     format_interval_vi,
     get_interval_previews,
@@ -12,11 +20,20 @@ from .anki import (
     normalize_rating,
 )
 from .models import Card, CardReview, Course
+from users.permissions import can_user_delete_object, can_user_edit_object
+from users.rbac import get_default_role_record, get_role_visible_modules
 
 User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
+    role_slug = serializers.SerializerMethodField()
+    role_name = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
+    visible_modules = serializers.SerializerMethodField()
+    can_access_admin = serializers.SerializerMethodField()
+    preferred_language = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
@@ -27,9 +44,33 @@ class UserSerializer(serializers.ModelSerializer):
             "last_name",
             "is_staff",
             "is_active",
+            "role_slug",
+            "role_name",
+            "permissions",
+            "visible_modules",
+            "can_access_admin",
+            "preferred_language",
             "date_joined",
         ]
         read_only_fields = fields
+
+    def get_preferred_language(self, obj) -> str:
+        return getattr(obj, "preferred_language", None) or DEFAULT_LANGUAGE
+
+    def get_role_slug(self, obj) -> str:
+        return obj.get_effective_role_slug()
+
+    def get_role_name(self, obj) -> str:
+        return obj.get_effective_role_name()
+
+    def get_permissions(self, obj) -> list:
+        return obj.get_permission_codes()
+
+    def get_visible_modules(self, obj) -> list:
+        return get_role_visible_modules(obj.get_effective_role_slug())
+
+    def get_can_access_admin(self, obj) -> bool:
+        return obj.has_perm_code("admin.access")
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -50,22 +91,22 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate_username(self, value: str) -> str:
         v = value.strip()
         if not v:
-            raise serializers.ValidationError("Tên người dùng không được để trống.")
+            raise serializers.ValidationError(_("Tên người dùng không được để trống."))
         if User.objects.filter(username__iexact=v).exists():
-            raise serializers.ValidationError("Tên người dùng này đã tồn tại.")
+            raise serializers.ValidationError(_("Tên người dùng này đã tồn tại."))
         return v
 
     def validate_email(self, value: str) -> str:
         v = value.strip().lower()
         if not v:
-            raise serializers.ValidationError("Email không được để trống.")
+            raise serializers.ValidationError(_("Email không được để trống."))
         if User.objects.filter(email__iexact=v).exists():
-            raise serializers.ValidationError("Email này đã được sử dụng.")
+            raise serializers.ValidationError(_("Email này đã được sử dụng."))
         return v
 
     def validate_password(self, value: str) -> str:
         if len(value) < 8:
-            raise serializers.ValidationError("Mật khẩu phải chứa ít nhất 8 ký tự.")
+            raise serializers.ValidationError(_("Mật khẩu phải chứa ít nhất 8 ký tự."))
         try:
             validate_password(value)
         except DjangoValidationError as exc:
@@ -73,10 +114,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data: dict) -> User:
+        learner_role = get_default_role_record("learner")
         user = User.objects.create_user(
             username=validated_data["username"],
             email=validated_data.get("email", ""),
             password=validated_data["password"],
+            role=learner_role,
         )
         return user
 
@@ -95,7 +138,7 @@ class LoginSerializer(serializers.Serializer):
 
         if not identifier or not password:
             raise serializers.ValidationError(
-                "Vui lòng nhập tên đăng nhập/email và mật khẩu."
+                _("Vui lòng nhập tên đăng nhập/email và mật khẩu.")
             )
 
         user = User.objects.filter(
@@ -104,13 +147,13 @@ class LoginSerializer(serializers.Serializer):
 
         if not user or not user.check_password(password):
             raise serializers.ValidationError(
-                "Tên đăng nhập/email hoặc mật khẩu không chính xác."
+                _("Tên đăng nhập/email hoặc mật khẩu không chính xác.")
             )
 
         if not user.is_active:
-            raise serializers.ValidationError("Tài khoản đã bị khóa.")
+            raise serializers.ValidationError(_("Tài khoản đã bị khóa."))
 
-        token, _ = Token.objects.get_or_create(user=user)
+        token, _created = Token.objects.get_or_create(user=user)
         attrs["user"] = user
         attrs["token"] = token.key
         return attrs
@@ -120,6 +163,10 @@ class CourseSerializer(serializers.ModelSerializer):
     card_count = serializers.SerializerMethodField()
     created_by_username = serializers.SerializerMethodField()
     is_owner = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
+    can_manage = serializers.SerializerMethodField()
+    translations = serializers.JSONField(required=False)
 
     class Meta:
         model = Course
@@ -127,6 +174,7 @@ class CourseSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "description",
+            "translations",
             "level",
             "card_type",
             "is_public",
@@ -134,6 +182,9 @@ class CourseSerializer(serializers.ModelSerializer):
             "created_by",
             "created_by_username",
             "is_owner",
+            "can_edit",
+            "can_delete",
+            "can_manage",
             "created_at",
             "updated_at",
         ]
@@ -143,9 +194,35 @@ class CourseSerializer(serializers.ModelSerializer):
             "created_by",
             "created_by_username",
             "is_owner",
+            "can_edit",
+            "can_delete",
+            "can_manage",
             "created_at",
             "updated_at",
         ]
+
+    def validate_translations(self, value) -> dict:
+        try:
+            return normalize_translations_input(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(
+                _("Trường translations phải là một đối tượng JSON hợp lệ.")
+            ) from exc
+
+    def to_representation(self, instance: Course) -> dict:
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if is_raw_content_request(request):
+            return data
+        lang = resolve_request_language(request)
+        include_source = bool(self.context.get("include_source") or data.get("can_edit"))
+        return apply_translated_fields(
+            data,
+            instance,
+            lang,
+            ("title", "description"),
+            include_source=include_source,
+        )
 
     def get_card_count(self, obj: Course) -> int:
         if hasattr(obj, "card_count"):
@@ -153,7 +230,7 @@ class CourseSerializer(serializers.ModelSerializer):
         return obj.cards.count()
 
     def get_created_by_username(self, obj: Course) -> str:
-        return obj.created_by.username if obj.created_by else "Hệ thống"
+        return obj.created_by.username if obj.created_by else str(_("Hệ thống"))
 
     def get_is_owner(self, obj: Course) -> bool:
         request = self.context.get("request")
@@ -164,16 +241,34 @@ class CourseSerializer(serializers.ModelSerializer):
             and obj.created_by_id == request.user.id
         )
 
+    def get_can_edit(self, obj: Course) -> bool:
+        request = self.context.get("request")
+        return can_user_edit_object(getattr(request, "user", None), obj, "courses")
+
+    def get_can_delete(self, obj: Course) -> bool:
+        request = self.context.get("request")
+        return can_user_delete_object(getattr(request, "user", None), obj, "courses")
+
+    def get_can_manage(self, obj: Course) -> bool:
+        return self.get_can_edit(obj) or self.get_can_delete(obj)
+
 
 class CardSerializer(serializers.ModelSerializer):
     grammar = serializers.CharField(source="front_text", read_only=True)
     is_owner = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
+    can_manage = serializers.SerializerMethodField()
+    created_by_username = serializers.SerializerMethodField()
+    course_title = serializers.SerializerMethodField()
+    translations = serializers.JSONField(required=False)
 
     class Meta:
         model = Card
         fields = [
             "id",
             "course",
+            "course_title",
             "card_type",
             "level",
             "lesson",
@@ -185,21 +280,71 @@ class CardSerializer(serializers.ModelSerializer):
             "usage_notes",
             "examples",
             "extra_data",
+            "translations",
             "source",
             "is_public",
             "created_by",
+            "created_by_username",
             "is_owner",
+            "can_edit",
+            "can_delete",
+            "can_manage",
             "created_at",
             "updated_at",
         ]
         read_only_fields = [
             "id",
+            "course_title",
             "grammar",
             "created_by",
+            "created_by_username",
             "is_owner",
+            "can_edit",
+            "can_delete",
+            "can_manage",
             "created_at",
             "updated_at",
         ]
+
+    def validate_translations(self, value) -> dict:
+        try:
+            return normalize_translations_input(value)
+        except ValueError as exc:
+            raise serializers.ValidationError(
+                _("Trường translations phải là một đối tượng JSON hợp lệ.")
+            ) from exc
+
+    def to_representation(self, instance: Card) -> dict:
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if is_raw_content_request(request):
+            return data
+        lang = resolve_request_language(request)
+        include_source = bool(self.context.get("include_source") or data.get("can_edit"))
+        return apply_translated_fields(
+            data,
+            instance,
+            lang,
+            ("meaning", "conjugation", "usage_notes", "examples"),
+            include_source=include_source,
+        )
+
+    def get_created_by_username(self, obj: Card) -> str:
+        return obj.created_by.username if obj.created_by else str(_("Hệ thống"))
+
+    def get_course_title(self, obj: Card) -> str:
+        if not obj.course:
+            return ""
+        request = self.context.get("request")
+        if not is_raw_content_request(request):
+            lang = resolve_request_language(request)
+            if lang != DEFAULT_LANGUAGE:
+                trans = (obj.course.translations or {}).get(lang)
+                if isinstance(trans, dict):
+                    t_title = trans.get("title")
+                    if isinstance(t_title, str) and t_title.strip():
+                        return t_title
+        return obj.course.title
 
     def get_is_owner(self, obj: Card) -> bool:
         request = self.context.get("request")
@@ -210,16 +355,35 @@ class CardSerializer(serializers.ModelSerializer):
             and obj.created_by_id == request.user.id
         )
 
+    def get_can_edit(self, obj: Card) -> bool:
+        request = self.context.get("request")
+        return can_user_edit_object(getattr(request, "user", None), obj, "cards")
+
+    def get_can_delete(self, obj: Card) -> bool:
+        request = self.context.get("request")
+        return can_user_delete_object(getattr(request, "user", None), obj, "cards")
+
+    def get_can_manage(self, obj: Card) -> bool:
+        return self.get_can_edit(obj) or self.get_can_delete(obj)
+
     def validate_course(self, course: Course) -> Course:
         if course and not course.is_public:
             request = self.context.get("request")
-            if (
-                not request
-                or not request.user.is_authenticated
-                or course.created_by != request.user
+            user = getattr(request, "user", None)
+            has_manage = bool(
+                user
+                and user.is_authenticated
+                and hasattr(user, "has_perm_code")
+                and any(
+                    user.has_perm_code(code)
+                    for code in ("courses.edit", "cards.create", "cards.edit")
+                )
+            )
+            if not has_manage and (
+                not user or not user.is_authenticated or course.created_by != user
             ):
                 raise serializers.ValidationError(
-                    "Không thể thêm thẻ vào khoá học riêng tư của người khác."
+                    _("Không thể thêm thẻ vào khoá học riêng tư của người khác.")
                 )
         return course
 
@@ -257,7 +421,7 @@ class CardReviewSerializer(serializers.ModelSerializer):
 
     def get_interval_display(self, obj: CardReview) -> str:
         if obj.state == CardReview.ReviewState.NEW:
-            return "Chưa học"
+            return str(_("Chưa học"))
         return format_interval_vi(obj.state, obj.interval, obj.learning_minutes)
 
     def get_next_intervals(self, obj: CardReview) -> dict:

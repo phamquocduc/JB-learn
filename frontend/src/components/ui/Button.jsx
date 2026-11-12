@@ -2,23 +2,23 @@ import React from 'react';
 
 const VARIANT_CLASSES = {
   primary:
-    'bg-sky-700 hover:bg-sky-800 text-white border border-sky-700 hover:border-sky-800 shadow-sm',
+    'bg-primary hover:bg-primary-hover active:bg-primary-active text-white font-semibold border border-primary hover:border-primary-hover',
   secondary:
-    'bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 hover:border-slate-300 shadow-sm',
+    'bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-800 font-medium border border-slate-300 hover:border-slate-400',
   ghost:
-    'bg-transparent hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-transparent',
+    'bg-transparent hover:bg-slate-100 active:bg-slate-200/70 text-slate-700 hover:text-slate-900 font-medium border border-transparent',
   destructive:
-    'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200',
+    'bg-red-50 hover:bg-red-100 active:bg-red-200/70 text-red-700 font-medium border border-red-200 hover:border-red-300',
   badge:
-    'bg-slate-50 hover:bg-sky-50 text-slate-700 hover:text-sky-800 border border-slate-200 hover:border-sky-300',
+    'bg-white hover:bg-sky-50 text-slate-700 hover:text-sky-800 font-medium border border-slate-300 hover:border-sky-300',
 };
 
 const SIZE_CLASSES = {
-  badge: 'px-2.5 py-1 text-xs gap-1 rounded-md',
-  sm: 'min-h-8 px-3 py-1 text-xs gap-1',
-  md: 'min-h-10 px-4 py-2 text-sm gap-2',
-  lg: 'min-h-11 px-5 py-2.5 text-sm gap-2',
-  icon: 'w-9 h-9 p-0 justify-center',
+  badge: 'h-8 px-3 text-xs gap-1.5 rounded-control',
+  sm: 'h-8 px-3 text-xs gap-1.5 rounded-control',
+  md: 'h-9 sm:h-10 px-3.5 sm:px-4 text-sm gap-2 rounded-control',
+  lg: 'h-10 sm:h-11 px-4 sm:px-5 text-sm gap-2 rounded-control',
+  icon: 'w-8 h-8 sm:w-9 sm:h-9 p-0 justify-center rounded-control',
 };
 
 export default function Button({
@@ -37,7 +37,7 @@ export default function Button({
     <button
       type={type}
       disabled={disabled}
-      className={`inline-flex items-center justify-center font-semibold rounded-lg transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 ${variantCls} ${sizeCls} ${className}`}
+      className={`inline-flex items-center justify-center whitespace-nowrap transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 ${variantCls} ${sizeCls} ${className}`}
       {...props}
     >
       {children}

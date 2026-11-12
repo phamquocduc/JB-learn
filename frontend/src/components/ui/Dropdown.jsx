@@ -1,17 +1,38 @@
 import React, { useState, useRef, useEffect, useMemo, useId } from 'react';
-import { ChevronDownIcon, CheckIcon } from '@heroicons/react/24/outline';
+import {
+  ChevronDownIcon,
+  CheckIcon,
+  MagnifyingGlassIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/outline';
+import { useTranslation } from 'react-i18next';
+
+function foldSearchText(str) {
+  return String(str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'd')
+    .toLowerCase()
+    .trim();
+}
 
 export default function Dropdown({
   id,
   value,
   onChange,
   options = [],
-  placeholder = 'Chọn...',
+  placeholder,
   disabled = false,
+  searchable,
+  searchPlaceholder,
   ariaLabel,
   className = '',
   triggerClassName = '',
 }) {
+  const { t } = useTranslation('common');
+  const resolvedPlaceholder = placeholder ?? t('dropdown.placeholder');
+  const resolvedSearchPlaceholder = searchPlaceholder ?? t('dropdown.searchPlaceholder');
   const fallbackId = useId();
   const baseId = id || fallbackId;
   const listboxId = `${baseId}-listbox`;
@@ -19,8 +40,10 @@ export default function Dropdown({
   const [isOpen, setIsOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef(null);
   const triggerRef = useRef(null);
+  const searchInputRef = useRef(null);
   const listRef = useRef(null);
 
   const normalizedOptions = useMemo(
@@ -36,6 +59,8 @@ export default function Dropdown({
     [options]
   );
 
+  const isSearchable = searchable ?? normalizedOptions.length >= 8;
+
   const selectedIndex = useMemo(
     () =>
       normalizedOptions.findIndex(
@@ -46,6 +71,17 @@ export default function Dropdown({
 
   const selectedOption =
     selectedIndex >= 0 ? normalizedOptions[selectedIndex] : null;
+
+  const filteredOptions = useMemo(() => {
+    if (!isSearchable) return normalizedOptions;
+    const q = foldSearchText(searchQuery);
+    if (!q) return normalizedOptions;
+    return normalizedOptions.filter(
+      (opt) =>
+        foldSearchText(opt.label).includes(q) ||
+        foldSearchText(opt.value).includes(q)
+    );
+  }, [isSearchable, normalizedOptions, searchQuery]);
 
   const computeShouldOpenUpward = () => {
     const triggerEl = triggerRef.current;
@@ -76,10 +112,9 @@ export default function Dropdown({
 
     const spaceBelow = bottomBoundary - rect.bottom;
     const spaceAbove = rect.top - topBoundary;
-    const estimatedMenuHeight = Math.min(
-      224,
-      normalizedOptions.length * 38 + 12
-    );
+    const estimatedMenuHeight =
+      Math.min(208, normalizedOptions.length * 38 + 12) +
+      (isSearchable ? 48 : 0);
 
     return spaceBelow < estimatedMenuHeight + 12 && spaceAbove > spaceBelow;
   };
@@ -124,9 +159,19 @@ export default function Dropdown({
   }, [isOpen, focusedIndex]);
 
   const openMenu = () => {
+    setSearchQuery('');
     setOpenUpward(computeShouldOpenUpward());
     setFocusedIndex(selectedIndex >= 0 ? selectedIndex : 0);
     setIsOpen(true);
+    if (
+      isSearchable &&
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(pointer: fine)').matches
+    ) {
+      window.requestAnimationFrame(() => {
+        searchInputRef.current?.focus();
+      });
+    }
   };
 
   const handleToggle = () => {
@@ -144,7 +189,7 @@ export default function Dropdown({
     triggerRef.current?.focus();
   };
 
-  const handleKeyDown = (e) => {
+  const handleNavigationKeyDown = (e, fromSearchInput = false) => {
     if (disabled) return;
 
     if (!isOpen) {
@@ -167,36 +212,36 @@ export default function Dropdown({
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      if (normalizedOptions.length > 0) {
+      if (filteredOptions.length > 0) {
         setFocusedIndex((prev) =>
-          prev + 1 < normalizedOptions.length ? prev + 1 : 0
+          prev + 1 < filteredOptions.length ? prev + 1 : 0
         );
       }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      if (normalizedOptions.length > 0) {
+      if (filteredOptions.length > 0) {
         setFocusedIndex((prev) =>
-          prev - 1 >= 0 ? prev - 1 : normalizedOptions.length - 1
+          prev - 1 >= 0 ? prev - 1 : filteredOptions.length - 1
         );
       }
-    } else if (e.key === 'Home') {
+    } else if (!fromSearchInput && e.key === 'Home') {
       e.preventDefault();
-      if (normalizedOptions.length > 0) setFocusedIndex(0);
-    } else if (e.key === 'End') {
+      if (filteredOptions.length > 0) setFocusedIndex(0);
+    } else if (!fromSearchInput && e.key === 'End') {
       e.preventDefault();
-      if (normalizedOptions.length > 0) {
-        setFocusedIndex(normalizedOptions.length - 1);
+      if (filteredOptions.length > 0) {
+        setFocusedIndex(filteredOptions.length - 1);
       }
-    } else if (e.key === 'Enter' || e.key === ' ') {
+    } else if (e.key === 'Enter' || (!fromSearchInput && e.key === ' ')) {
       e.preventDefault();
-      if (focusedIndex >= 0 && focusedIndex < normalizedOptions.length) {
-        handleSelect(normalizedOptions[focusedIndex].value);
+      if (focusedIndex >= 0 && focusedIndex < filteredOptions.length) {
+        handleSelect(filteredOptions[focusedIndex].value);
       }
     }
   };
 
   const activeDescendantId =
-    isOpen && focusedIndex >= 0 && focusedIndex < normalizedOptions.length
+    isOpen && focusedIndex >= 0 && focusedIndex < filteredOptions.length
       ? `${baseId}-option-${focusedIndex}`
       : undefined;
 
@@ -217,15 +262,15 @@ export default function Dropdown({
         aria-activedescendant={activeDescendantId}
         aria-label={ariaLabel}
         onClick={handleToggle}
-        onKeyDown={handleKeyDown}
-        className={`w-full min-h-10 px-3.5 py-2 rounded-lg border text-sm font-medium inline-flex items-center justify-between gap-2 transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-700 ${
+        onKeyDown={(e) => handleNavigationKeyDown(e, false)}
+        className={`w-full min-h-10 px-3.5 py-2 rounded-control border text-sm font-normal inline-flex items-center justify-between gap-2 transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 ${
           isOpen
             ? 'bg-white border-sky-700 text-slate-900'
-            : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-white hover:border-slate-300'
+            : 'bg-white border-slate-200 text-slate-900 hover:border-slate-300'
         } ${triggerClassName}`}
       >
         <span className="truncate text-left">
-          {selectedOption ? selectedOption.label : placeholder}
+          {selectedOption ? selectedOption.label : resolvedPlaceholder}
         </span>
         <ChevronDownIcon
           className={`w-4 h-4 shrink-0 transition-transform duration-150 ${
@@ -236,48 +281,97 @@ export default function Dropdown({
       </button>
 
       {isOpen && normalizedOptions.length > 0 && (
-        <ul
-          ref={listRef}
-          id={listboxId}
-          role="listbox"
-          aria-label={ariaLabel}
-          className={`absolute left-0 right-0 z-50 max-h-56 overflow-y-auto rounded-xl bg-white border border-slate-200 shadow-lg p-1 flex flex-col gap-0.5 animate-popup-in ${
-            openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+        <div
+          className={`absolute left-0 right-0 z-50 rounded-surface bg-white border border-slate-200 shadow-sm overflow-hidden flex flex-col animate-popup-in ${
+            openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
           }`}
         >
-          {normalizedOptions.map((opt, idx) => {
-            const isSelected = opt.value === String(value ?? '');
-            const isFocused = idx === focusedIndex;
-            return (
-              <li
-                key={opt.value}
-                id={`${baseId}-option-${idx}`}
-                role="option"
-                aria-selected={isSelected}
-                onMouseDown={(e) => e.preventDefault()}
-                onMouseEnter={() => setFocusedIndex(idx)}
-                onClick={() => handleSelect(opt.value)}
-                className={`w-full px-3 py-2 rounded-lg text-left text-sm flex items-center justify-between gap-2 transition-colors duration-150 cursor-pointer select-none ${
-                  isSelected
-                    ? 'bg-sky-50 text-sky-800 font-semibold'
-                    : isFocused
-                      ? 'bg-slate-100 text-slate-900 font-medium'
-                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 font-medium'
-                }`}
-              >
-                <span className="truncate">{opt.label}</span>
-                {isSelected && (
-                  <CheckIcon
-                    className="w-4 h-4 text-sky-700 shrink-0"
-                    aria-hidden="true"
-                  />
+          {isSearchable && (
+            <div className="p-2 border-b border-slate-200 bg-slate-50 shrink-0">
+              <div className="relative flex items-center">
+                <MagnifyingGlassIcon
+                  className="w-4 h-4 text-slate-400 absolute left-2.5 pointer-events-none"
+                  aria-hidden="true"
+                />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setFocusedIndex(0);
+                  }}
+                  onKeyDown={(e) => handleNavigationKeyDown(e, true)}
+                  placeholder={resolvedSearchPlaceholder}
+                  aria-label={resolvedSearchPlaceholder}
+                  aria-controls={listboxId}
+                  aria-activedescendant={activeDescendantId}
+                  className="w-full h-8 pl-8 pr-7 rounded-control bg-white border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-700 focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setFocusedIndex(0);
+                      searchInputRef.current?.focus();
+                    }}
+                    aria-label={t('dropdown.clearSearchAria')}
+                    className="absolute right-1 w-6 h-6 rounded-control inline-flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                  >
+                    <XMarkIcon className="w-4 h-4" aria-hidden="true" />
+                  </button>
                 )}
+              </div>
+            </div>
+          )}
+
+          <ul
+            ref={listRef}
+            id={listboxId}
+            role="listbox"
+            aria-label={ariaLabel}
+            className="max-h-56 overflow-y-auto p-1 flex flex-col gap-0.5"
+          >
+            {filteredOptions.length === 0 ? (
+              <li className="px-3 py-4 text-center text-xs text-slate-500 select-none">
+                {t('dropdown.empty')}
               </li>
-            );
-          })}
-        </ul>
+            ) : (
+              filteredOptions.map((opt, idx) => {
+                const isSelected = opt.value === String(value ?? '');
+                const isFocused = idx === focusedIndex;
+                return (
+                  <li
+                    key={opt.value}
+                    id={`${baseId}-option-${idx}`}
+                    role="option"
+                    aria-selected={isSelected}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onMouseEnter={() => setFocusedIndex(idx)}
+                    onClick={() => handleSelect(opt.value)}
+                    className={`w-full px-3 py-2 rounded-control text-left text-sm flex items-center justify-between gap-2 transition-colors duration-150 cursor-pointer select-none ${
+                      isSelected
+                        ? 'bg-sky-50 text-sky-800 font-medium'
+                        : isFocused
+                          ? 'bg-slate-100 text-slate-900 font-normal'
+                          : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 font-normal'
+                    }`}
+                  >
+                    <span className="truncate">{opt.label}</span>
+                    {isSelected && (
+                      <CheckIcon
+                        className="w-4 h-4 text-sky-700 shrink-0"
+                        aria-hidden="true"
+                      />
+                    )}
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </div>
       )}
     </div>
   );
 }
-

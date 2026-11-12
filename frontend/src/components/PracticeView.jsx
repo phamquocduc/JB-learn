@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -13,8 +14,8 @@ import GrammarExample from './ui/GrammarExample';
 import ReviewRating from './ui/ReviewRating';
 import EmptyState from './ui/EmptyState';
 import {
-  CARD_TYPE_LABELS,
-  STUDY_STATUS_LABELS,
+  getCardTypeLabel,
+  getStudyStatusLabel,
   getEffectiveCardStatus,
   parseExamples,
 } from '../constants/cards';
@@ -34,6 +35,7 @@ export default function PracticeView({
   onStatusChange,
   initialReturnCardId = null,
 }) {
+  const { t } = useTranslation(['study', 'common']);
   const [selectedAnswerByCard, setSelectedAnswerByCard] = useState({});
   const [returnState, setReturnState] = useState(() => ({
     baseProp: initialReturnCardId,
@@ -111,7 +113,8 @@ export default function PracticeView({
 
   const options = useMemo(() => {
     if (!currentCard || cards.length === 0) return [];
-    const correctMeaning = currentCard.meaning || 'Ý nghĩa chính xác';
+    const correctMeaning =
+      currentCard.meaning || t('study:practice.fallbackMeaning');
     const otherMeanings = [];
     const seen = new Set([correctMeaning]);
 
@@ -133,13 +136,13 @@ export default function PracticeView({
     // Deterministic rotation based on card id / index
     const shift = seed % pool.length;
     return [...pool.slice(shift), ...pool.slice(0, shift)];
-  }, [currentCard, cards, activeIndex]);
+  }, [currentCard, cards, activeIndex, t]);
 
   if (!cards || cards.length === 0) {
     return (
       <EmptyState
-        title="Không tìm thấy thẻ học phù hợp"
-        description="Hãy thử đổi bộ lọc cấp độ, bài học hoặc từ khóa tìm kiếm."
+        title={t('study:flashcard.emptyTitle')}
+        description={t('study:flashcard.emptyDesc')}
       />
     );
   }
@@ -251,40 +254,42 @@ export default function PracticeView({
 
   return (
     <div className="flex-1 w-full flex flex-col justify-between gap-3">
-      <Card rounded="2xl" className="flex-1 min-h-[524px] sm:min-h-[622px] p-4 sm:p-8 flex flex-col justify-between gap-4 sm:gap-6">
+      <Card className="flex-1 min-h-[524px] sm:min-h-[622px] p-4 sm:p-6 flex flex-col justify-between gap-4 sm:gap-5">
         {/* Card Header */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="lesson">{currentCard.lesson || 'Chung'}</Badge>
+            <Badge variant="lesson">
+              {currentCard.lesson || t('study:flashcard.generalLesson')}
+            </Badge>
             {currentCard.level && (
               <Badge variant="level">{currentCard.level}</Badge>
             )}
-            {currentCard.card_type && CARD_TYPE_LABELS[currentCard.card_type] && (
+            {currentCard.card_type && getCardTypeLabel(currentCard.card_type) && (
               <Badge variant="type">
-                {CARD_TYPE_LABELS[currentCard.card_type]}
+                {getCardTypeLabel(currentCard.card_type)}
               </Badge>
             )}
             <Badge variant={displayStatus}>
-              {STUDY_STATUS_LABELS[displayStatus] || 'Chưa học'}
+              {getStudyStatusLabel(displayStatus)}
             </Badge>
             {currentSrs && currentSrs.state !== 'new' && (
               <Badge variant={isCurrentDue ? 'due' : 'srs'}>
                 {isCurrentDue
-                  ? 'Đến hạn ôn'
-                  : `Chu kỳ: ${currentSrs.interval_display}`}
+                  ? t('study:flashcard.dueBadge')
+                  : t('study:flashcard.cycleBadge', { interval: currentSrs.interval_display })}
               </Badge>
             )}
           </div>
 
-          <span className="text-sm font-semibold text-slate-600">
-            Câu {activeIndex + 1} / {cards.length}
+          <span className="text-sm font-medium text-slate-600 tabular-nums">
+            {t('study:practice.counter', { current: activeIndex + 1, total: cards.length })}
           </span>
         </div>
 
         {/* Prompt & Listening Section */}
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-6 flex flex-col items-center text-center gap-2.5 sm:gap-4">
-          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            {isKanjiCard ? 'Chọn ý nghĩa đúng của Hán tự' : 'Nghe và chọn ý nghĩa đúng'}
+        <div className="bg-slate-50 border border-slate-200 rounded-surface p-4 sm:p-6 flex flex-col items-center text-center gap-2.5 sm:gap-4">
+          <span className="text-xs font-medium text-slate-500">
+            {isKanjiCard ? t('study:practice.kanjiPrompt') : t('study:practice.audioPrompt')}
           </span>
           {isKanjiCard && !isAnswered ? (
             <div className="text-3xl sm:text-5xl font-bold text-slate-900 font-jp py-2">
@@ -332,11 +337,15 @@ export default function PracticeView({
 
         {/* Explanation & Review Rating after answering */}
         {isAnswered && (
-          <div className="flex flex-col gap-4 pt-4 border-t border-slate-200">
+          <div
+            className={`flex flex-col gap-4 ${
+              currentCard.usage_notes || examples.length > 0 ? 'pt-4 border-t border-slate-200' : ''
+            }`}
+          >
             {currentCard.usage_notes && (
-              <div className="bg-sky-50 border border-sky-200 rounded-xl p-4 text-sm text-slate-800">
-                <span className="block text-xs font-semibold text-sky-800 uppercase tracking-wider mb-1">
-                  Ghi chú cách dùng
+              <div className="bg-sky-50 border border-sky-200 rounded-surface p-4 text-sm text-slate-800">
+                <span className="block text-xs font-medium text-sky-800 mb-1">
+                  {t('study:practice.usageNotesHeading')}
                 </span>
                 {currentCard.usage_notes}
               </div>
@@ -344,8 +353,8 @@ export default function PracticeView({
 
             {examples.length > 0 && (
               <div className="flex flex-col gap-2">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Ví dụ minh họa
+                <span className="text-xs font-medium text-slate-500">
+                  {t('study:practice.examplesHeading')}
                 </span>
                 <GrammarExample example={examples[0]} index={0} />
               </div>
@@ -398,9 +407,9 @@ export default function PracticeView({
           variant="secondary"
           size="sm"
           onClick={handlePrev}
-          aria-label="Câu trước"
-          title="Câu trước"
-          className="h-9 sm:h-10 sm:w-12 rounded-xl"
+          aria-label={t('study:practice.prevAria')}
+          title={t('study:practice.prevAria')}
+          className="h-9 sm:h-10 sm:w-12"
         >
           <ChevronLeftIcon className="w-4 h-4" aria-hidden="true" />
         </Button>
@@ -409,9 +418,9 @@ export default function PracticeView({
           variant="primary"
           size="sm"
           onClick={handleNext}
-          aria-label="Câu tiếp theo"
-          title="Câu tiếp theo"
-          className="h-9 sm:h-10 sm:w-12 rounded-xl"
+          aria-label={t('study:practice.nextAria')}
+          title={t('study:practice.nextAria')}
+          className="h-9 sm:h-10 sm:w-12"
         >
           <ChevronRightIcon className="w-4 h-4" aria-hidden="true" />
         </Button>

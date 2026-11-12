@@ -1,3 +1,5 @@
+import i18n from '../i18n';
+
 export const CARD_TYPES = [
   { value: 'grammar', label: 'Ngữ pháp' },
   { value: 'vocabulary', label: 'Từ vựng' },
@@ -9,6 +11,25 @@ export const CARD_TYPE_LABELS = {
   vocabulary: 'Từ vựng',
   kanji: 'Hán tự',
 };
+
+const CARD_TYPE_KEY_MAP = {
+  grammar: 'study:types.GRAMMAR',
+  vocabulary: 'study:types.VOCAB',
+  kanji: 'study:types.KANJI',
+};
+
+export function getCardTypeLabel(type) {
+  const key = CARD_TYPE_KEY_MAP[type];
+  return key ? i18n.t(key) : type || '';
+}
+
+export function getCardTypeOptions() {
+  return [
+    { value: 'grammar', label: i18n.t('study:types.GRAMMAR') },
+    { value: 'vocabulary', label: i18n.t('study:types.VOCAB') },
+    { value: 'kanji', label: i18n.t('study:types.KANJI') },
+  ];
+}
 
 export const JLPT_LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'];
 
@@ -65,6 +86,43 @@ export const ANKI_RATINGS = [
   },
 ];
 
+export function getAnkiRatings() {
+  return [
+    {
+      value: 'again',
+      rating: 1,
+      status: 'learned',
+      label: i18n.t('study:rating.again'),
+      previewKey: 'again',
+      shortcut: '1',
+    },
+    {
+      value: 'learned',
+      rating: 2,
+      status: 'learned',
+      label: i18n.t('study:rating.hard'),
+      previewKey: 'hard',
+      shortcut: '2',
+    },
+    {
+      value: 'remembered',
+      rating: 3,
+      status: 'remembered',
+      label: i18n.t('study:rating.good'),
+      previewKey: 'good',
+      shortcut: '3',
+    },
+    {
+      value: 'mastered',
+      rating: 4,
+      status: 'mastered',
+      label: i18n.t('study:rating.easy'),
+      previewKey: 'easy',
+      shortcut: '4',
+    },
+  ];
+}
+
 export const STUDY_STATUS_LABELS = {
   unseen: 'Chưa học',
   due: 'Cần ôn tập',
@@ -74,12 +132,46 @@ export const STUDY_STATUS_LABELS = {
   mastered: 'Thành thạo',
 };
 
+const STUDY_STATUS_KEY_MAP = {
+  unseen: 'study:studyStatus.NEW',
+  due: 'study:studyStatus.DUE',
+  again: 'study:rating.again',
+  learned: 'study:studyStatus.LEARNED',
+  remembered: 'study:studyStatus.REMEMBERED',
+  mastered: 'study:studyStatus.MASTERED',
+};
+
+export function getStudyStatusLabel(status) {
+  const key = STUDY_STATUS_KEY_MAP[status];
+  return key ? i18n.t(key) : STUDY_STATUS_LABELS[status] || status || '';
+}
+
+export function getStudyStatusOptions() {
+  return [
+    { value: 'learned', label: i18n.t('study:studyStatus.LEARNED') },
+    { value: 'remembered', label: i18n.t('study:studyStatus.REMEMBERED') },
+    { value: 'mastered', label: i18n.t('study:studyStatus.MASTERED') },
+  ];
+}
+
 export const SRS_STATE_LABELS = {
   new: 'Thẻ mới',
   learning: 'Đang học',
   review: 'Ôn tập',
   relearning: 'Học lại',
 };
+
+const SRS_STATE_KEY_MAP = {
+  new: 'study:srsState.new',
+  learning: 'study:srsState.learning',
+  review: 'study:srsState.review',
+  relearning: 'study:srsState.relearning',
+};
+
+export function getSrsStateLabel(state) {
+  const key = SRS_STATE_KEY_MAP[state];
+  return key ? i18n.t(key) : SRS_STATE_LABELS[state] || state || '';
+}
 
 export function getEffectiveCardStatus(status, srsState) {
   if (srsState && srsState.state !== 'new') {
@@ -96,16 +188,17 @@ export function getEffectiveCardStatus(status, srsState) {
 }
 
 const JP_CHAR_REGEX = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/;
-const VD_PREFIX_REGEX = /^VD\d*\s*[:：]\s*/i;
-const DIEN_GIAI_REGEX = /^Di[ễế]n\s*gi\s*ải\s*[:：]/i;
+const VD_PREFIX_REGEX = /^(?:VD|Ex|Example)\s*\d*\s*[:：]\s*/i;
+const DIEN_GIAI_REGEX = /^(?:Di[ễế]n\s*gi\s*ải|Explanation|Note)\s*[:：]/i;
+const DIEN_GIAI_SPLIT_REGEX = /\n\s*(?:Di[ễế]n\s*gi\s*ải|Explanation|Note)\s*[:：]/i;
 
 export function parseExamples(exampleStr) {
   if (!exampleStr) return [];
 
-  // Cut off trailing "Diễn giải:" block if present in legacy card data
+  // Cut off trailing "Diễn giải:" / "Explanation:" block if present in legacy card data
   const withoutExplanation = exampleStr
     .replace(/<br\s*\/?>/gi, '\n')
-    .split(/\n\s*Di[ễế]n\s*gi\s*ải\s*[:：]/i)[0];
+    .split(DIEN_GIAI_SPLIT_REGEX)[0];
 
   const rawLines = withoutExplanation
     .split('\n')

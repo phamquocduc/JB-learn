@@ -1,0 +1,159 @@
+{
+  "app": {
+    "name": "JB Learn App",
+    "defaultTitle": "JB Learn App — Japanese JLPT Learning",
+    "shortTagline": "Japanese JLPT Learning",
+    "skipToContent": "Skip to main content"
+  },
+  "language": {
+    "label": "Language",
+    "selectAria": "Choose display language",
+    "vi": "Tiếng Việt",
+    "en": "English",
+    "shortVi": "VI",
+    "shortEn": "EN",
+    "saved": "Switched to English",
+    "saveFailed": "Switched language on this device, failed to sync to your account."
+  },
+  "nav": {
+    "courses": "Courses",
+    "study": "Flashcards",
+    "myDeck": "My Deck",
+    "shadowing": "Shadowing",
+    "admin": "Admin",
+    "adminSystem": "System Administration",
+    "openMenu": "Open navigation menu",
+    "closeMenu": "Close navigation menu",
+    "closeSidebar": "Close navigation sidebar",
+    "sidebarNavigation": "Main navigation",
+    "navigationMenu": "Navigation menu"
+  },
+  "actions": {
+    "save": "Save",
+    "saveChanges": "Save changes",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "close": "Close",
+    "closeDialog": "Close dialog",
+    "closeWindow": "Close window",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "edit": "Edit",
+    "create": "Create",
+    "add": "Add",
+    "search": "Search",
+    "clearSearch": "Clear search query",
+    "filter": "Filters",
+    "resetFilters": "Reset filters",
+    "clearFilters": "Clear filters",
+    "selectAll": "Select all",
+    "clearSelection": "Clear all",
+    "apply": "Apply",
+    "back": "Back",
+    "backToHome": "Back to workspace",
+    "prev": "Previous",
+    "next": "Next",
+    "retry": "Retry",
+    "reload": "Reload",
+    "viewAll": "View all",
+    "copy": "Copy",
+    "copied": "Copied"
+  },
+  "pagination": {
+    "pageOf": "Page {{page}} / {{totalPages}}",
+    "itemsCount": "{{count}} items",
+    "prevPage": "Previous page",
+    "nextPage": "Next page"
+  },
+  "status": {
+    "loading": "Loading...",
+    "emptyTitle": "No data yet",
+    "emptyAction": "Reload",
+    "featureDisabled": "Feature unavailable",
+    "noPermission": "You do not have permission to access this feature."
+  },
+  "guestBlocked": {
+    "title": "Sign in required to study",
+    "description": "Guest study mode is temporarily disabled. Please sign in with your account to continue.",
+    "actionLabel": "Sign in now"
+  },
+  "contentForm": {
+    "languageTabsAria": "Content language",
+    "viTab": "Tiếng Việt",
+    "enTab": "English",
+    "viRequiredHint": "Vietnamese content serves as the required base source.",
+    "enOptionalHint": "Optional English translation — falls back to Vietnamese if left blank."
+  },
+  "account": {
+    "guest": "Guest",
+    "guestMode": "Guest Mode",
+    "defaultName": "Account",
+    "loginPrompt": "Sign in to sync progress",
+    "accountMenu": "Account menu",
+    "openMenuAria": "Open account menu",
+    "profile": "Account profile",
+    "personalCardCount": "{{count}} personal cards",
+    "role": "Role",
+    "defaultLearnerRole": "Learner",
+    "email": "Email",
+    "username": "Username",
+    "joinedAt": "Joined",
+    "joinedDate": "Joined date",
+    "fullName": "Full name",
+    "notUpdated": "Not updated",
+    "preferences": "Preferences"
+  },
+  "audio": {
+    "play": "Play audio",
+    "pause": "Pause",
+    "playCompact": "Listen",
+    "playingCompact": "Playing",
+    "stopCompactAria": "Stop audio",
+    "listenTextAria": "Listen to {{text}}",
+    "playButton": "Listen",
+    "stopButton": "Stop",
+    "playJapaneseAria": "Play Japanese pronunciation",
+    "replay": "Replay from start",
+    "speedAria": "Current speed {{rate}}x. Click to change speed.",
+    "playbackSpeed": "Playback speed: {{rate}}x",
+    "seekAudio": "Seek audio",
+    "loadError": "Could not play audio file."
+  },
+  "dropdown": {
+    "placeholder": "Select...",
+    "searchPlaceholder": "Quick search...",
+    "clearSearchAria": "Clear filter query",
+    "empty": "No matching options"
+  },
+  "emptyState": {
+    "defaultTitle": "No matching content"
+  },
+  "progress": {
+    "learningLabel": "Study progress",
+    "cardCounter": "• Card {{current}}/{{total}}",
+    "learnedStat": "Learned: {{count}}",
+    "rememberedStat": "Remembered: {{count}}",
+    "masteredStat": "Mastered: {{count}}",
+    "defaultAria": "Completion progress",
+    "percent": "{{percent}}%"
+  },
+  "toast": {
+    "dismiss": "Dismiss notification"
+  },
+  "table": {
+    "empty": "No items to display"
+  },
+  "skeleton": {
+    "courses": "Loading courses list",
+    "flashcard": "Loading flashcard",
+    "practice": "Loading listening exercise",
+    "table": "Loading lookup table",
+    "shadowingLibrary": "Loading shadowing library",
+    "shadowingWorkspace": "Loading shadowing workspace",
+    "adminOverview": "Loading system overview",
+    "adminList": "Loading admin list",
+    "adminModules": "Loading feature settings",
+    "adminPage": "Loading admin dashboard"
+  }
+}

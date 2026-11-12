@@ -5,7 +5,7 @@ import AudioPlayer from './AudioPlayer';
 export default function GrammarExample({ example = '', index }) {
   if (!example) return null;
 
-  const cleaned = example.replace(/^VD\d*\s*[:：]\s*/i, '').trim();
+  const cleaned = example.replace(/^(?:VD|Ex|Example)\s*\d*\s*[:：]\s*/i, '').trim();
 
   // Split Japanese sentence and optional Vietnamese translation separated by " — ", " - ", "→", or "(...)"
   let japanesePart = cleaned;
@@ -24,11 +24,11 @@ export default function GrammarExample({ example = '', index }) {
   }
 
   return (
-    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-2">
+    <div className="bg-slate-50 border border-slate-200 rounded-surface p-4 flex flex-col gap-2">
       <div className="flex items-start justify-between gap-3">
         <div className="text-slate-900 text-sm sm:text-base leading-relaxed font-jp">
           {typeof index === 'number' && (
-            <strong className="text-sky-700 mr-1.5 font-sans">
+            <strong className="text-sky-700 mr-1.5 font-sans font-semibold tabular-nums">
               {index + 1}.
             </strong>
           )}

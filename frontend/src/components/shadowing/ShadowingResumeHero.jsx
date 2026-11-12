@@ -1,9 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   PlayIcon,
-  ClockIcon,
-  AcademicCapIcon,
   PlusIcon,
   EllipsisHorizontalIcon,
 } from '@heroicons/react/24/outline';
@@ -11,12 +10,20 @@ import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import { getLastShadowingSession } from '../../services/shadowingProgress';
+import { formatNumber } from '../../utils/formatters';
+
+const MODE_LABEL_KEYS = {
+  Shadowing: 'shadowing:modes.shadowing',
+  'Phát âm': 'shadowing:modes.pronunciation',
+  'Luyện nghe': 'shadowing:modes.listening',
+  'Bài tập': 'shadowing:modes.exercise',
+};
 
 /**
  * ShadowingResumeHero
  * Prominent hero card allowing both Guests and Authenticated Users (via currentUser)
  * to immediately resume practicing at the exact video and sentence where they left off,
- * while housing the primary page actions ("Thêm Video / Audio" & mobile sidebar trigger).
+ * while housing the primary page actions & mobile sidebar trigger.
  */
 export default function ShadowingResumeHero({
   currentUser = null,
@@ -24,6 +31,7 @@ export default function ShadowingResumeHero({
   onOpenAddVideo,
   onOpenSidebar,
 }) {
+  const { t } = useTranslation(['shadowing', 'common']);
   const navigate = useNavigate();
   const session = getLastShadowingSession(currentUser);
 
@@ -32,12 +40,15 @@ export default function ShadowingResumeHero({
 
   const segmentNum = hasSavedSession ? (session.segmentIndex ?? 0) + 1 : 1;
   const videoTitle = hasSavedSession
-    ? session.videoTitle || 'Bài luyện Shadowing gần nhất'
-    : fallbackVideo?.title || 'Chưa có bài học Shadowing';
+    ? (fallbackVideo && String(fallbackVideo.id) === String(session.videoId)
+        ? fallbackVideo.title
+        : session.videoTitle) || t('shadowing:hero.latestFallback')
+    : fallbackVideo?.title || t('shadowing:hero.emptyTitle');
   const level = hasSavedSession
     ? session.level || 'N3'
     : fallbackVideo?.level || 'N3';
   const mode = hasSavedSession ? session.mode || 'Shadowing' : 'Shadowing';
+  const modeLabel = t(MODE_LABEL_KEYS[mode] || 'shadowing:modes.shadowing');
 
   const handleResume = () => {
     if (!targetVideoId) {
@@ -55,21 +66,18 @@ export default function ShadowingResumeHero({
   };
 
   return (
-    <Card
-      rounded="2xl"
-      className="p-4 sm:p-5 flex flex-col gap-3.5 bg-white border border-sky-200/90 shadow-sm"
-    >
+    <Card className="p-4 sm:p-5 flex flex-col gap-3.5 border-sky-200">
       {/* Top Meta & Action Line */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="flex h-2 w-2 rounded-full bg-sky-600 animate-pulse shrink-0" />
-          <span className="text-xs font-bold text-sky-800 uppercase tracking-wider truncate">
-            Tiếp tục tiến độ học tập
+          <span className="flex h-2 w-2 rounded-full bg-sky-600 shrink-0" />
+          <span className="text-xs font-semibold text-sky-800 truncate">
+            {t('shadowing:hero.continueHeading')}
           </span>
           {targetVideoId && (
             <div className="hidden sm:flex items-center gap-1.5 ml-1 shrink-0">
               <Badge variant="level">{level}</Badge>
-              <Badge variant="secondary">{mode}</Badge>
+              <Badge variant="secondary">{modeLabel}</Badge>
             </div>
           )}
         </div>
@@ -80,12 +88,11 @@ export default function ShadowingResumeHero({
               variant="secondary"
               size="sm"
               onClick={onOpenAddVideo}
-              aria-label="Thêm Video hoặc Audio"
-              className="h-9 px-2.5 sm:px-3 rounded-lg text-xs font-semibold"
+              aria-label={t('shadowing:hero.addAria')}
             >
               <PlusIcon className="w-4 h-4 shrink-0" aria-hidden="true" />
-              <span className="sm:hidden">Thêm bài</span>
-              <span className="hidden sm:inline">Thêm Video / Audio</span>
+              <span className="sm:hidden">{t('shadowing:hero.addShort')}</span>
+              <span className="hidden sm:inline">{t('shadowing:hero.addFull')}</span>
             </Button>
           )}
 
@@ -93,8 +100,8 @@ export default function ShadowingResumeHero({
             <button
               type="button"
               onClick={onOpenSidebar}
-              aria-label="Mở menu điều hướng"
-              className="lg:hidden w-9 h-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center cursor-pointer transition-colors duration-150"
+              aria-label={t('common:nav.openMenu')}
+              className="lg:hidden w-8 h-8 sm:w-9 sm:h-9 rounded-control border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 inline-flex items-center justify-center cursor-pointer transition-colors duration-150"
             >
               <EllipsisHorizontalIcon className="w-5 h-5" aria-hidden="true" />
             </button>
@@ -103,27 +110,27 @@ export default function ShadowingResumeHero({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex items-start sm:items-center gap-3 sm:gap-4">
-        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-700 shrink-0">
-          <PlayIcon className="w-6 h-6 sm:w-7 sm:h-7" aria-hidden="true" />
+      <div className="flex items-center gap-3.5 sm:gap-4">
+        <div className="w-12 h-12 rounded-surface bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-700 shrink-0">
+          <PlayIcon className="w-5 h-5" aria-hidden="true" />
         </div>
         <div className="flex-1 min-w-0 flex flex-col gap-1">
-          <h2 className="text-sm sm:text-lg font-bold text-slate-900 line-clamp-2 sm:truncate leading-snug">
+          <h2 className="text-sm sm:text-base font-semibold text-slate-900 line-clamp-2 sm:truncate leading-snug">
             {videoTitle}
           </h2>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-500 font-medium">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 tabular-nums">
             {targetVideoId && (
-              <span className="inline-flex sm:hidden items-center gap-1">
+              <span className="inline-flex sm:hidden items-center">
                 <Badge variant="level">{level}</Badge>
               </span>
             )}
-            <span className="inline-flex items-center gap-1">
-              <AcademicCapIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              Đoạn số {segmentNum}
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <ClockIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              {hasSavedSession ? 'Đang học dở' : 'Sẵn sàng luyện tập'}
+            <span>
+              {t('shadowing:hero.segmentStatus', {
+                num: formatNumber(segmentNum),
+                status: hasSavedSession
+                  ? t('shadowing:hero.inProgress')
+                  : t('shadowing:hero.ready'),
+              })}
             </span>
           </div>
         </div>
@@ -132,12 +139,11 @@ export default function ShadowingResumeHero({
       {/* Primary Resume CTA */}
       <Button
         variant="primary"
-        size="lg"
+        size="md"
         onClick={handleResume}
-        className="w-full justify-center text-sm sm:text-base font-bold shadow-sm"
+        className="w-full justify-center"
       >
-        <PlayIcon className="w-5 h-5" aria-hidden="true" />
-        <span>Tiếp tục Shadowing</span>
+        <span>{t('shadowing:hero.resumeCta')}</span>
       </Button>
     </Card>
   );
