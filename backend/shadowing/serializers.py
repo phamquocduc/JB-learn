@@ -104,6 +104,7 @@ class ShadowingVideoListSerializer(_ShadowingBaseSerializerMixin):
             "youtube_url",
             "youtube_id",
             "thumbnail_url",
+            "media_url",
             "media_file_url",
             "duration_seconds",
             "total_segments",
@@ -173,6 +174,8 @@ class ShadowingVideoListSerializer(_ShadowingBaseSerializerMixin):
         return self.get_can_edit(obj) or self.get_can_delete(obj)
 
     def get_media_file_url(self, obj):
+        if obj.media_url:
+            return obj.media_url
         if obj.media_file:
             request = self.context.get("request")
             if request:
@@ -209,6 +212,8 @@ class ShadowingVideoDetailSerializer(_ShadowingBaseSerializerMixin):
             "youtube_url",
             "youtube_id",
             "media_file",
+            "media_url",
+            "cloudinary_public_id",
             "media_file_url",
             "thumbnail_url",
             "duration_seconds",
@@ -299,6 +304,8 @@ class ShadowingVideoDetailSerializer(_ShadowingBaseSerializerMixin):
         return self.get_can_edit(obj) or self.get_can_delete(obj)
 
     def get_media_file_url(self, obj):
+        if obj.media_url:
+            return obj.media_url
         if obj.media_file:
             request = self.context.get("request")
             if request:

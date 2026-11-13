@@ -32,12 +32,18 @@ from shadowing.serializers import (
     ShadowingVideoDetailSerializer,
     ShadowingVideoListSerializer,
 )
+from shadowing.services.cloudinary import (
+    delete_media,
+    is_cloudinary_configured,
+    upload_media,
+)
 from shadowing.services.transcription import extract_youtube_id
 
-from .models import AdminAuditLog, AppModuleConfig, Role
+from .models import AdminAuditLog, AppModuleConfig, AppSystemConfig, Role
 from .permissions import HasAdminAccess, require_any_perm
 from .rbac import (
     ALL_PERMISSION_CODES,
+    DEFAULT_PRIMARY_COLOR,
     MODULE_ACTION_CATALOG_BY_KEY,
     MODULE_CATALOG_BY_KEY,
     MODULE_GROUPS,
@@ -52,6 +58,7 @@ from .rbac import (
     get_default_role_record,
     get_modules_state_map,
     get_role_visible_modules,
+    get_system_appearance,
     invalidate_roles_cache,
     log_admin_action,
     normalize_allowed_roles,
@@ -65,6 +72,7 @@ from .serializers import (
     AdminUserWriteSerializer,
     AppModuleConfigSerializer,
     RoleAdminSerializer,
+    SystemAppearanceSerializer,
 )
 
 User = get_user_model()
@@ -120,7 +128,7 @@ def _count_active_admins(exclude_user_id: int | None = None) -> int:
 
 
 class PublicSystemConfigView(APIView):
-    """Public endpoint exposing enabled/disabled module states for live UI gating."""
+    """Public endpoint exposing enabled/disabled module states and appearance config."""
 
     permission_classes = [AllowAny]
 
@@ -129,6 +137,7 @@ class PublicSystemConfigView(APIView):
             {
                 "modules": get_modules_state_map(),
                 "module_groups": MODULE_GROUPS,
+                "appearance": get_system_appearance(),
             },
             status=status.HTTP_200_OK,
         )
@@ -1354,6 +1363,21 @@ class AdminShadowingVideoViewSet(viewsets.ViewSet):
                 f"https://img.youtube.com/vi/{youtube_id}/hqdefault.jpg"
             )
 
+        # Upload media file to Cloudinary if configured
+        media_file = request.FILES.get("media_file") or request.FILES.get("file")
+        if media_file and is_cloudinary_configured():
+            try:
+                c_res = upload_media(media_file, folder="shadowing_media", resource_type="auto")
+                extra_kwargs["media_url"] = c_res.get("secure_url", "")
+                extra_kwargs["cloudinary_public_id"] = c_res.get("public_id", "")
+                if not serializer.validated_data.get("thumbnail_url") and c_res.get("thumbnail_url"):
+                    extra_kwargs["thumbnail_url"] = c_res["thumbnail_url"]
+                if not serializer.validated_data.get("duration_seconds") and c_res.get("duration_seconds"):
+                    extra_kwargs["duration_seconds"] = c_res["duration_seconds"]
+                extra_kwargs["media_file"] = None
+            except Exception as exc:
+                logger.warning("Cloudinary upload failed in admin, falling back to local file: %s", exc)
+
         with transaction.atomic():
             video = serializer.save(**extra_kwargs)
             log_admin_action(
@@ -1410,8 +1434,11 @@ class AdminShadowingVideoViewSet(viewsets.ViewSet):
         video = get_object_or_404(ShadowingVideo, pk=pk)
         title = video.title
         vid = video.id
+        c_pid = video.cloudinary_public_id
         with transaction.atomic():
             video.delete()
+            if c_pid:
+                delete_media(c_pid)
             log_admin_action(
                 request,
                 action="video.delete",
@@ -1454,3 +1481,42 @@ class AdminAuditLogListView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class AdminSystemAppearanceView(APIView):
+    """Admin endpoint to inspect and update global app theme appearance."""
+
+    permission_classes = [HasAdminAccess]
+
+    def get(self, request: Request) -> Response:
+        require_any_perm(request, ["system.theme.manage"])
+        return Response(get_system_appearance(), status=status.HTTP_200_OK)
+
+    def patch(self, request: Request) -> Response:
+        require_any_perm(request, ["system.theme.manage"])
+        serializer = SystemAppearanceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        next_color = serializer.validated_data["primary_color"]
+
+        with transaction.atomic():
+            cfg, _ = AppSystemConfig.objects.select_for_update().get_or_create(
+                key="default",
+                defaults={"primary_color": DEFAULT_PRIMARY_COLOR},
+            )
+            prev_color = (cfg.primary_color or DEFAULT_PRIMARY_COLOR).strip().upper()
+            cfg.primary_color = next_color
+            cfg.updated_by = request.user
+            cfg.save()
+            log_admin_action(
+                request,
+                action="system.theme_update",
+                target_type="system",
+                target_id="appearance",
+                target_repr="Giao diện hệ thống",
+                details={
+                    "prev_primary_color": prev_color,
+                    "primary_color": next_color,
+                },
+            )
+
+        return Response(get_system_appearance(), status=status.HTTP_200_OK)

@@ -91,7 +91,7 @@ function getAccountDisplayMeta(user, defaultName = 'Account') {
 function AccountIdentityRow({ displayName, subText, initials, boldName = false }) {
   return (
     <div className="flex items-center gap-2.5 min-w-0 flex-1">
-      <div className="w-8 h-8 rounded-control bg-primary text-white text-xs font-semibold flex items-center justify-center shrink-0">
+      <div className="w-8 h-8 rounded-control bg-primary text-primary-contrast text-xs font-semibold flex items-center justify-center shrink-0">
         {initials}
       </div>
       <div className="min-w-0 flex-1">
@@ -439,7 +439,7 @@ export default function Sidebar({ isOpen, onClose }) {
           onClick={onClose}
           className="flex items-center gap-2.5 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 rounded-control"
         >
-          <div className="w-8 h-8 rounded-control bg-primary flex items-center justify-center text-white">
+          <div className="w-8 h-8 rounded-control bg-primary flex items-center justify-center text-primary-contrast">
             <BookOpenIcon className="w-4 h-4" aria-hidden="true" />
           </div>
           <span className="text-base font-semibold tracking-tight text-slate-900">
@@ -474,7 +474,7 @@ export default function Sidebar({ isOpen, onClose }) {
               className={({ isActive }) =>
                 `flex items-center gap-3 min-h-10 px-3 py-2 rounded-control text-sm font-semibold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 ${
                   isActive
-                    ? 'bg-primary text-white'
+                    ? 'bg-primary text-primary-contrast'
                     : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
                 }`
               }

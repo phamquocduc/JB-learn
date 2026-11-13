@@ -14,11 +14,13 @@ from rest_framework.test import APIClient
 from cards.models import Card, Course
 from shadowing.models import ShadowingVideo
 
-from .models import AdminAuditLog, AppModuleConfig, Role
+from .models import AdminAuditLog, AppModuleConfig, AppSystemConfig, Role
 from .rbac import (
     ALL_PERMISSION_CODES,
+    DEFAULT_PRIMARY_COLOR,
     ensure_default_rbac_and_modules,
     get_default_role_record,
+    invalidate_appearance_cache,
     invalidate_modules_cache,
     invalidate_roles_cache,
 )
@@ -845,4 +847,115 @@ class BackendI18nAndPreferredLanguageTests(TestCase):
         )
         self.assertEqual(en_res.status_code, 403)
         self.assertIn("permission", str(en_res.data.get("detail", "")).lower())
+
+
+class AdminSystemAppearanceTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        invalidate_appearance_cache()
+        ensure_default_rbac_and_modules()
+        admin_role = Role.objects.get(slug="admin")
+        mod_role = Role.objects.get(slug="moderator")
+        learner_role = Role.objects.get(slug="learner")
+
+        self.admin_user = User.objects.create_user(
+            username="theme_admin",
+            email="theme_admin@example.com",
+            password="StrongPassword123!",
+            role=admin_role,
+            is_staff=True,
+        )
+        self.mod_user = User.objects.create_user(
+            username="theme_mod",
+            email="theme_mod@example.com",
+            password="StrongPassword123!",
+            role=mod_role,
+        )
+        self.learner_user = User.objects.create_user(
+            username="theme_learner",
+            email="theme_learner@example.com",
+            password="StrongPassword123!",
+            role=learner_role,
+        )
+
+        self.anon_client = APIClient()
+        self.admin_client = APIClient()
+        self.mod_client = APIClient()
+        self.learner_client = APIClient()
+
+        for user_obj, client in [
+            (self.admin_user, self.admin_client),
+            (self.mod_user, self.mod_client),
+            (self.learner_user, self.learner_client),
+        ]:
+            tok, _ = Token.objects.get_or_create(user=user_obj)
+            client.credentials(HTTP_AUTHORIZATION=f"Token {tok.key}")
+
+    def test_public_config_defaults_and_admin_update_flow(self):
+        # Default before any row is created
+        pub_res = self.anon_client.get("/api/system/public-config/")
+        self.assertEqual(pub_res.status_code, 200)
+        self.assertEqual(
+            pub_res.data["appearance"]["primary_color"],
+            DEFAULT_PRIMARY_COLOR,
+        )
+        self.assertEqual(
+            pub_res.data["appearance"]["default_primary_color"],
+            DEFAULT_PRIMARY_COLOR,
+        )
+
+        # Learner and moderator cannot inspect or update admin appearance
+        self.assertEqual(self.learner_client.get("/api/admin/appearance/").status_code, 403)
+        self.assertEqual(self.mod_client.get("/api/admin/appearance/").status_code, 403)
+        self.assertEqual(
+            self.mod_client.patch(
+                "/api/admin/appearance/",
+                {"primary_color": "#0F766E"},
+                format="json",
+            ).status_code,
+            403,
+        )
+
+        # Reject invalid hex color
+        bad_res = self.admin_client.patch(
+            "/api/admin/appearance/",
+            {"primary_color": "blue"},
+            format="json",
+            HTTP_ACCEPT_LANGUAGE="en",
+        )
+        self.assertEqual(bad_res.status_code, 400)
+        self.assertIn("primary_color", bad_res.data)
+
+        # Update valid hex (lowercase gets normalized to uppercase)
+        ok_res = self.admin_client.patch(
+            "/api/admin/appearance/",
+            {"primary_color": "#0f766e"},
+            format="json",
+        )
+        self.assertEqual(ok_res.status_code, 200)
+        self.assertEqual(ok_res.data["primary_color"], "#0F766E")
+        self.assertEqual(ok_res.data["updated_by_username"], "theme_admin")
+
+        # Public config reflects updated primary color immediately
+        pub_after = self.anon_client.get("/api/system/public-config/")
+        self.assertEqual(pub_after.status_code, 200)
+        self.assertEqual(pub_after.data["appearance"]["primary_color"], "#0F766E")
+
+        # Persists in DB and writes audit log
+        cfg = AppSystemConfig.objects.get(key="default")
+        self.assertEqual(cfg.primary_color, "#0F766E")
+        audit = AdminAuditLog.objects.filter(action="system.theme_update").first()
+        self.assertIsNotNone(audit)
+        self.assertEqual(audit.target_type, "system")
+        self.assertEqual(audit.details["prev_primary_color"], DEFAULT_PRIMARY_COLOR)
+        self.assertEqual(audit.details["primary_color"], "#0F766E")
+
+        # Reset back to default
+        reset_res = self.admin_client.patch(
+            "/api/admin/appearance/",
+            {"primary_color": DEFAULT_PRIMARY_COLOR},
+            format="json",
+        )
+        self.assertEqual(reset_res.status_code, 200)
+        self.assertEqual(reset_res.data["primary_color"], DEFAULT_PRIMARY_COLOR)
 

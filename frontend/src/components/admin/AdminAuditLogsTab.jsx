@@ -45,6 +45,7 @@ export default function AdminAuditLogsTab() {
       { value: 'course', label: t('admin:audit.targetTypes.course') },
       { value: 'card', label: t('admin:audit.targetTypes.card') },
       { value: 'video', label: t('admin:audit.targetTypes.video') },
+      { value: 'system', label: t('admin:audit.targetTypes.system') },
     ],
     [t]
   );

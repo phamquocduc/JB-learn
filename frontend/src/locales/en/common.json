@@ -154,6 +154,7 @@
     "adminOverview": "Loading system overview",
     "adminList": "Loading admin list",
     "adminModules": "Loading feature settings",
+    "adminAppearance": "Loading appearance settings",
     "adminPage": "Loading admin dashboard"
   }
 }

@@ -7,8 +7,10 @@ from django.db import models
 from .rbac import (
     ALL_PERMISSION_CODES,
     BUILTIN_ROLES_BY_SLUG,
+    DEFAULT_PRIMARY_COLOR,
     check_permission_code,
     get_roles_cache_map,
+    invalidate_appearance_cache,
     invalidate_modules_cache,
     invalidate_roles_cache,
     normalize_permission_codes,
@@ -302,3 +304,48 @@ class AdminAuditLog(models.Model):
 
     def __str__(self) -> str:
         return f"[{self.created_at}] {self.actor_username}: {self.action} ({self.target_repr})"
+
+
+class AppSystemConfig(models.Model):
+    """Global system appearance configuration stored as a singleton row (`key='default'`)."""
+
+    key = models.CharField(
+        max_length=32,
+        primary_key=True,
+        default="default",
+        verbose_name="Mã cấu hình",
+    )
+    primary_color = models.CharField(
+        max_length=7,
+        default=DEFAULT_PRIMARY_COLOR,
+        verbose_name="Màu chủ đạo",
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="Người cập nhật",
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Thời điểm cập nhật",
+    )
+
+    class Meta:
+        verbose_name = "Cấu hình giao diện hệ thống"
+        verbose_name_plural = "Cấu hình giao diện hệ thống"
+
+    def save(self, *args, **kwargs):
+        self.primary_color = (self.primary_color or DEFAULT_PRIMARY_COLOR).strip().upper()
+        super().save(*args, **kwargs)
+        invalidate_appearance_cache()
+
+    def delete(self, *args, **kwargs):
+        res = super().delete(*args, **kwargs)
+        invalidate_appearance_cache()
+        return res
+
+    def __str__(self) -> str:
+        return f"System Appearance ({self.primary_color})"

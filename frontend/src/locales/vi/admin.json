@@ -6,6 +6,7 @@
     "users": "Tài khoản & Vai trò",
     "content": "Nội dung học tập",
     "modules": "Tính năng",
+    "appearance": "Giao diện",
     "logs": "Nhật ký"
   },
   "noAccess": {
@@ -74,7 +75,8 @@
       "sourcePersonal": "Nguồn: Cá nhân",
       "visibilityPublic": "Công khai",
       "visibilityPrivate": "Riêng tư",
-      "cliSource": "Thực hiện từ dòng lệnh"
+      "cliSource": "Thực hiện từ dòng lệnh",
+      "themeTransition": "Màu chủ đạo: {{prev}} → {{next}}"
     },
     "searchPlaceholder": "Tìm theo người thực hiện hoặc đối tượng...",
     "searchAria": "Tìm kiếm nhật ký hoạt động",
@@ -540,5 +542,36 @@
       "message": "Bạn có chắc chắn muốn xóa vĩnh viễn \"{{label}}\" khỏi hệ thống?",
       "confirmLabel": "Xóa nội dung"
     }
+  },
+  "appearance": {
+    "cardTitle": "Màu chủ đạo ứng dụng",
+    "unsavedBadge": "Chưa lưu",
+    "presetsLabel": "Màu gợi ý",
+    "presets": {
+      "sky": "Xanh lam",
+      "blue": "Xanh dương",
+      "indigo": "Chàm",
+      "violet": "Tím",
+      "teal": "Xanh ngọc",
+      "emerald": "Xanh lá",
+      "crimson": "Đỏ thẫm",
+      "slate": "Than chì"
+    },
+    "customPickerLabel": "Màu tùy chỉnh",
+    "colorPickerAria": "Chọn màu",
+    "hexInputAria": "Mã màu",
+    "previewLabel": "Xem trước giao diện",
+    "previewTabActive": "Học thẻ",
+    "previewTabInactive": "Luyện nghe",
+    "previewPrimaryBtn": "Nút chính",
+    "previewSecondaryBtn": "Nút phụ",
+    "previewLesson": "Bài 1",
+    "previewLearned": "Đã học",
+    "resetDefault": "Khôi phục mặc định",
+    "saveAction": "Lưu thay đổi",
+    "savedToast": "Đã cập nhật màu chủ đạo.",
+    "saveFailed": "Không thể lưu màu chủ đạo.",
+    "loadError": "Không thể tải cấu hình giao diện.",
+    "loadErrorTitle": "Không thể tải cấu hình giao diện"
   }
 }

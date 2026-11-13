@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 
 from django.core.cache import cache
@@ -9,6 +10,9 @@ from rest_framework.exceptions import PermissionDenied
 
 ROLES_CACHE_KEY = "jb_rbac_roles_map_v2"
 MODULES_CACHE_KEY = "jb_app_modules_state_v2"
+APPEARANCE_CACHE_KEY = "jb_system_appearance_v1"
+DEFAULT_PRIMARY_COLOR = "#0369A1"
+HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 CACHE_TTL_SECONDS = 300
 
 # 1. Granular Module -> Actions Catalog (Single Source of Truth)
@@ -95,6 +99,7 @@ PERMISSION_CATALOG: list[dict[str, str]] = [
     {"code": "admin.access", "group": "system", "label": "Truy cập quản trị"},
     {"code": "system.status.view", "group": "system", "label": "Xem tổng quan"},
     {"code": "system.audit.view", "group": "system", "label": "Xem nhật ký"},
+    {"code": "system.theme.manage", "group": "system", "label": "Tuỳ chỉnh giao diện"},
 ]
 
 LEGACY_PERMISSION_EXPANSION: dict[str, list[str]] = {
@@ -426,6 +431,48 @@ def invalidate_roles_cache() -> None:
 
 def invalidate_modules_cache() -> None:
     cache.delete(MODULES_CACHE_KEY)
+
+
+def invalidate_appearance_cache() -> None:
+    cache.delete(APPEARANCE_CACHE_KEY)
+
+
+def get_system_appearance() -> dict[str, Any]:
+    cached = cache.get(APPEARANCE_CACHE_KEY)
+    if cached is not None:
+        return cached
+
+    from .models import AppSystemConfig
+
+    payload: dict[str, Any] = {
+        "primary_color": DEFAULT_PRIMARY_COLOR,
+        "default_primary_color": DEFAULT_PRIMARY_COLOR,
+        "updated_at": None,
+        "updated_by_username": "",
+    }
+    try:
+        cfg = (
+            AppSystemConfig.objects.select_related("updated_by")
+            .filter(key="default")
+            .first()
+        )
+        if cfg is not None:
+            raw_color = str(cfg.primary_color or "").strip().upper()
+            payload = {
+                "primary_color": raw_color
+                if HEX_COLOR_RE.match(raw_color)
+                else DEFAULT_PRIMARY_COLOR,
+                "default_primary_color": DEFAULT_PRIMARY_COLOR,
+                "updated_at": cfg.updated_at.isoformat() if cfg.updated_at else None,
+                "updated_by_username": (
+                    cfg.updated_by.username if cfg.updated_by else ""
+                ),
+            }
+    except Exception:
+        pass
+
+    cache.set(APPEARANCE_CACHE_KEY, payload, CACHE_TTL_SECONDS)
+    return payload
 
 
 def get_roles_cache_map() -> dict[int, dict[str, Any]]:

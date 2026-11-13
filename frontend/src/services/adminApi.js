@@ -84,6 +84,19 @@ export function fetchPublicSystemConfig() {
   return adminRequest('/system/public-config/', { method: 'GET' });
 }
 
+/* ==================== Admin System Appearance ==================== */
+
+export function fetchAdminAppearance() {
+  return adminRequest('/admin/appearance/', { method: 'GET' });
+}
+
+export function updateAdminAppearance(data) {
+  return adminRequest('/admin/appearance/', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
 /* ==================== Admin Overview & Audit Logs ==================== */
 
 export function fetchAdminOverview() {

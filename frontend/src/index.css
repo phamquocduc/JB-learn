@@ -27,6 +27,22 @@
   --color-primary-soft: var(--color-sky-50);
   --color-primary-subtle: var(--color-sky-100);
   --color-primary-border: var(--color-sky-200);
+  --color-primary-contrast: var(--color-primary-contrast, #ffffff);
+  --color-primary-fg: var(--color-primary-contrast, #ffffff);
+}
+
+/* Ensure text on primary background dynamically maintains accessible WCAG contrast */
+.bg-primary.text-white,
+.bg-sky-700.text-white,
+.bg-primary > .text-white,
+.bg-sky-700 > .text-white,
+.bg-primary svg.text-white,
+.bg-sky-700 svg.text-white {
+  color: var(--color-primary-contrast, #ffffff) !important;
+}
+
+.text-primary-contrast {
+  color: var(--color-primary-contrast, #ffffff);
 }
 
 @layer base {

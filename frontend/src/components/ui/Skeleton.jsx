@@ -168,6 +168,78 @@ export default function Skeleton({
     );
   }
 
+  if (variant === 'admin-appearance') {
+    return (
+      <Card
+        className="w-full overflow-hidden"
+        aria-busy="true"
+        aria-label={t('skeleton.adminAppearance')}
+      >
+        {/* Header */}
+        <div className="px-3.5 sm:px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
+          <div className="h-5 w-44 bg-slate-200/70 rounded-control animate-pulse" />
+        </div>
+
+        {/* Rows */}
+        <div className="divide-y divide-slate-200">
+          {/* Row 1: Presets */}
+          <div className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="h-4 w-28 bg-slate-200/70 rounded-control animate-pulse" />
+            <div className="flex flex-wrap items-center gap-2">
+              {Array.from({ length: 8 }).map((_, idx) => (
+                <div
+                  key={idx}
+                  className="w-9 h-9 rounded-control bg-slate-100 animate-pulse"
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Row 2: Custom Color */}
+          <div className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="h-4 w-28 bg-slate-200/70 rounded-control animate-pulse" />
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="w-9 h-9 rounded-control bg-slate-100 animate-pulse" />
+              <div className="w-28 h-9 rounded-control bg-slate-100 animate-pulse" />
+            </div>
+          </div>
+
+          {/* Row 3: Preview */}
+          <div className="p-3.5 sm:p-4 flex flex-col gap-3">
+            <div className="h-4 w-36 bg-slate-200/70 rounded-control animate-pulse" />
+            <div className="p-3.5 sm:p-4 rounded-surface bg-slate-50 border border-slate-200 flex flex-col gap-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="h-8 w-44 bg-slate-200/70 rounded-control animate-pulse" />
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-20 bg-slate-200/70 rounded-control animate-pulse" />
+                  <div className="h-8 w-20 bg-slate-200/70 rounded-control animate-pulse" />
+                  <div className="w-8 h-8 rounded-control bg-slate-200/70 animate-pulse" />
+                </div>
+              </div>
+              <div className="p-3 sm:p-3.5 bg-white border border-slate-200 rounded-surface flex flex-col gap-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <div className="h-[22px] w-8 rounded-badge bg-slate-200/70 animate-pulse" />
+                    <div className="h-[22px] w-14 rounded-badge bg-slate-200/70 animate-pulse" />
+                    <div className="h-[22px] w-16 rounded-badge bg-slate-200/70 animate-pulse" />
+                  </div>
+                  <div className="h-4 w-12 bg-slate-200/70 rounded-control animate-pulse" />
+                </div>
+                <div className="h-2 w-full rounded-full bg-slate-100 animate-pulse" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-3.5 sm:px-4 py-3 bg-slate-50 border-t border-slate-200 flex flex-col-reverse sm:flex-row sm:items-center justify-end gap-2">
+          <div className="w-full sm:w-36 h-9 bg-slate-100 rounded-control animate-pulse" />
+          <div className="w-full sm:w-28 h-9 bg-slate-100 rounded-control animate-pulse" />
+        </div>
+      </Card>
+    );
+  }
+
   if (variant === 'admin') {
     return (
       <div
@@ -185,7 +257,7 @@ export default function Skeleton({
           </div>
 
           <div className="bg-white border border-slate-200 p-1 rounded-control flex items-center gap-1 overflow-hidden">
-            {Array.from({ length: 5 }).map((_, idx) => (
+            {Array.from({ length: 6 }).map((_, idx) => (
               <div
                 key={idx}
                 className="h-8 w-24 rounded-control bg-slate-100 animate-pulse shrink-0"

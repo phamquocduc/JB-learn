@@ -9,6 +9,7 @@ from .views import (
     AdminOverviewAPIView,
     AdminRoleViewSet,
     AdminShadowingVideoViewSet,
+    AdminSystemAppearanceView,
     AdminUserViewSet,
     PublicSystemConfigView,
 )
@@ -34,6 +35,7 @@ urlpatterns = [
         name="public-config",
     ),
     path("admin/overview/", AdminOverviewAPIView.as_view(), name="admin-overview"),
+    path("admin/appearance/", AdminSystemAppearanceView.as_view(), name="admin-appearance"),
     path("admin/audit-logs/", AdminAuditLogListView.as_view(), name="admin-audit-logs"),
     path("admin/", include(admin_router.urls)),
 ]
