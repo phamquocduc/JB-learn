@@ -11,6 +11,7 @@ from .models import AdminAuditLog, AppModuleConfig, Role
 from .rbac import (
     ACCEPTED_PERMISSION_INPUT_SET,
     ALL_PERMISSION_CODES,
+    HEX_COLOR_RE,
     MODULE_CATALOG_BY_KEY,
     ROLE_SCOPED_KEY_SET,
     ROLE_SCOPED_KEYS,
@@ -409,3 +410,19 @@ class AdminAuditLogSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+
+class SystemAppearanceSerializer(serializers.Serializer):
+    primary_color = serializers.CharField(
+        max_length=7,
+        required=True,
+        allow_blank=False,
+    )
+
+    def validate_primary_color(self, value: str) -> str:
+        cleaned = str(value or "").strip().upper()
+        if not HEX_COLOR_RE.match(cleaned):
+            raise serializers.ValidationError(
+                _("Mã màu chủ đạo phải theo định dạng hex 6 ký tự (ví dụ #0369A1).")
+            )
+        return cleaned

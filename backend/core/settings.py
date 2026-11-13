@@ -133,6 +133,15 @@ MEDIA_ROOT = BASE_DIR / "media"
 WHISPER_CACHE_DIR = BASE_DIR / ".cache" / "whisper"
 WHISPER_MODEL_SIZE = os.environ.get("WHISPER_MODEL_SIZE", "base")
 
+# Cloudinary Media CDN Storage
+CLOUDINARY_URL = os.environ.get("CLOUDINARY_URL", "")
+CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "dhyay1hbw")
+CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY", "")
+CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "jGfqSFcMXbuYPNTOa8VfkzsS4NU")
+
+# Optional YouTube scraping proxy (bypasses cloud datacenter IP blocks)
+YOUTUBE_PROXY = os.environ.get("YOUTUBE_PROXY", "")
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

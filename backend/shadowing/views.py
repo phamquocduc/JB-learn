@@ -20,6 +20,12 @@ from shadowing.serializers import (
     ShadowingVideoListSerializer,
     UserShadowingProgressSerializer,
 )
+from shadowing.services.cloudinary import (
+    delete_media,
+    generate_client_upload_signature,
+    is_cloudinary_configured,
+    upload_media,
+)
 from shadowing.services.transcription import (
     extract_youtube_id,
     extract_youtube_transcript,
@@ -152,7 +158,53 @@ class ShadowingVideoViewSet(viewsets.ModelViewSet):
             if last_end > 0:
                 extra_kwargs["duration_seconds"] = int(round(last_end))
 
+        # Upload media file to Cloudinary if configured (prevents ephemeral storage loss and free server OOM)
+        media_file = self.request.FILES.get("media_file") or self.request.FILES.get("file")
+        if media_file and is_cloudinary_configured():
+            try:
+                c_res = upload_media(media_file, folder="shadowing_media", resource_type="auto")
+                extra_kwargs["media_url"] = c_res.get("secure_url", "")
+                extra_kwargs["cloudinary_public_id"] = c_res.get("public_id", "")
+                if not serializer.validated_data.get("thumbnail_url") and c_res.get("thumbnail_url"):
+                    extra_kwargs["thumbnail_url"] = c_res["thumbnail_url"]
+                if not extra_kwargs.get("duration_seconds") and c_res.get("duration_seconds"):
+                    extra_kwargs["duration_seconds"] = c_res["duration_seconds"]
+                extra_kwargs["media_file"] = None
+            except Exception as exc:
+                logger.warning("Cloudinary upload failed, falling back to local file storage: %s", exc)
+
         serializer.save(**extra_kwargs)
+
+    def perform_destroy(self, instance):
+        if instance.cloudinary_public_id:
+            delete_media(instance.cloudinary_public_id)
+        super().perform_destroy(instance)
+
+    @action(detail=False, methods=["get", "post"], permission_classes=[AllowAny])
+    def cloudinary_signature(self, request):
+        """
+        Returns signed upload parameters allowing client-side direct upload to Cloudinary.
+        Bypasses the free prod server entirely to avoid memory limits and request timeouts.
+        """
+        if not is_cloudinary_configured():
+            return Response(
+                {
+                    "configured": False,
+                    "detail": _("Dịch vụ Cloudinary chưa được cấu hình đầy đủ."),
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        folder = request.data.get("folder") or request.query_params.get("folder") or "shadowing_media"
+        resource_type = request.data.get("resource_type") or request.query_params.get("resource_type") or "video"
+        try:
+            data = generate_client_upload_signature(folder=folder, resource_type=resource_type)
+            return Response({"configured": True, **data}, status=status.HTTP_200_OK)
+        except Exception as exc:
+            return Response(
+                {"configured": False, "detail": str(exc)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     def perform_update(self, serializer):
         youtube_url = serializer.validated_data.get("youtube_url", "")

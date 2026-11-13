@@ -8,6 +8,12 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from shadowing.models import ShadowingVideo, UserShadowingProgress
+from shadowing.services.cloudinary import (
+    delete_media,
+    generate_client_upload_signature,
+    is_cloudinary_configured,
+    upload_media,
+)
 from shadowing.services.seeding import sync_shadowing_seed_videos
 from shadowing.services.transcription import (
     extract_youtube_id,
@@ -563,4 +569,168 @@ class ShadowingI18nTestCase(TestCase):
         rows = list_search.data["results"] if isinstance(list_search.data, dict) else list_search.data
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["title"], "Morning Habits")
+
+
+class CloudinaryServiceTests(TestCase):
+    """Unit and integration tests for Cloudinary media upload and signature services."""
+
+    def test_is_cloudinary_configured_false_when_unconfigured(self):
+        with self.settings(CLOUDINARY_API_KEY="", CLOUDINARY_URL=""):
+            with patch.dict("os.environ", {"CLOUDINARY_API_KEY": "", "CLOUDINARY_URL": ""}):
+                self.assertFalse(is_cloudinary_configured())
+
+    def test_is_cloudinary_configured_true_when_configured(self):
+        with self.settings(
+            CLOUDINARY_CLOUD_NAME="dhyay1hbw",
+            CLOUDINARY_API_KEY="123456789012345",
+            CLOUDINARY_API_SECRET="jGfqSFcMXbuYPNTOa8VfkzsS4NU",
+            CLOUDINARY_URL="",
+        ):
+            with patch.dict(
+                "os.environ",
+                {
+                    "CLOUDINARY_CLOUD_NAME": "dhyay1hbw",
+                    "CLOUDINARY_API_KEY": "123456789012345",
+                    "CLOUDINARY_API_SECRET": "jGfqSFcMXbuYPNTOa8VfkzsS4NU",
+                },
+            ):
+                self.assertTrue(is_cloudinary_configured())
+
+    @patch("cloudinary.uploader.upload_large")
+    def test_upload_media_success(self, mock_upload_large):
+        mock_upload_large.return_value = {
+            "secure_url": "https://res.cloudinary.com/dhyay1hbw/video/upload/v123456/shadowing_media/test_vid.mp4",
+            "public_id": "shadowing_media/test_vid",
+            "duration": 42.6,
+            "format": "mp4",
+            "resource_type": "video",
+            "bytes": 5242880,
+        }
+
+        with self.settings(
+            CLOUDINARY_CLOUD_NAME="dhyay1hbw",
+            CLOUDINARY_API_KEY="123456789012345",
+            CLOUDINARY_API_SECRET="jGfqSFcMXbuYPNTOa8VfkzsS4NU",
+            CLOUDINARY_URL="",
+        ):
+            with patch.dict(
+                "os.environ",
+                {
+                    "CLOUDINARY_CLOUD_NAME": "dhyay1hbw",
+                    "CLOUDINARY_API_KEY": "123456789012345",
+                    "CLOUDINARY_API_SECRET": "jGfqSFcMXbuYPNTOa8VfkzsS4NU",
+                },
+            ):
+                dummy_file = SimpleUploadedFile("sample.mp4", b"fake video bytes", content_type="video/mp4")
+                res = upload_media(dummy_file, folder="shadowing_media")
+                self.assertEqual(
+                    res["secure_url"],
+                    "https://res.cloudinary.com/dhyay1hbw/video/upload/v123456/shadowing_media/test_vid.mp4",
+                )
+                self.assertEqual(res["public_id"], "shadowing_media/test_vid")
+                self.assertEqual(res["duration_seconds"], 43)
+                self.assertEqual(
+                    res["thumbnail_url"],
+                    "https://res.cloudinary.com/dhyay1hbw/video/upload/v123456/shadowing_media/test_vid.jpg",
+                )
+
+    @patch("cloudinary.uploader.destroy")
+    def test_delete_media_success(self, mock_destroy):
+        mock_destroy.return_value = {"result": "ok"}
+        with self.settings(
+            CLOUDINARY_CLOUD_NAME="dhyay1hbw",
+            CLOUDINARY_API_KEY="123456789012345",
+            CLOUDINARY_API_SECRET="jGfqSFcMXbuYPNTOa8VfkzsS4NU",
+            CLOUDINARY_URL="",
+        ):
+            with patch.dict(
+                "os.environ",
+                {
+                    "CLOUDINARY_CLOUD_NAME": "dhyay1hbw",
+                    "CLOUDINARY_API_KEY": "123456789012345",
+                    "CLOUDINARY_API_SECRET": "jGfqSFcMXbuYPNTOa8VfkzsS4NU",
+                },
+            ):
+                self.assertTrue(delete_media("shadowing_media/test_vid"))
+                mock_destroy.assert_called_once_with("shadowing_media/test_vid", resource_type="video")
+
+    def test_generate_client_upload_signature(self):
+        with self.settings(
+            CLOUDINARY_CLOUD_NAME="dhyay1hbw",
+            CLOUDINARY_API_KEY="123456789012345",
+            CLOUDINARY_API_SECRET="jGfqSFcMXbuYPNTOa8VfkzsS4NU",
+            CLOUDINARY_URL="",
+        ):
+            with patch.dict(
+                "os.environ",
+                {
+                    "CLOUDINARY_CLOUD_NAME": "dhyay1hbw",
+                    "CLOUDINARY_API_KEY": "123456789012345",
+                    "CLOUDINARY_API_SECRET": "jGfqSFcMXbuYPNTOa8VfkzsS4NU",
+                },
+            ):
+                sig_data = generate_client_upload_signature(folder="shadowing_media")
+                self.assertEqual(sig_data["cloud_name"], "dhyay1hbw")
+                self.assertEqual(sig_data["api_key"], "123456789012345")
+                self.assertTrue(bool(sig_data["signature"]))
+                self.assertIn("https://api.cloudinary.com/v1_1/dhyay1hbw/video/upload", sig_data["upload_url"])
+
+    def test_cloudinary_signature_api_endpoint(self):
+        client = APIClient()
+        # 1. When unconfigured -> 503
+        with self.settings(CLOUDINARY_API_KEY="", CLOUDINARY_URL=""):
+            with patch.dict("os.environ", {"CLOUDINARY_API_KEY": "", "CLOUDINARY_URL": ""}):
+                res = client.get("/api/shadowing/videos/cloudinary_signature/")
+                self.assertEqual(res.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+                self.assertFalse(res.data["configured"])
+
+        # 2. When configured -> 200
+        with self.settings(
+            CLOUDINARY_CLOUD_NAME="dhyay1hbw",
+            CLOUDINARY_API_KEY="123456789012345",
+            CLOUDINARY_API_SECRET="jGfqSFcMXbuYPNTOa8VfkzsS4NU",
+            CLOUDINARY_URL="",
+        ):
+            with patch.dict(
+                "os.environ",
+                {
+                    "CLOUDINARY_CLOUD_NAME": "dhyay1hbw",
+                    "CLOUDINARY_API_KEY": "123456789012345",
+                    "CLOUDINARY_API_SECRET": "jGfqSFcMXbuYPNTOa8VfkzsS4NU",
+                },
+            ):
+                res = client.get("/api/shadowing/videos/cloudinary_signature/")
+                self.assertEqual(res.status_code, status.HTTP_200_OK)
+                self.assertTrue(res.data["configured"])
+                self.assertEqual(res.data["cloud_name"], "dhyay1hbw")
+
+    def test_shadowing_video_with_cloudinary_media_url_serializer(self):
+        video = ShadowingVideo.objects.create(
+            title="Cloudinary Video Test",
+            topic=ShadowingVideo.Topic.NEWS,
+            level=ShadowingVideo.Level.N2,
+            media_source=ShadowingVideo.MediaSource.UPLOAD,
+            media_url="https://res.cloudinary.com/dhyay1hbw/video/upload/v1234/test.mp4",
+            cloudinary_public_id="shadowing_media/test",
+            thumbnail_url="https://res.cloudinary.com/dhyay1hbw/video/upload/v1234/test.jpg",
+            is_public=True,
+        )
+        self.assertEqual(
+            video.effective_media_url,
+            "https://res.cloudinary.com/dhyay1hbw/video/upload/v1234/test.mp4",
+        )
+
+        client = APIClient()
+        detail_res = client.get(f"/api/shadowing/videos/{video.id}/")
+        self.assertEqual(detail_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(
+            detail_res.data["media_file_url"],
+            "https://res.cloudinary.com/dhyay1hbw/video/upload/v1234/test.mp4",
+        )
+        self.assertEqual(
+            detail_res.data["media_url"],
+            "https://res.cloudinary.com/dhyay1hbw/video/upload/v1234/test.mp4",
+        )
+        self.assertEqual(detail_res.data["cloudinary_public_id"], "shadowing_media/test")
+
 

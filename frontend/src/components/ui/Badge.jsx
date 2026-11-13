@@ -3,7 +3,7 @@ import React from 'react';
 const BADGE_VARIANTS = {
   default: 'bg-slate-100 text-slate-700 border-slate-200',
   secondary: 'bg-slate-100 text-slate-700 border-slate-200',
-  level: 'bg-sky-700 text-white border-sky-700',
+  level: 'bg-sky-700 text-primary-contrast border-sky-700',
   lesson: 'bg-sky-50 text-sky-800 border-sky-200',
   type: 'bg-slate-100 text-slate-600 border-slate-200',
   unseen: 'bg-slate-100 text-slate-600 border-slate-200',

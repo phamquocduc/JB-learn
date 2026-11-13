@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { fetchPublicSystemConfig } from '../services/adminApi';
+import {
+  applyPrimaryColorTheme,
+  getCachedPrimaryColor,
+} from '../utils/themeColor';
 import { useAuth } from './useAuth';
 import { SystemConfigContext } from './useSystemConfig';
 
@@ -7,6 +11,7 @@ export function SystemConfigProvider({ children }) {
   const { user, isGuest, hasPermission } = useAuth();
   const [modules, setModules] = useState({});
   const [moduleGroups, setModuleGroups] = useState([]);
+  const [primaryColor, setPrimaryColor] = useState(() => getCachedPrimaryColor());
   const [configLoaded, setConfigLoaded] = useState(false);
 
   const subjectRole = !isGuest && user ? user.role_slug || 'learner' : 'guest';
@@ -17,33 +22,37 @@ export function SystemConfigProvider({ children }) {
     isAdminRole || (!isGuest && user && hasPermission('modules.toggle'))
   );
 
+  const applyPublicConfigPayload = useCallback((data) => {
+    if (data?.modules && typeof data.modules === 'object') {
+      setModules(data.modules);
+    }
+    if (Array.isArray(data?.module_groups)) {
+      setModuleGroups(data.module_groups);
+    }
+    const serverColor = data?.appearance?.primary_color;
+    if (serverColor) {
+      const normalized = applyPrimaryColorTheme(serverColor);
+      setPrimaryColor(normalized);
+    }
+  }, []);
+
   const refreshSystemConfig = useCallback(async () => {
     try {
       const data = await fetchPublicSystemConfig();
-      if (data?.modules && typeof data.modules === 'object') {
-        setModules(data.modules);
-      }
-      if (Array.isArray(data?.module_groups)) {
-        setModuleGroups(data.module_groups);
-      }
+      applyPublicConfigPayload(data);
     } catch {
       // Keep default enabled behavior if server is temporarily unreachable
     } finally {
       setConfigLoaded(true);
     }
-  }, []);
+  }, [applyPublicConfigPayload]);
 
   useEffect(() => {
     let ignore = false;
     fetchPublicSystemConfig()
       .then((data) => {
         if (ignore) return;
-        if (data?.modules && typeof data.modules === 'object') {
-          setModules(data.modules);
-        }
-        if (Array.isArray(data?.module_groups)) {
-          setModuleGroups(data.module_groups);
-        }
+        applyPublicConfigPayload(data);
       })
       .catch(() => {})
       .finally(() => {
@@ -52,12 +61,17 @@ export function SystemConfigProvider({ children }) {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [applyPublicConfigPayload]);
 
   const updateModulesSnapshot = useCallback((nextModulesMap) => {
     if (nextModulesMap && typeof nextModulesMap === 'object') {
       setModules(nextModulesMap);
     }
+  }, []);
+
+  const updatePrimaryColorSnapshot = useCallback((nextColor) => {
+    const normalized = applyPrimaryColorTheme(nextColor);
+    setPrimaryColor(normalized);
   }, []);
 
   const getModuleBlockReason = useCallback(
@@ -93,22 +107,26 @@ export function SystemConfigProvider({ children }) {
     () => ({
       modules,
       moduleGroups,
+      primaryColor,
       configLoaded,
       isModuleEnabled,
       getModuleBlockReason,
       getModuleInfo,
       refreshSystemConfig,
       updateModulesSnapshot,
+      updatePrimaryColorSnapshot,
     }),
     [
       modules,
       moduleGroups,
+      primaryColor,
       configLoaded,
       isModuleEnabled,
       getModuleBlockReason,
       getModuleInfo,
       refreshSystemConfig,
       updateModulesSnapshot,
+      updatePrimaryColorSnapshot,
     ]
   );
 

@@ -93,6 +93,19 @@ class ShadowingVideo(models.Model):
         null=True,
         verbose_name="Tệp âm thanh / video tải lên",
     )
+    media_url = models.URLField(
+        max_length=1000,
+        blank=True,
+        default="",
+        verbose_name="Đường dẫn media trực tiếp (Cloudinary / CDN)",
+    )
+    cloudinary_public_id = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        db_index=True,
+        verbose_name="Cloudinary Public ID",
+    )
     thumbnail_url = models.URLField(
         max_length=500,
         blank=True,
@@ -157,6 +170,15 @@ class ShadowingVideo(models.Model):
     @property
     def total_exercises(self) -> int:
         return len(self.exercises) if isinstance(self.exercises, list) else 0
+
+    @property
+    def effective_media_url(self) -> str:
+        """Returns the active direct media URL (Cloudinary CDN or local file URL)."""
+        if self.media_url:
+            return self.media_url
+        if self.media_file:
+            return self.media_file.url
+        return ""
 
 
 class UserShadowingProgress(models.Model):

@@ -6,7 +6,9 @@ from django.conf import settings
 from django.utils.translation import gettext as _
 import pykakasi
 from youtube_transcript_api import (
+    IpBlocked,
     NoTranscriptFound,
+    RequestBlocked,
     TranscriptsDisabled,
     YouTubeTranscriptApi,
 )
@@ -248,10 +250,27 @@ def extract_youtube_transcript(youtube_url_or_id: str) -> list:
     if not video_id:
         raise ValueError(_("Không thể nhận diện YouTube Video ID hợp lệ."))
 
-    ytt = YouTubeTranscriptApi()
+    proxy_url = (
+        getattr(settings, "YOUTUBE_PROXY", "")
+        or os.environ.get("YOUTUBE_PROXY", "")
+    ).strip()
+    proxy_config = None
+    if proxy_url:
+        from youtube_transcript_api.proxies import GenericProxyConfig
+        proxy_config = GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
+
+    ytt = YouTubeTranscriptApi(proxy_config=proxy_config)
     try:
         fetched = ytt.fetch(video_id, languages=["ja", "ja-JP", "en"])
         raw_snippets = fetched.to_raw_data() if hasattr(fetched, "to_raw_data") else list(fetched)
+    except (IpBlocked, RequestBlocked) as exc:
+        logger.warning("YouTube IP blocked for video %s: %s", video_id, exc)
+        raise ValueError(
+            _(
+                "YouTube đang chặn IP của máy chủ Cloud do chính sách hạn chế cào dữ liệu từ Datacenter. "
+                "Vui lòng cấu hình YOUTUBE_PROXY trên server hoặc chuyển sang tab 'Tải lên tệp media' để dùng Cloudinary."
+            )
+        ) from exc
     except (NoTranscriptFound, TranscriptsDisabled):
         # Try listing transcripts to search for any available or auto-generated transcript
         try:
@@ -263,6 +282,14 @@ def extract_youtube_transcript(youtube_url_or_id: str) -> list:
                 if hasattr(fetched_fallback, "to_raw_data")
                 else list(fetched_fallback)
             )
+        except (IpBlocked, RequestBlocked) as exc:
+            logger.warning("YouTube IP blocked for video %s: %s", video_id, exc)
+            raise ValueError(
+                _(
+                    "YouTube đang chặn IP của máy chủ Cloud do chính sách hạn chế cào dữ liệu từ Datacenter. "
+                    "Vui lòng cấu hình YOUTUBE_PROXY trên server hoặc chuyển sang tab 'Tải lên tệp media' để dùng Cloudinary."
+                )
+            ) from exc
         except Exception as exc:
             logger.warning("YouTube transcript lookup failed for %s: %s", video_id, exc)
             raise ValueError(

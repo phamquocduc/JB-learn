@@ -48,6 +48,20 @@ export function summarizeAuditDetails(log) {
   if (!details || typeof details !== 'object') return '';
 
   const parts = [];
+  if (log.action === 'system.theme_update') {
+    if (details.prev_primary_color && details.primary_color) {
+      parts.push(
+        i18n.t('admin:audit.summary.themeTransition', {
+          prev: details.prev_primary_color,
+          next: details.primary_color,
+        })
+      );
+    } else if (details.primary_color) {
+      parts.push(details.primary_color);
+    }
+    return parts.join(' • ');
+  }
+
   if (log.action === 'module.toggle') {
     parts.push(
       details.is_enabled

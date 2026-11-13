@@ -6,6 +6,7 @@
     "users": "Accounts & Roles",
     "content": "Learning Content",
     "modules": "Features",
+    "appearance": "Appearance",
     "logs": "Audit Logs"
   },
   "noAccess": {
@@ -74,7 +75,8 @@
       "sourcePersonal": "Source: Personal",
       "visibilityPublic": "Public",
       "visibilityPrivate": "Private",
-      "cliSource": "Executed from CLI"
+      "cliSource": "Executed from CLI",
+      "themeTransition": "Primary color: {{prev}} → {{next}}"
     },
     "searchPlaceholder": "Search by actor or target...",
     "searchAria": "Search activity logs",
@@ -540,5 +542,36 @@
       "message": "Are you sure you want to permanently delete \"{{label}}\" from the system?",
       "confirmLabel": "Delete content"
     }
+  },
+  "appearance": {
+    "cardTitle": "Application primary color",
+    "unsavedBadge": "Unsaved",
+    "presetsLabel": "Preset colors",
+    "presets": {
+      "sky": "Sky blue",
+      "blue": "Cobalt",
+      "indigo": "Indigo",
+      "violet": "Violet",
+      "teal": "Teal",
+      "emerald": "Forest",
+      "crimson": "Crimson",
+      "slate": "Graphite"
+    },
+    "customPickerLabel": "Custom color",
+    "colorPickerAria": "Pick color",
+    "hexInputAria": "Hex code",
+    "previewLabel": "Interface preview",
+    "previewTabActive": "Flashcards",
+    "previewTabInactive": "Listening",
+    "previewPrimaryBtn": "Primary",
+    "previewSecondaryBtn": "Secondary",
+    "previewLesson": "Lesson 1",
+    "previewLearned": "Learned",
+    "resetDefault": "Reset default",
+    "saveAction": "Save changes",
+    "savedToast": "Updated primary color.",
+    "saveFailed": "Unable to save primary color.",
+    "loadError": "Unable to load appearance settings.",
+    "loadErrorTitle": "Unable to load appearance settings"
   }
 }

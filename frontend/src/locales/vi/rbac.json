@@ -103,7 +103,8 @@
     "modules_assign_roles": "Phân quyền vai trò cho tính năng",
     "admin_access": "Truy cập bảng điều khiển quản trị",
     "system_status_view": "Xem tổng quan hệ thống",
-    "system_audit_view": "Xem nhật ký hoạt động"
+    "system_audit_view": "Xem nhật ký hoạt động",
+    "system_theme_manage": "Tuỳ chỉnh giao diện"
   },
   "auditActions": {
     "user_create": "Tạo tài khoản",
@@ -117,6 +118,7 @@
     "role_update": "Cập nhật vai trò",
     "role_delete": "Xoá vai trò",
     "module_toggle": "Cập nhật tính năng",
+    "system_theme_update": "Đổi màu chủ đạo",
     "course_create": "Tạo khoá học",
     "course_update": "Cập nhật khoá học",
     "course_delete": "Xoá khoá học",

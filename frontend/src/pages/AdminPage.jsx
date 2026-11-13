@@ -9,16 +9,15 @@ import {
   LockClosedIcon,
   EllipsisHorizontalIcon,
 } from '@heroicons/react/24/outline';
-import Badge from '../components/ui/Badge';
 import Skeleton from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
 import AdminOverviewTab from '../components/admin/AdminOverviewTab';
 import AdminUsersRolesTab from '../components/admin/AdminUsersRolesTab';
 import AdminContentTab from '../components/admin/AdminContentTab';
 import AdminModulesTab from '../components/admin/AdminModulesTab';
+import AdminAppearanceTab from '../components/admin/AdminAppearanceTab';
 import AdminAuditLogsTab from '../components/admin/AdminAuditLogsTab';
 import { useAuth } from '../context/useAuth';
-import { getRoleLabel } from '../utils/rbacLabels';
 
 const USERS_ROLES_PERMS = [
   'users.view',
@@ -104,6 +103,12 @@ export default function AdminPage() {
         label: t('admin:tabs.modules'),
       });
     }
+    if (hasPermission('system.theme.manage')) {
+      tabs.push({
+        id: 'appearance',
+        label: t('admin:tabs.appearance'),
+      });
+    }
     if (hasPermission('system.audit.view')) {
       tabs.push({
         id: 'audit',
@@ -167,17 +172,9 @@ export default function AdminPage() {
       {/* Unified SaaS Workspace Header & Segmented Navigation */}
       <header className="flex flex-col xl:flex-row xl:items-center justify-between gap-2.5">
         <div className="flex items-center justify-between gap-3 min-w-0">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <h1 className="text-base sm:text-lg font-semibold text-slate-900 tracking-tight truncate">
-              {t('admin:heading')}
-            </h1>
-            <Badge variant="lesson" className="shrink-0">
-              {getRoleLabel(
-                user?.role_slug,
-                user?.role_name || t('admin:page.defaultRoleFallback')
-              )}
-            </Badge>
-          </div>
+          <h1 className="text-base sm:text-lg font-semibold text-slate-900 tracking-tight truncate">
+            {t('admin:heading')}
+          </h1>
 
           {openSidebar && (
             <button
@@ -207,7 +204,7 @@ export default function AdminPage() {
                 onClick={() => handleSelectTab(tab.id)}
                 className={`h-8 px-3 rounded-control text-xs sm:text-sm font-medium inline-flex items-center justify-center whitespace-nowrap transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 ${
                   isSelected
-                    ? 'bg-sky-700 text-white'
+                    ? 'bg-primary text-primary-contrast'
                     : 'text-slate-700 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
@@ -247,6 +244,7 @@ export default function AdminPage() {
             refreshCurrentUser={refreshUser}
           />
         )}
+        {activeTab === 'appearance' && <AdminAppearanceTab />}
         {activeTab === 'audit' && <AdminAuditLogsTab />}
       </div>
     </main>

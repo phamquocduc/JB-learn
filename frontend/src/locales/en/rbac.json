@@ -103,7 +103,8 @@
     "modules_assign_roles": "Assign roles to features",
     "admin_access": "Access admin dashboard",
     "system_status_view": "View system overview",
-    "system_audit_view": "View audit logs"
+    "system_audit_view": "View audit logs",
+    "system_theme_manage": "Customize appearance"
   },
   "auditActions": {
     "user_create": "Create account",
@@ -117,6 +118,7 @@
     "role_update": "Update role",
     "role_delete": "Delete role",
     "module_toggle": "Update feature settings",
+    "system_theme_update": "Update primary color",
     "course_create": "Create course",
     "course_update": "Update course",
     "course_delete": "Delete course",
