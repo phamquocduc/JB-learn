@@ -139,6 +139,10 @@ CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "dhyay1hbw")
 CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY", "")
 CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "jGfqSFcMXbuYPNTOa8VfkzsS4NU")
 
+# Groq Whisper Cloud API (Zero RAM server speech-to-text)
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
+GROQ_WHISPER_MODEL = os.environ.get("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo").strip()
+
 # Optional YouTube scraping proxy (bypasses cloud datacenter IP blocks)
 YOUTUBE_PROXY = os.environ.get("YOUTUBE_PROXY", "")
 

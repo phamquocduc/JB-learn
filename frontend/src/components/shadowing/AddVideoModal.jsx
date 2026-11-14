@@ -10,7 +10,11 @@ import {
 import Button from '../ui/Button';
 import Dropdown from '../ui/Dropdown';
 import { YouTubeLogoSvg } from '../ui/SvgIcons';
-import { extractTranscript, createShadowingVideo } from '../../services/shadowingApi';
+import {
+  createShadowingVideo,
+  extractTranscript,
+  uploadDirectToCloudinary,
+} from '../../services/shadowingApi';
 
 const TOPIC_CHOICES = [
   { value: 'life', labelKey: 'shadowing:topics.life' },
@@ -47,6 +51,7 @@ export default function AddVideoModal({
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
 
   const topicOptions = TOPIC_CHOICES.map((opt) => ({
@@ -67,6 +72,7 @@ export default function AddVideoModal({
     setErrorMessage('');
     setIsExtracting(false);
     setIsSubmitting(false);
+    setUploadProgress(0);
   };
 
   const handleClose = () => {
@@ -172,24 +178,65 @@ export default function AddVideoModal({
           exercises: normalizedExercises,
         };
       } else {
-        const formData = new FormData();
-        formData.append('title', title.trim());
-        if (translationsPayload) {
-          formData.append('translations', JSON.stringify(translationsPayload));
+        // Direct upload to Cloudinary to bypass free server 512MB RAM and prevent 502 Bad Gateway
+        let mediaUrl = '';
+        let cloudinaryPublicId = '';
+        let durationSec = Number(extractedData?.duration_seconds || 0);
+        let thumbUrl = '';
+
+        if (mediaFile) {
+          try {
+            const cRes = await uploadDirectToCloudinary(mediaFile, {
+              onProgress: (pct) => setUploadProgress(pct),
+            });
+            mediaUrl = cRes.secure_url || cRes.url || '';
+            cloudinaryPublicId = cRes.public_id || '';
+            if (cRes.duration && !durationSec) {
+              durationSec = Math.round(cRes.duration);
+            }
+            if (cRes.secure_url) {
+              thumbUrl = cRes.secure_url.replace(/\.[^/.]+$/, '.jpg');
+            }
+          } catch (cErr) {
+            console.warn('Direct Cloudinary upload fallback to server form upload:', cErr);
+          }
         }
-        formData.append('topic', topic);
-        formData.append('level', level);
-        formData.append('media_source', 'upload');
-        formData.append('media_file', mediaFile);
-        formData.append('is_public', isPublic ? 'true' : 'false');
-        if (extractedData?.duration_seconds) {
-          formData.append('duration_seconds', String(extractedData.duration_seconds));
+
+        if (mediaUrl) {
+          payload = {
+            title: title.trim(),
+            ...(translationsPayload ? { translations: translationsPayload } : {}),
+            topic,
+            level,
+            media_source: 'upload',
+            media_url: mediaUrl,
+            cloudinary_public_id: cloudinaryPublicId,
+            thumbnail_url: thumbUrl,
+            duration_seconds: durationSec,
+            is_public: isPublic,
+            segments: extractedData?.segments || [],
+            exercises: normalizedExercises,
+          };
+        } else {
+          const formData = new FormData();
+          formData.append('title', title.trim());
+          if (translationsPayload) {
+            formData.append('translations', JSON.stringify(translationsPayload));
+          }
+          formData.append('topic', topic);
+          formData.append('level', level);
+          formData.append('media_source', 'upload');
+          formData.append('media_file', mediaFile);
+          formData.append('is_public', isPublic ? 'true' : 'false');
+          if (durationSec) {
+            formData.append('duration_seconds', String(durationSec));
+          }
+          if (extractedData?.segments) {
+            formData.append('segments', JSON.stringify(extractedData.segments));
+          }
+          formData.append('exercises', JSON.stringify(normalizedExercises));
+          payload = formData;
         }
-        if (extractedData?.segments) {
-          formData.append('segments', JSON.stringify(extractedData.segments));
-        }
-        formData.append('exercises', JSON.stringify(normalizedExercises));
-        payload = formData;
       }
 
       const created = await createShadowingVideo(payload);
@@ -270,14 +317,47 @@ export default function AddVideoModal({
             </button>
           </div>
 
-          {/* Error Alert Box */}
+          {/* Error Alert Box with Skip option */}
           {errorMessage && (
             <div
               role="alert"
-              className="p-3 bg-red-50 border border-red-200 rounded-control flex items-start gap-2.5 text-xs sm:text-sm text-red-800"
+              className="p-3 bg-red-50 border border-red-200 rounded-control flex flex-col gap-2 text-xs sm:text-sm text-red-800"
             >
-              <ExclamationCircleIcon className="w-4 h-4 text-red-600 shrink-0 mt-0.5" aria-hidden="true" />
-              <div className="flex-1 font-medium">{errorMessage}</div>
+              <div className="flex items-start gap-2.5">
+                <ExclamationCircleIcon
+                  className="w-4 h-4 text-red-600 shrink-0 mt-0.5"
+                  aria-hidden="true"
+                />
+                <div className="flex-1 font-medium">{errorMessage}</div>
+              </div>
+              {((sourceType === 'upload' && mediaFile) ||
+                (sourceType === 'youtube' && youtubeUrl)) &&
+                !extractedData && (
+                  <div className="flex justify-end pt-1.5 border-t border-red-200/60">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExtractedData({
+                          media_source: sourceType,
+                          segments: [],
+                          exercises: [],
+                          duration_seconds: 0,
+                        });
+                        if (!title) {
+                          if (sourceType === 'upload' && mediaFile) {
+                            setTitle(mediaFile.name.replace(/\.[^/.]+$/, ''));
+                          } else if (sourceType === 'youtube') {
+                            setTitle('Shadowing Lesson');
+                          }
+                        }
+                        setErrorMessage('');
+                      }}
+                      className="text-xs font-semibold text-sky-700 hover:text-sky-800 underline cursor-pointer"
+                    >
+                      {t('shadowing:addVideoModal.skipExtractAction')}
+                    </button>
+                  </div>
+                )}
             </div>
           )}
 
@@ -328,20 +408,45 @@ export default function AddVideoModal({
             )}
 
             {!extractedData && (
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                disabled={isExtracting}
-                className="justify-center"
-              >
-                <SparklesIcon className="w-4 h-4" aria-hidden="true" />
-                <span>
-                  {isExtracting
-                    ? t('shadowing:addVideoModal.extracting')
-                    : t('shadowing:addVideoModal.extractAction')}
-                </span>
-              </Button>
+              <div className="flex flex-col sm:flex-row items-center gap-2">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="md"
+                  disabled={isExtracting}
+                  className="w-full sm:flex-1 justify-center"
+                >
+                  <SparklesIcon className="w-4 h-4" aria-hidden="true" />
+                  <span>
+                    {isExtracting
+                      ? t('shadowing:addVideoModal.extracting')
+                      : t('shadowing:addVideoModal.extractAction')}
+                  </span>
+                </Button>
+                {sourceType === 'upload' && mediaFile && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="md"
+                    disabled={isExtracting}
+                    onClick={() => {
+                      setExtractedData({
+                        media_source: 'upload',
+                        segments: [],
+                        exercises: [],
+                        duration_seconds: 0,
+                      });
+                      if (!title && mediaFile) {
+                        setTitle(mediaFile.name.replace(/\.[^/.]+$/, ''));
+                      }
+                      setErrorMessage('');
+                    }}
+                    className="w-full sm:w-auto justify-center"
+                  >
+                    <span>{t('shadowing:addVideoModal.createWithoutExtract')}</span>
+                  </Button>
+                )}
+              </div>
             )}
           </form>
 
@@ -498,6 +603,26 @@ export default function AddVideoModal({
                 </div>
               )}
 
+              {/* Progress bar during direct Cloudinary upload */}
+              {isSubmitting && uploadProgress > 0 && uploadProgress < 100 && (
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between text-xs text-slate-600 tabular-nums">
+                    <span>
+                      {t('shadowing:addVideoModal.uploadingCloudinary', {
+                        percent: uploadProgress,
+                      })}
+                    </span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-slate-200/70 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-sky-600 h-full transition-all duration-150"
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Submit Action */}
               <Button
                 type="button"
@@ -510,7 +635,11 @@ export default function AddVideoModal({
                 <CheckCircleIcon className="w-4 h-4" aria-hidden="true" />
                 <span>
                   {isSubmitting
-                    ? t('shadowing:addVideoModal.submitting')
+                    ? uploadProgress > 0 && uploadProgress < 100
+                      ? t('shadowing:addVideoModal.uploadingCloudinary', {
+                          percent: uploadProgress,
+                        })
+                      : t('shadowing:addVideoModal.submitting')
                     : t('shadowing:addVideoModal.submitAction')}
                 </span>
               </Button>

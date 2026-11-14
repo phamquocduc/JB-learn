@@ -37,6 +37,7 @@ from shadowing.services.cloudinary import (
     is_cloudinary_configured,
     upload_media,
 )
+from shadowing.services.groq import is_groq_configured
 from shadowing.services.transcription import extract_youtube_id
 
 from .models import AdminAuditLog, AppModuleConfig, AppSystemConfig, Role
@@ -291,6 +292,8 @@ class AdminOverviewAPIView(APIView):
                         "youtube_transcript_available": yt_transcript_installed,
                         "whisper_model": getattr(settings, "WHISPER_MODEL_SIZE", "base"),
                         "cache_ready": whisper_cache.exists(),
+                        "groq_configured": is_groq_configured(),
+                        "groq_model": getattr(settings, "GROQ_WHISPER_MODEL", "whisper-large-v3-turbo"),
                     },
                     "runtime": {
                         "django_version": django.get_version(),

@@ -30,6 +30,7 @@ from shadowing.services.transcription import (
     extract_youtube_id,
     extract_youtube_transcript,
     generate_exercises_from_segments,
+    transcribe_audio,
     transcribe_audio_offline,
 )
 from users.rbac import (
@@ -299,7 +300,7 @@ class ShadowingVideoViewSet(viewsets.ModelViewSet):
                     }
                 )
 
-            # Processing uploaded media file with faster-whisper offline
+            # Processing uploaded media file with Groq Whisper API (or offline faster-whisper fallback)
             suffix = Path(media_file.name).suffix or ".mp3"
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                 for chunk in media_file.chunks():
@@ -307,7 +308,7 @@ class ShadowingVideoViewSet(viewsets.ModelViewSet):
                 tmp_path = tmp.name
 
             try:
-                segments = transcribe_audio_offline(tmp_path)
+                segments = transcribe_audio(tmp_path)
                 exercises = generate_exercises_from_segments(segments)
                 duration_seconds = int(round(segments[-1]["end"])) if segments else 0
                 return Response(
@@ -324,9 +325,14 @@ class ShadowingVideoViewSet(viewsets.ModelViewSet):
             finally:
                 Path(tmp_path).unlink(missing_ok=True)
 
-        except ValueError as exc:
+        except (ValueError, IndexError) as exc:
             err_msg = str(exc)
-            if any(p in err_msg for p in ("/var/", "/tmp", "Invalid data found")):
+            if "tuple index out of range" in err_msg or isinstance(exc, IndexError):
+                err_msg = _(
+                    "Tệp media không chứa luồng âm thanh hợp lệ (hoặc video không có tiếng). "
+                    "Vui lòng chọn tệp video/âm thanh có tiếng để trích xuất phụ đề."
+                )
+            elif any(p in err_msg for p in ("/var/", "/tmp", "Invalid data found")):
                 err_msg = _("Tệp âm thanh / video không hợp lệ hoặc không có dữ liệu âm thanh để xử lý.")
             return Response(
                 {"detail": err_msg, "error": err_msg},

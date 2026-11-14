@@ -14,12 +14,19 @@ from shadowing.services.cloudinary import (
     is_cloudinary_configured,
     upload_media,
 )
+from shadowing.services.groq import (
+    get_groq_api_key,
+    get_groq_model,
+    is_groq_configured,
+    transcribe_with_groq,
+)
 from shadowing.services.seeding import sync_shadowing_seed_videos
 from shadowing.services.transcription import (
     extract_youtube_id,
     format_furigana,
     generate_exercises_from_segments,
     tokenize_words,
+    transcribe_audio,
 )
 
 User = get_user_model()
@@ -430,7 +437,7 @@ class ShadowingAPITestCase(TestCase):
         self.assertEqual(res.data["youtube_id"], "ObDXpVyPrF8")
         self.assertEqual(len(res.data["segments"]), 1)
 
-    @patch("shadowing.views.transcribe_audio_offline")
+    @patch("shadowing.views.transcribe_audio")
     def test_extract_transcript_uploaded_file_success(self, mock_transcribe):
         """Tests offline transcription of an uploaded audio file."""
         mock_transcribe.return_value = [
@@ -732,5 +739,124 @@ class CloudinaryServiceTests(TestCase):
             "https://res.cloudinary.com/dhyay1hbw/video/upload/v1234/test.mp4",
         )
         self.assertEqual(detail_res.data["cloudinary_public_id"], "shadowing_media/test")
+
+
+class GroqWhisperServiceTestCase(TestCase):
+    """Unit tests for Groq Whisper Cloud API transcription service."""
+
+    def test_is_groq_configured(self):
+        with self.settings(GROQ_API_KEY=""):
+            with patch.dict("os.environ", {"GROQ_API_KEY": ""}):
+                self.assertFalse(is_groq_configured())
+
+        with self.settings(GROQ_API_KEY="gsk_1234567890abcdef123456"):
+            with patch.dict("os.environ", {"GROQ_API_KEY": ""}):
+                self.assertTrue(is_groq_configured())
+
+        with self.settings(GROQ_API_KEY="<your-groq-api-key>"):
+            with patch.dict("os.environ", {"GROQ_API_KEY": ""}):
+                self.assertFalse(is_groq_configured())
+
+    @patch("shadowing.services.groq.requests.post")
+    def test_transcribe_with_groq_success(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "task": "transcribe",
+            "language": "japanese",
+            "duration": 4.5,
+            "text": "日本に行きたいです。",
+            "segments": [
+                {
+                    "id": 0,
+                    "start": 0.5,
+                    "end": 3.8,
+                    "text": "日本に行きたいです。",
+                }
+            ],
+        }
+        mock_post.return_value = mock_response
+
+        # Synthetic lightweight wav file buffer
+        import io
+        import av
+        import numpy as np
+
+        buf = io.BytesIO()
+        with av.open(buf, mode="w", format="wav") as container:
+            stream = container.add_stream("pcm_s16le", rate=16000)
+            samples = np.zeros((1, 16000), dtype=np.int16)
+            frame = av.AudioFrame.from_ndarray(samples, format="s16", layout="mono")
+            frame.sample_rate = 16000
+            for p in stream.encode(frame):
+                container.mux(p)
+            for p in stream.encode():
+                container.mux(p)
+        buf.seek(0)
+
+        with self.settings(GROQ_API_KEY="gsk_test_mock_key_12345678"):
+            segments = transcribe_with_groq(buf)
+            self.assertEqual(len(segments), 1)
+            self.assertEqual(segments[0]["text"], "日本に行きたいです。")
+            self.assertIn("ruby_text", segments[0])
+            self.assertIn("words", segments[0])
+            self.assertEqual(segments[0]["start"], 0.5)
+            self.assertEqual(segments[0]["end"], 3.8)
+
+    @patch("shadowing.services.groq.requests.post")
+    def test_transcribe_with_groq_unauthorized_error(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.status_code = 401
+        mock_post.return_value = mock_response
+
+        import io
+        import av
+        import numpy as np
+
+        buf = io.BytesIO()
+        with av.open(buf, mode="w", format="wav") as container:
+            stream = container.add_stream("pcm_s16le", rate=16000)
+            samples = np.zeros((1, 16000), dtype=np.int16)
+            frame = av.AudioFrame.from_ndarray(samples, format="s16", layout="mono")
+            frame.sample_rate = 16000
+            for p in stream.encode(frame):
+                container.mux(p)
+            for p in stream.encode():
+                container.mux(p)
+        buf.seek(0)
+
+        with self.settings(GROQ_API_KEY="gsk_invalid_key_12345678"):
+            with self.assertRaises(ValueError) as ctx:
+                transcribe_with_groq(buf)
+            self.assertIn("GROQ_API_KEY", str(ctx.exception))
+
+    def test_transcribe_with_groq_invalid_media_file_error(self):
+        import io
+        buf = io.BytesIO(b"not a valid audio file")
+        with self.settings(GROQ_API_KEY="gsk_valid_key_12345678"):
+            with self.assertRaises(ValueError) as ctx:
+                transcribe_with_groq(buf)
+            self.assertTrue(
+                "Không thể giải mã" in str(ctx.exception)
+                or "không chứa luồng âm thanh" in str(ctx.exception)
+            )
+
+    @patch("shadowing.services.groq.transcribe_with_groq")
+    def test_transcribe_audio_dispatches_to_groq_when_configured(self, mock_groq):
+        mock_groq.return_value = [{"id": 1, "text": "テスト", "ruby_text": "テスト", "start": 0, "end": 1}]
+        with self.settings(GROQ_API_KEY="gsk_real_key_12345678"):
+            result = transcribe_audio("dummy_path")
+            self.assertEqual(len(result), 1)
+            mock_groq.assert_called_once_with("dummy_path")
+
+    @patch("shadowing.services.transcription.transcribe_audio_offline")
+    def test_transcribe_audio_dispatches_to_offline_when_no_groq(self, mock_offline):
+        mock_offline.return_value = [{"id": 1, "text": "オフライン", "ruby_text": "オフライン", "start": 0, "end": 1}]
+        with self.settings(GROQ_API_KEY=""):
+            with patch.dict("os.environ", {"GROQ_API_KEY": ""}):
+                result = transcribe_audio("dummy_path")
+                self.assertEqual(len(result), 1)
+                mock_offline.assert_called_once_with("dummy_path")
+
 
 

@@ -146,3 +146,68 @@ export async function updateVideoProgress(id, payload) {
     body: JSON.stringify(payload),
   });
 }
+
+export async function fetchCloudinarySignature(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/shadowing/videos/cloudinary_signature/${query ? `?${query}` : ''}`, {
+    method: 'GET',
+  });
+}
+
+export function uploadDirectToCloudinary(file, { onProgress } = {}) {
+  return fetchCloudinarySignature({ folder: 'shadowing_media', resource_type: 'auto' }).then((sig) => {
+    if (!sig?.configured) {
+      throw new Error(
+        sig?.detail ||
+          'Cloudinary chưa được cấu hình API Key trên server. Vui lòng thêm CLOUDINARY_API_KEY trên Render.'
+      );
+    }
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', sig.upload_url);
+
+      if (onProgress && xhr.upload) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            onProgress(percent);
+          }
+        };
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const res = JSON.parse(xhr.responseText);
+            resolve(res);
+          } catch {
+            reject(new Error('Phản hồi từ Cloudinary không hợp lệ.'));
+          }
+        } else {
+          try {
+            const errData = JSON.parse(xhr.responseText);
+            reject(
+              new Error(
+                errData?.error?.message || `Lỗi tải lên Cloudinary (HTTP ${xhr.status})`
+              )
+            );
+          } catch {
+            reject(new Error(`Lỗi tải lên Cloudinary (HTTP ${xhr.status})`));
+          }
+        }
+      };
+
+      xhr.onerror = () =>
+        reject(new Error('Lỗi kết nối khi tải file trực tiếp lên Cloudinary.'));
+
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('api_key', sig.api_key);
+      fd.append('timestamp', String(sig.timestamp));
+      fd.append('signature', sig.signature);
+      fd.append('folder', sig.folder);
+      xhr.send(fd);
+    });
+  });
+}

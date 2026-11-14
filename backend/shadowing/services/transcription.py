@@ -256,6 +256,10 @@ def extract_youtube_transcript(youtube_url_or_id: str) -> list:
     ).strip()
     proxy_config = None
     if proxy_url:
+        if not proxy_url.startswith(("http://", "https://", "socks5://")):
+            proxy_url = f"http://{proxy_url}"
+        masked_proxy = re.sub(r"://([^:]+):([^@]+)@", r"://\1:***@", proxy_url)
+        logger.info("Using YouTube proxy: %s for video %s", masked_proxy, video_id)
         from youtube_transcript_api.proxies import GenericProxyConfig
         proxy_config = GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
 
@@ -335,39 +339,87 @@ def transcribe_audio_offline(file_path_or_buffer) -> list:
     Decodes audio via built-in PyAV with zero external ffmpeg binary dependency.
     Returns structured list of segments with Furigana and tokenized words.
     """
-    model = get_whisper_model(model_size=getattr(settings, "WHISPER_MODEL_SIZE", "base"))
-    segments_gen, info = model.transcribe(
-        file_path_or_buffer,
-        language="ja",
-        task="transcribe",
-        beam_size=5,
-        vad_filter=True,
-        vad_parameters=dict(min_silence_duration_ms=500, speech_pad_ms=200),
-        word_timestamps=True,
-        condition_on_previous_text=False,
-    )
+    import av
 
-    segments = []
-    for seg in segments_gen:
-        text = seg.text.strip()
-        if not text:
-            continue
-        start = round(float(seg.start), 2)
-        end = round(max(start + 0.1, float(seg.end)), 2)
-        ruby = format_furigana(text)
-        words = tokenize_words(text)
-        segments.append(
-            {
-                "id": len(segments) + 1,
-                "start": start,
-                "end": end,
-                "text": text,
-                "ruby_text": ruby,
-                "meaning": "",
-                "words": words,
-            }
+    # Pre-validate that media container has at least one audio stream
+    try:
+        with av.open(file_path_or_buffer) as container:
+            if not container.streams.audio:
+                raise ValueError(
+                    _(
+                        "Tệp video/âm thanh tải lên không có luồng âm thanh (audio track). "
+                        "Vui lòng kiểm tra lại file để chắc chắn video/audio có tiếng."
+                    )
+                )
+    except (av.FFmpegError, ValueError) as av_err:
+        raise ValueError(
+            _("Không thể đọc định dạng âm thanh từ tệp media: %(err)s") % {"err": str(av_err)}
+        ) from av_err
+
+    model = get_whisper_model(model_size=getattr(settings, "WHISPER_MODEL_SIZE", "base"))
+
+    try:
+        segments_gen, info = model.transcribe(
+            file_path_or_buffer,
+            language="ja",
+            task="transcribe",
+            beam_size=5,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500, speech_pad_ms=200),
+            word_timestamps=True,
+            condition_on_previous_text=False,
         )
-    return segments
+
+        segments = []
+        for seg in segments_gen:
+            text = seg.text.strip()
+            if not text:
+                continue
+            start = round(float(seg.start), 2)
+            end = round(max(start + 0.1, float(seg.end)), 2)
+            ruby = format_furigana(text)
+            words = tokenize_words(text)
+            segments.append(
+                {
+                    "id": len(segments) + 1,
+                    "start": start,
+                    "end": end,
+                    "text": text,
+                    "ruby_text": ruby,
+                    "meaning": "",
+                    "words": words,
+                }
+            )
+        return segments
+    except IndexError as idx_err:
+        logger.warning("Transcription decode failed with IndexError (audio stream missing/truncated): %s", idx_err)
+        raise ValueError(
+            _(
+                "Tệp media không chứa luồng âm thanh hợp lệ (hoặc tệp video bị tắt tiếng / không có tiếng). "
+                "Vui lòng kiểm tra lại file để đảm bảo video có âm thanh."
+            )
+        ) from idx_err
+    except Exception as exc:
+        logger.warning("Offline audio transcription failed: %s", exc)
+        raise ValueError(
+            _("Lỗi khi trích xuất giọng nói từ tệp media: %(err)s") % {"err": str(exc)}
+        ) from exc
+
+
+def transcribe_audio(file_path_or_buffer) -> list:
+    """
+    Unified audio transcription dispatcher.
+    Uses Groq Whisper Cloud API (Whisper Large v3) when GROQ_API_KEY is configured.
+    Falls back to local faster-whisper model when Groq is not configured.
+    """
+    from .groq import is_groq_configured, transcribe_with_groq
+
+    if is_groq_configured():
+        logger.info("GROQ_API_KEY is configured. Dispatching transcription to Groq Cloud Whisper API...")
+        return transcribe_with_groq(file_path_or_buffer)
+
+    logger.info("GROQ_API_KEY not configured. Falling back to local faster-whisper model...")
+    return transcribe_audio_offline(file_path_or_buffer)
 
 
 def generate_exercises_from_segments(segments: list) -> list:

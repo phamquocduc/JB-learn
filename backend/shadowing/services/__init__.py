@@ -7,6 +7,13 @@ from .cloudinary import (
     is_cloudinary_configured,
     upload_media,
 )
+from .groq import (
+    extract_audio_to_compact_mp3,
+    get_groq_api_key,
+    get_groq_model,
+    is_groq_configured,
+    transcribe_with_groq,
+)
 
 __all__ = [
     "delete_media",
@@ -14,4 +21,10 @@ __all__ = [
     "get_cloudinary_config",
     "is_cloudinary_configured",
     "upload_media",
+    "extract_audio_to_compact_mp3",
+    "get_groq_api_key",
+    "get_groq_model",
+    "is_groq_configured",
+    "transcribe_with_groq",
 ]
+
