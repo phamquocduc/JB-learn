@@ -93,7 +93,11 @@ jobs:
           script: |
             cd /var/www/jb_learn
             git pull origin master
-            source .venv/bin/activate
+            if [ -f "/var/www/jb_learn/.venv/bin/activate" ]; then
+              source /var/www/jb_learn/.venv/bin/activate
+            elif [ -f "/var/www/.venv/bin/activate" ]; then
+              source /var/www/.venv/bin/activate
+            fi
             pip install -r requirements.txt
             python backend/manage.py migrate --noinput
             python backend/manage.py sync_cards
