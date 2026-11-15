@@ -1,0 +1,358 @@
+# -*- coding: utf-8 -*-
+"""
+Word Usage in Context (Cách sử dụng từ đúng trong ngữ cảnh - 語彙の正しい使い方) for JLPT N3 Mondai 5.
+Contains 35 high-frequency words appearing in JLPT N3 Mondai 5 with collocations and full context examples.
+"""
+
+WORD_USAGE_N3_RECORDS = [
+    (
+        "Mondai 5 - Cách dùng từ",
+        "普及（ふきゅう）",
+        "ふきゅう",
+        "Phổ cập, lan tỏa rộng rãi vào đời sống",
+        "Cụm từ chuẩn (Collocation): ～が普及する / 普及率（ふきゅうりつ）\nNgữ cảnh: Dùng cho đồ công nghệ, thiết bị, dịch vụ hoặc phong trào lan rộng.",
+        "スマートフォンの普及によって、誰でも手軽にネットを使えるようになった。 — Nhờ sự phổ cập rộng rãi của điện thoại thông minh mà ai cũng có thể dễ dàng truy cập mạng.\n"
+        "省エネ家電が一般の家庭にも急速に普及している。 — Các thiết bị gia dụng tiết kiệm năng lượng đang phổ cập nhanh chóng vào các hộ gia đình.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "解消（かいしょう）",
+        "かいしょう",
+        "Giải tỏa, xóa bỏ, làm tiêu tan",
+        "Cụm từ chuẩn: ストレスを解消する / 渋滞を解消する / 不安・赤字を解消する\nNgữ cảnh: Xóa bỏ trạng thái tiêu cực, vướng mắc, áp lực hay kẹt xe.",
+        "週末に思い切りスポーツをして、日頃のストレスを解消した。 — Cuối tuần chơi thể thao thỏa thích đã giúp tôi giải tỏa hết mọi căng thẳng áp lực tích tụ.\n"
+        "新しいバイパス道路の開通によって、長年の交通渋滞が解消された。 — Nhờ thông xe tuyến đường vành đai mới mà tình trạng tắc nghẽn giao thông nhiều năm đã được giải tỏa.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "克服（こくふく）",
+        "こくふく",
+        "Khắc phục, vượt qua (khó khăn, nhược điểm)",
+        "Cụm từ chuẩn: 弱点を克服する / 困難を克服する / 病気を克服する\nNgữ cảnh: Nỗ lực ý chí để chiến thắng điểm yếu, bệnh tật hoặc trở ngại.",
+        "彼は毎日の練習を重ねて、苦手だった英語の発音を克服した。 — Nhờ kiên trì luyện tập mỗi ngày mà cậu ấy đã khắc phục được nhược điểm phát âm tiếng Anh.\n"
+        "チーム全員が一丸となって、数々の困難を克服した。 — Toàn thể đội bóng đã đồng lòng đoàn kết để vượt qua muôn vàn khó khăn.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "契機（けいき）",
+        "けいき",
+        "Bước ngoặt, cơ hội làm thay đổi tình thế",
+        "Cụm từ chuẩn: ～を契機に（して） / ～が契機となる\nNgữ cảnh: Sự kiện hoặc thời điểm làm cột mốc dẫn đến một sự thay đổi lớn.",
+        "病気で入院したことを契機に、タバコをきっぱりやめた。 — Lấy việc phải nhập viện vì ốm làm bước ngoặt, tôi đã dứt khoát bỏ hẳn thuốc lá.\n"
+        "東京オリンピックを契機として、外国人観光客が急増した。 — Lấy sự kiện Olympic Tokyo làm đòn bẩy bước ngoặt, lượng khách du lịch quốc tế đã tăng vọt.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "充実（じゅうじつ）",
+        "じゅうじつ",
+        "Sung túc, trọn vẹn, đầy đủ ý nghĩa",
+        "Cụm từ chuẩn: 生活が充実している / 設備が充実している / 充実した毎日\nNgữ cảnh: Nội dung, cuộc sống hoặc cơ sở vật chất phong phú, mỹ mãn.",
+        "大学に入学してからは、勉強もサークルも充実した毎日を送っている。 — Kể từ khi vào đại học, từ việc học đến câu lạc bộ tôi đều trải qua những ngày tháng trọn vẹn ý nghĩa.\n"
+        "この図書館は専門書の設備がとても充実している。 — Thư viện này có hệ thống trang thiết bị và đầu sách chuyên ngành rất đầy đủ và tiện nghi.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "慎重（しんちょう）",
+        "しんちょう",
+        "Thận trọng, cẩn trọng kỹ lưỡng",
+        "Cụm từ chuẩn: 慎重に検討する / 慎重な態度 / 慎重に判断する\nNgữ cảnh: Làm việc gì cũng suy xét kỹ càng trước sau để tránh sai sót.",
+        "家を購入する時は大きな買い物なので、慎重に判断しなければならない。 — Mua nhà là việc hệ trọng tốn nhiều tiền bạc nên bắt buộc phải suy xét phán đoán thật thận trọng.\n"
+        "会社の方針を決めるため、役員たちは慎重な議論を重ねた。 — Để ấn định phương châm công ty, ban giám đốc đã thảo luận hết sức cẩn trọng.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "率直（そっちょく）",
+        "そっちょく",
+        "Thẳng thắn, bộc trực, không giấu giếm",
+        "Cụm từ chuẩn: 率直な意見 / 率直に言う / 率直に述べる\nNgữ cảnh: Bày tỏ suy nghĩ thật từ tận đáy lòng mà không màu mè hay quanh co.",
+        "この新しいデザインについて、あなたの率直な意見を聞かせてください。 — Về mẫu thiết kế mới này, xin hãy cho tôi nghe ý kiến đóng góp thẳng thắn chân thật của bạn.\n"
+        "率直に言って、今回の計画にはまだ多くの問題点があると思う。 — Nói một cách thẳng thắn thì tôi thấy kế hoạch lần này vẫn còn tồn tại rất nhiều vấn đề.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "皮肉（ひにく）",
+        "ひにく",
+        "Mỉa mai, châm chọc / Trớ trêu trêu ngươi",
+        "Cụm từ chuẩn: 皮肉を言う / 皮肉な結果 / 皮肉なことに\nNgữ cảnh: Lời nói giễu cợt sâu cay, hoặc số phận trớ trêu trái ngược mong đợi.",
+        "遅刻してきた彼に対して、部長は「ずいぶん早起きだね」と皮肉を言った。 — Nhìn cậu nhân viên đến muộn, trưởng phòng mỉa mai châm chọc: 'Hôm nay dậy sớm gớm nhỉ'.\n"
+        "皮肉なことに、傘を買った瞬間に雨が止んで青空が広がった。 — Thật trớ trêu làm sao, đúng ngay cái giây phút vừa mua ô xong thì mưa tạnh và trời hửng nắng.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "催促（さいそく）",
+        "さいそく",
+        "Thúc giục, hối thúc, nhắc nhở",
+        "Cụm từ chuẩn: 返済を催促する / 支払いの催促 / 提出を催促する\nNgữ cảnh: Hối thúc người khác nhanh chóng nộp tiền, trả nợ hoặc gửi báo cáo.",
+        "家賃の支払期日が過ぎていたので、大家さんから電話で催促された。 — Vì đã quá hạn trả tiền thuê nhà nên tôi đã bị chủ nhà gọi điện thoại giục giã đòi nợ.\n"
+        "締め切りが迫っている原稿を、編集者が何度も催促してきた。 — Bản thảo sắp sửa đến hạn chót nên người biên tập viên đã liên tục hối thúc nộp bài.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "柔軟（じゅうなん）",
+        "じゅうなん",
+        "Linh hoạt, mềm dẻo / Cơ thể dẻo dai",
+        "Cụm từ chuẩn: 柔軟な考え方 / 柔軟に対応する / 柔軟体操\nNgữ cảnh: Khả năng ứng biến linh hoạt không cứng nhắc theo tình hình.",
+        "時代の変化に合わせて、私たちは柔軟な考え方を持つ必要がある。 — Phù hợp với sự đổi thay của thời đại, chúng ta cần phải giữ cho mình tư duy linh hoạt mềm dẻo.\n"
+        "予期せぬトラブルにも、スタッフ全員が柔軟に対応してくれた。 — Khi xảy ra rắc rối bất ngờ, toàn bộ nhân viên đã linh hoạt xử lý vô cùng êm đẹp.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "維持（いじ）",
+        "いじ",
+        "Duy trì, giữ gìn nguyên trạng thái tốt",
+        "Cụm từ chuẩn: 健康を維持する / 現状を維持する / 体重を維持する\nNgữ cảnh: Giữ vững không để bị giảm sút hay biến chất theo thời gian.",
+        "毎朝のジョギングとバランスの良い食事で、健康な体を維持している。 — Nhờ chạy bộ mỗi sáng và chế độ ăn cân bằng dinh dưỡng, tôi duy trì được một cơ thể khỏe mạnh.\n"
+        "景気が低迷する中で、現在の売上水準を維持するのは容易ではない。 — Giữa lúc kinh tế suy thoái, việc duy trì mức doanh số như hiện tại là điều không hề đơn giản.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "保管（ほかん）",
+        "ほかん",
+        "Bảo quản, cất giữ an toàn có trách nhiệm",
+        "Cụm từ chuẩn: 貴重品を保管する / 書類を保管する / ロッカーに保管する\nNgữ cảnh: Cất giữ đồ đạc, tiền bạc, hồ sơ cẩn thận để không bị hỏng hóc hay thất lạc.",
+        "パスポートや預金通帳などの貴重品は、金庫に入れて大切に保管している。 — Những đồ quý giá như hộ chiếu và sổ tiết kiệm thì tôi cất giữ cẩn thận trong két sắt.\n"
+        "この薬は直射日光を避けて、涼しい場所に保管してください。 — Loại thuốc này xin vui lòng bảo quản ở nơi râm mát, tránh ánh nắng chiếu trực tiếp.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "蓄える（たくわえる）",
+        "たくわえる",
+        "Tích lũy, tích trữ dần dần",
+        "Cụm từ chuẩn: 知識を蓄える / 体力を蓄える / お金を蓄える\nNgữ cảnh: Dần dà tích góp tiền của, bồi dưỡng sức lực hoặc tri thức cho tương lai.",
+        "若いうちに本をたくさん読んで、幅広い知識を蓄えておきたい。 — Nhân lúc còn trẻ tôi muốn đọc thật nhiều sách để tích lũy cho mình vốn hiểu biết sâu rộng.\n"
+        "明日の決勝戦に備えて、今夜はしっかり寝て体力を蓄えよう。 — Chuẩn bị cho trận chung kết ngày mai, đêm nay hãy ngủ thật ngon để tích lũy lại thể lực nào.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "省く（はぶく）",
+        "はぶく",
+        "Lược bớt, cắt giảm bớt công đoạn thừa",
+        "Cụm từ chuẩn: 手間を省く / 説明を省く / 無駄を省く\nNgữ cảnh: Lược bỏ phần không cần thiết để tiết kiệm thời gian, công sức hoặc tiền bạc.",
+        "電子決済を導入したことで、お釣りを渡す手間を大きく省くことができた。 — Nhờ áp dụng thanh toán điện tử mà đã lược bớt được rất nhiều công đoạn trả tiền thừa phiền phức.\n"
+        "時間の都合上、詳しい説明は省かせていただきます。 — Do giới hạn thời gian, tôi xin phép được lược bớt phần giải thích chi tiết ạ.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "怠る（おこたる）",
+        "おこたる",
+        "Bỏ bê, lơ là, xao nhãng bổn phận",
+        "Cụm từ chuẩn: 努力を怠る / 注意を怠る / 準備を怠る\nNgữ cảnh: Chủ quan lười biếng mà không chú tâm làm việc cần làm.",
+        "日々の地道な練習を怠ると、すぐにライバルに追い抜かれてしまう。 — Nếu lơ là bỏ bê việc tập luyện chăm chỉ hằng ngày thì sẽ bị đối thủ vượt mặt ngay tức khắc.\n"
+        "安全確認を怠ったために、工場で思わぬ重大事故が発生してしまった。 — Do xao nhãng việc kiểm tra an toàn mà trong nhà máy đã phát sinh vụ tai nạn nghiêm trọng ngoài ý muốn.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "恵まれる（めぐまれる）",
+        "めぐまれる",
+        "Được ưu đãi, ban tặng, may mắn có được",
+        "Cụm từ chuẩn: 天候に恵まれる / 才能に恵まれる / 良い環境に恵まれる\nNgữ cảnh: Được hưởng điều kiện thiên nhiên, môi trường hoặc tài năng tốt đẹp từ tạo hóa.",
+        "幸いにも素晴らしい好天に恵まれて、運動会は大成功のうちに終わった。 — Rất may mắn là được trời ban cho thời tiết đẹp tuyệt vời nên đại hội thể thao đã thành công rực rỡ.\n"
+        "彼女は類まれな音楽の才能に恵まれ、幼い頃から天才ピアニストと呼ばれた。 — Cô ấy may mắn được trời phú cho tài năng âm nhạc hiếm có, từ nhỏ đã được xưng tụng là thần đồng piano.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "冴える（さえる）",
+        "さえる",
+        "Minh mẫn, tỉnh táo / Sắc bén / Màu sắc trong sáng",
+        "Cụm từ chuẩn: 頭が冴える / 目が冴える / 腕前が冴える\nNgữ cảnh: Đầu óc nhạy bén hanh thông hoặc mắt mở thao láo không ngủ được.",
+        "朝に熱いブラックコーヒーを一杯飲んだら、頭がすっきりと冴えてきた。 — Sáng ra uống một tách cà phê đen nóng hổi là đầu óc tôi tỉnh táo hanh thông hẳn ra.\n"
+        "夜遅くまでスマホの画面を見ていたせいで、目が冴えて全く眠れない。 — Vì mải xem màn hình điện thoại đêm muộn nên mắt tôi cứ tỉnh queo không tài nào chợp mắt được.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "こだわり",
+        "こだわり",
+        "Kỹ tính, chăm chút tỉ mỉ, có gu riêng",
+        "Cụm từ chuẩn: 素材へのこだわり / 味にこだわりがある / こだわりを持つ\nNgữ cảnh: Cầu kỳ, trau chuốt và nhất quán theo chuẩn mực riêng của bản thân.",
+        "このラーメン屋は、無添加の天然素材に並々ならぬ強いこだわりを持っている。 — Quán mì ramen này có sự chăm chút cầu kỳ đặc biệt đối với nguyên liệu tự nhiên không hóa chất.\n"
+        "彼は着る服に対して強いこだわりがあり、仕立ての良さで選んでいる。 — Anh ấy rất kỹ tính trong việc chọn áo quần, luôn ưu tiên những bộ có đường may tinh tế.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "あやふや",
+        "あやふや",
+        "Mơ hồ, mập mờ, không rõ ràng dứt khoát",
+        "Cụm từ chuẩn: あやふやな記憶 / あやふやな返事 / あやふやな態度\nNgữ cảnh: Thông tin, ký ức hoặc thái độ lấp lửng không chắc chắn.",
+        "昔のことなので記憶があやふやで、正確な日付までは思い出せない。 — Chuyện xưa lâu rồi nên ký ức của tôi rất mơ hồ, không thể nào nhớ chính xác được ngày tháng.\n"
+        "大事な契約の場であやふやな返答をしてはならず、明確に答えるべきだ。 — Ở cuộc đàm phán hợp đồng quan trọng thì không được trả lời ỡm ờ mà phải rành mạch dứt khoát.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "だらしない",
+        "だらしない",
+        "Luộm thuộm, nhếch nhác, vô kỷ luật",
+        "Cụm từ chuẩn: だらしない生活 / だらしない格好 / 金銭にだらしない\nNgữ cảnh: Tác phong cẩu thả, quần áo xộc xệch hoặc lối sống buông thả.",
+        "約束の時間をいつも平気で破るなんて、本当にだらしない人間だ。 — Cứ xem thường việc vi phạm giờ hẹn như cơm bữa thì đúng là một con người vô kỷ luật thiếu đứng đắn.\n"
+        "部屋が散らかり放題で、なんともだらしない暮らしぶりだ。 — Căn phòng bừa bộn khắp nơi, quả thật là một lối sống luộm thuộm bừa bãi.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "見合わせる（みあわせる）",
+        "みあわせる",
+        "Tạm hoãn, lùi lịch chờ xem xét lại",
+        "Cụm từ chuẩn: 出発を見合わせる / 開催を見合わせる / 計画を見合わせる\nNgữ cảnh: Dừng lại không thực hiện ngay do hoàn cảnh không thuận lợi.",
+        "台風が接近して危険なため、フェリーの運航は当面見合わせることになった。 — Do bão đang tiến gần nguy hiểm nên chuyến tàu phà đã quyết định tạm hoãn chạy.\n"
+        "景気の先行きが不透明なため、新規事業の立ち上げをひとまず見合わせた。 — Vì triển vọng kinh tế chưa rõ ràng nên công ty tạm gác lại việc khởi động dự án mới.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "引き止める（ひきとめる）",
+        "ひきとめる",
+        "Giữ lại, níu kéo (người sắp đi)",
+        "Cụm từ chuẩn: 帰ろうとする客を引き止める / 辞任を引き止める\nNgữ cảnh: Ngăn cản hoặc khuyên can người khác đừng rời đi hay thôi việc.",
+        "「もう遅いから泊まっていきなさい」と友人の両親に強く引き止められた。 — 'Muộn rồi ở lại ngủ đi con', bố mẹ người bạn đã tha thiết giữ tôi ở lại bằng được.\n"
+        "優秀な社員が退職したいと言い出したので、上司は必死に引き止めた。 — Nhân viên xuất sắc ngỏ ý muốn nghỉ việc nên cấp trên đã hết lòng níu giữ ở lại.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "見当（けんとう）",
+        "けんとう",
+        "Dự đoán ước chừng, phán đoán phương hướng",
+        "Cụm từ chuẩn: 見当をつける / 見当がつかない\nNgữ cảnh: Phỏng đoán đại khái tình hình hoặc tìm kiếm manh mối.",
+        "犯人が逃げた方角について、警察はすでにおおよその見当をつけている。 — Về hướng tẩu thoát của tên tội phạm, phía cảnh sát đã có những phán đoán ước chừng cơ bản.\n"
+        "この難しい謎解き問題は、どこから解けばいいのか全く見当がつかない。 — Bài toán giải đố hóc búa này tôi hoàn toàn mù tịt chẳng đoán nổi phải bắt đầu gỡ từ đâu.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "抱える（かかえる）",
+        "かかえる",
+        "Gánh vác, ôm đồm (vấn đề, nợ nần) / Ôm trong tay",
+        "Cụm từ chuẩn: 借金を抱える / 問題を抱える / 荷物を両手で抱える\nNgữ cảnh: Vướng mắc khó khăn nặng nề đè nặng trên vai hoặc mang vác vật to.",
+        "あの会社は巨額の負債を抱えて、経営難に苦しんでいる。 — Công ty đó đang gánh trên vai khoản nợ khổng lồ và chật vật đối mặt với khủng hoảng quản lý.\n"
+        "彼女は大きな花束を両手いっぱいに抱えて、嬉しそうに微笑んだ。 — Cô ấy ôm trọn bó hoa tươi to lớn bằng cả hai tay và nở một nụ cười rạng rỡ hạnh phúc.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "深刻（しんこく）",
+        "しんこく",
+        "Nghiêm trọng, trầm trọng (tình thế, vấn đề)",
+        "Cụm từ chuẩn: 深刻な問題 / 深刻な表情 / 深刻に受け止める\nNgữ cảnh: Tình hình xấu đi đáng lo ngại, hoặc vẻ mặt căng thẳng lo âu.",
+        "少子高齢化に伴う労働力不足は、日本社会にとって極めて深刻な問題だ。 — Tình trạng thiếu hụt lao động do già hóa dân số là vấn đề cực kỳ nghiêm trọng với xã hội Nhật Bản.\n"
+        "医師から検査結果を聞かされた時、彼の顔は深刻な表情に曇った。 — Khi nghe bác sĩ thông báo kết quả xét nghiệm, khuôn mặt anh ấy bỗng trĩu nặng nét nghiêm trọng.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "手軽（てがる）",
+        "てがる",
+        "Tiện lợi, nhẹ nhàng, không cầu kỳ phức tạp",
+        "Cụm từ chuẩn: 手軽にできる / 手軽な料理 / 手軽な運動\nNgữ cảnh: Việc làm đơn giản, không tốn nhiều công sức hay chi phí.",
+        "電子レンジを使えば、忙しい朝でも手軽に温かい朝食を用意できる。 — Dùng lò vi sóng thì ngay cả buổi sáng bận rộn cũng có thể chuẩn bị bữa sáng nóng hổi một cách nhẹ nhàng tiện lợi.\n"
+        "ウォーキングは特別な道具を必要とせず、誰でも手軽に始められる運動だ。 — Đi bộ là môn thể thao không cần dụng cụ cầu kỳ, ai ai cũng có thể bắt đầu dễ dàng.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "案外（あんがい）",
+        "あんがい",
+        "Không ngờ tới, ngoài dự tính tưởng tượng",
+        "Cụm từ chuẩn: 案外簡単だ / 案外安かった / 案外うまくいく\nNgữ cảnh: Thực tế diễn ra khác với định kiến hay suy nghĩ ban đầu.",
+        "最初は難しそうに見えたパズルだったが、実際にやってみると案外簡単だった。 — Trò xếp hình ban đầu trông có vẻ hóc búa nhưng khi bắt tay vào làm thử thì lại dễ không ngờ.\n"
+        "高級そうに見えるレストランだが、ランチは案外リーズナブルな価格だ。 — Trông bề ngoài sang chảnh là thế nhưng set ăn trưa của nhà hàng lại rẻ ngoài dự đoán.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "おおざっぱ",
+        "おおざっぱ",
+        "Đại khái, qua loa, sơ sài không tỉ mỉ",
+        "Cụm từ chuẩn: おおざっぱな性格 / おおざっぱな計算 / おおざっぱに分ける\nNgữ cảnh: Tính cách hoặc cách làm việc xổi, chỉ nhìn nét lớn mà bỏ qua chi tiết.",
+        "彼は細かいことにはこだわらない、おおざっぱで大らかな性格をしている。 — Anh ấy là người có tính cách phóng khoáng đại khái, chẳng bao giờ câu nệ ba cái chuyện vặt vãnh.\n"
+        "おおざっぱな見積もりでも構わないので、概算の費用を早く教えてほしい。 — Ước tính sơ bộ thôi cũng được, xin hãy báo sớm cho tôi mức chi phí đại khái.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "さかのぼる",
+        "さかのぼる",
+        "Ngược dòng (thời gian, lịch sử, con sông)",
+        "Cụm từ chuẩn: 歴史をさかのぼる / 川をさかのぼる / 起源にさかのぼる\nNgữ cảnh: Lần ngược lại quá khứ hoặc đi ngược dòng nước lên thượng nguồn.",
+        "この伝統工芸の歴史は、今から数百年前の江戸時代までさかのぼる。 — Lịch sử của nghề thủ công truyền thống này có thể lần ngược dòng thời gian về tận thời Edo hàng trăm năm trước.\n"
+        "鮭の群れが産卵のために、激しい川の流れを必死にさかのぼっていく。 — Đàn cá hồi đang nỗ lực bơi ngược dòng nước chảy xiết để chuẩn bị cho mùa đẻ trứng.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "ためらう",
+        "ためらう",
+        "Do dự, ngập ngừng, chần chừ lưỡng lự",
+        "Cụm từ chuẩn: 返事をためらう / 購入をためらう / 言うのをためらう\nNgữ cảnh: Lúng túng không biết có nên quyết định làm việc đó hay không.",
+        "値段が高価だったため、その時計を買うかどうかレジの前でためらった。 — Vì mức giá quá đắt đỏ nên đứng trước quầy thanh toán tôi cứ lưỡng lự do dự mãi không biết có nên mua hay không.\n"
+        "困っている人がいたら、ためらわずにすぐに声をかけて助けてあげよう。 — Nếu thấy người gặp khó khăn hoạn nạn thì đừng ngập ngừng mà hãy lập tức cất tiếng giúp đỡ họ nhé.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "あっさり",
+        "あっさり",
+        "Thanh đạm / Dứt khoát, chóng vánh không lằng nhằng",
+        "Cụm từ chuẩn: あっさりした味 / あっさり負ける / あっさり断る\nNgữ cảnh: Món ăn thanh vị, hoặc thái độ dứt khoát / thất bại chóng vánh.",
+        "脂っこい料理が続いたので、今夜はあっさりとした和食が食べたい。 — Mấy hôm nay toàn ăn đồ dầu mỡ ngấy ngụa nên tối nay tôi thèm món Nhật thanh đạm.\n"
+        "あれだけ練習したのに、決勝戦では強豪チームにあっさり負けてしまった。 — Dù đã khổ luyện bấy lâu nhưng trong trận chung kết chúng tôi đã thua chóng vánh trước đội tuyển hạt giống.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "しつこい",
+        "しつこい",
+        "Dai dẳng, lằng nhằng, ngấy béo",
+        "Cụm từ chuẩn: しつこい風邪 / しつこいセールス / しつこく質問する\nNgữ cảnh: Bệnh tật kéo dài khó khỏi, hoặc sự làm phiền nài nỉ dai như đỉa.",
+        "何度断ってもあきらめずに電話をかけてくる、本当にしつこい勧誘だ。 — Dù tôi đã nhiều lần từ chối dứt khoát nhưng họ vẫn dai dẳng gọi điện tới chào mời mời mọc phiền phức.\n"
+        "今年の風邪は咳がしつこく残って、なかなか完治しない。 — Cơn cảm cúm năm nay để lại triệu chứng ho dai dẳng mãi mà chưa khỏi hẳn.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "うらやましい",
+        "うらやましい",
+        "Ghen tị, ao ước thèm muốn được như người khác",
+        "Cụm từ chuẩn: ～をうらやましく思う / うらやましい限りだ\nNgữ cảnh: Ngưỡng mộ, ao ước hoàn cảnh sung sướng hoặc may mắn của người khác.",
+        "彼はいつも家族仲が良く、毎週末旅行に出かけていて本当にうらやましい。 — Gia đình anh ấy lúc nào cũng hòa thuận vui vẻ, cuối tuần lại đi du lịch suốt trông mà ghen tị ao ước.\n"
+        "語学の才能に恵まれた彼女の流暢な発音は、誰から見てもうらやましい限りだ。 — Khả năng phát âm lưu loát của cô gái có năng khiếu ngoại ngữ ấy là điều ai nấy nhìn vào cũng phải trầm trồ ao ước.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "みっともない",
+        "みっともない",
+        "Khó coi, xấu mặt, đáng hổ thẹn",
+        "Cụm từ chuẩn: みっともない格好 / みっともない振る舞い / みっともない姿\nNgữ cảnh: Hành vi thô lỗ hoặc vẻ ngoài xộc xệch làm người khác chê cười.",
+        "人前で大声を上げて取り乱すなんて、みっともない真似はやめなさい。 — Gào thét mất bình tĩnh trước mặt bàn dân thiên hạ như thế thì mau dừng cái trò xấu mặt ấy lại đi!\n"
+        "服のボタンが掛け違えたまま歩いていて、あとで思えばみっともなかった。 — Cài nhầm cúc áo xộc xệch mà cứ thế bước đi ngoài phố, nghĩ lại lúc đó thật là ngượng chín cả mặt.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+    (
+        "Mondai 5 - Cách dùng từ",
+        "張り切る（はりきる）",
+        "はりきる",
+        "Hăm hở, hăng hái, dốc hết tinh thần phấn khởi",
+        "Cụm từ chuẩn: 張り切って準備する / 張り切って出かける\nNgữ cảnh: Tràn đầy sinh lực và nhiệt huyết hào hứng làm việc gì đó.",
+        "明日は念願の初デートなので、弟は朝から張り切って服を選んでいる。 — Ngày mai là buổi hẹn hò đầu tiên hằng mong ước nên cậu em tôi từ sáng sớm đã hăm hở chọn quần áo.\n"
+        "新入社員たちはみんな目を輝かせて、張り切って研修に取り組んでいる。 — Các nhân viên mới ai nấy đều mắt sáng long lanh, hăng say nhiệt huyết bước vào khóa huấn luyện.",
+        "Đề thi JLPT N3 • Mondai 5",
+    ),
+]
