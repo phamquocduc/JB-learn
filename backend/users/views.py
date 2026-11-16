@@ -139,6 +139,7 @@ class PublicSystemConfigView(APIView):
                 "modules": get_modules_state_map(),
                 "module_groups": MODULE_GROUPS,
                 "appearance": get_system_appearance(),
+                "google_client_id": getattr(settings, "GOOGLE_CLIENT_ID", ""),
             },
             status=status.HTTP_200_OK,
         )

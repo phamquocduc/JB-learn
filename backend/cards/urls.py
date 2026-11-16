@@ -6,6 +6,7 @@ from .views import (
     CardViewSet,
     CourseViewSet,
     CurrentUserView,
+    GoogleAuthView,
     LoginView,
     LogoutView,
     RegisterView,
@@ -21,6 +22,7 @@ urlpatterns = [
     # Auth endpoints
     path("auth/register/", RegisterView.as_view(), name="auth_register"),
     path("auth/login/", LoginView.as_view(), name="auth_login"),
+    path("auth/google/", GoogleAuthView.as_view(), name="auth_google"),
     path("auth/logout/", LogoutView.as_view(), name="auth_logout"),
     path("auth/me/", CurrentUserView.as_view(), name="auth_me"),
     # Legacy grammar endpoint

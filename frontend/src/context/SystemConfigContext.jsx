@@ -12,6 +12,9 @@ export function SystemConfigProvider({ children }) {
   const [modules, setModules] = useState({});
   const [moduleGroups, setModuleGroups] = useState([]);
   const [primaryColor, setPrimaryColor] = useState(() => getCachedPrimaryColor());
+  const [googleClientId, setGoogleClientId] = useState(
+    () => import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
+  );
   const [configLoaded, setConfigLoaded] = useState(false);
 
   const subjectRole = !isGuest && user ? user.role_slug || 'learner' : 'guest';
@@ -33,6 +36,9 @@ export function SystemConfigProvider({ children }) {
     if (serverColor) {
       const normalized = applyPrimaryColorTheme(serverColor);
       setPrimaryColor(normalized);
+    }
+    if (data?.google_client_id) {
+      setGoogleClientId(data.google_client_id);
     }
   }, []);
 
@@ -108,6 +114,7 @@ export function SystemConfigProvider({ children }) {
       modules,
       moduleGroups,
       primaryColor,
+      googleClientId,
       configLoaded,
       isModuleEnabled,
       getModuleBlockReason,
@@ -120,6 +127,7 @@ export function SystemConfigProvider({ children }) {
       modules,
       moduleGroups,
       primaryColor,
+      googleClientId,
       configLoaded,
       isModuleEnabled,
       getModuleBlockReason,

@@ -3,6 +3,7 @@ import {
   getStoredToken,
   clearStoredToken,
   login as apiLogin,
+  googleAuth as apiGoogleAuth,
   register as apiRegister,
   logout as apiLogout,
   fetchCurrentUser,
@@ -63,6 +64,18 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (usernameOrEmail, password) => {
     const data = await apiLogin({ username: usernameOrEmail, password });
+    setUser(data.user);
+    setToken(data.token);
+    setIsGuest(false);
+    setIsAuthModalOpen(false);
+    if (data?.user?.preferred_language) {
+      await i18n.changeLanguage(normalizeLanguage(data.user.preferred_language));
+    }
+    return data;
+  }, []);
+
+  const loginWithGoogle = useCallback(async (payload) => {
+    const data = await apiGoogleAuth(payload);
     setUser(data.user);
     setToken(data.token);
     setIsGuest(false);
@@ -194,6 +207,7 @@ export function AuthProvider({ children }) {
     isGuest,
     loading,
     login,
+    loginWithGoogle,
     register,
     logout,
     refreshUser,

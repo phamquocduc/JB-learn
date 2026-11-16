@@ -10,11 +10,12 @@ import {
 import { useAuth } from '../context/useAuth';
 import { useSystemConfig } from '../context/useSystemConfig';
 import { useToast } from '../context/useToast';
+import { initiateGoogleSignIn } from '../services/googleAuth';
 
 export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   const { t } = useTranslation('auth');
-  const { login, register } = useAuth();
-  const { isModuleEnabled } = useSystemConfig();
+  const { login, register, loginWithGoogle } = useAuth();
+  const { isModuleEnabled, googleClientId } = useSystemConfig();
   const { showToast } = useToast();
   const registrationEnabled = isModuleEnabled('auth.registration');
   const [tab, setTab] = useState(
@@ -34,6 +35,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
@@ -82,13 +84,29 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
     }
   };
 
-  const handleOAuthClick = (provider) => {
-    const actionLabel =
-      effectiveTab === 'login' ? t('oauth.loginAction') : t('oauth.registerAction');
-    showToast(
-      t('oauth.comingSoon', { action: actionLabel, provider }),
-      'info'
-    );
+  const handleOAuthClick = async () => {
+    const effectiveClientId =
+      googleClientId || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+    if (!effectiveClientId) {
+      showToast(t('oauth.googleNotConfigured'), 'warning');
+      return;
+    }
+    setErrorMessage('');
+    setOauthLoading(true);
+    try {
+      const response = await initiateGoogleSignIn({ clientId: effectiveClientId });
+      await loginWithGoogle({ access_token: response.access_token });
+      showToast(t('oauth.googleSuccess'), 'success');
+      onClose();
+    } catch (err) {
+      if (err?.message !== 'popup_closed_by_user') {
+        const msg = err.message || t('oauth.googleFailed');
+        setErrorMessage(msg);
+        showToast(msg, 'error');
+      }
+    } finally {
+      setOauthLoading(false);
+    }
   };
 
   const inputClass =
@@ -221,7 +239,11 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   </Button>
                 </form>
 
-                <AuthOAuthSection mode="login" onOAuthClick={handleOAuthClick} />
+                <AuthOAuthSection
+                  mode="login"
+                  onOAuthClick={handleOAuthClick}
+                  loading={oauthLoading}
+                />
 
                 {registrationEnabled && (
                   <p className="text-center text-xs sm:text-sm text-slate-500 pt-1">
@@ -355,6 +377,7 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                 <AuthOAuthSection
                   mode="register"
                   onOAuthClick={handleOAuthClick}
+                  loading={oauthLoading}
                 />
 
                 <div className="text-center flex flex-col gap-1.5 pt-0.5">

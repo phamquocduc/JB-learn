@@ -11,11 +11,12 @@ import {
 import { useAuth } from '../context/useAuth';
 import { useSystemConfig } from '../context/useSystemConfig';
 import { useToast } from '../context/useToast';
+import { initiateGoogleSignIn } from '../services/googleAuth';
 
 export default function LoginPage() {
   const { t, i18n } = useTranslation('auth');
-  const { user, isGuest, loading: authLoading, login } = useAuth();
-  const { isModuleEnabled } = useSystemConfig();
+  const { user, isGuest, loading: authLoading, login, loginWithGoogle } = useAuth();
+  const { isModuleEnabled, googleClientId } = useSystemConfig();
   const { showToast } = useToast();
   const registrationEnabled = isModuleEnabled('auth.registration');
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
@@ -52,11 +54,30 @@ export default function LoginPage() {
     }
   };
 
-  const handleOAuthClick = (provider) => {
-    showToast(
-      t('oauth.comingSoon', { action: t('oauth.loginAction'), provider }),
-      'info'
-    );
+  const handleOAuthClick = async () => {
+    const effectiveClientId =
+      googleClientId || import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+    if (!effectiveClientId) {
+      showToast(t('oauth.googleNotConfigured'), 'warning');
+      return;
+    }
+    setErrorMessage('');
+    setOauthLoading(true);
+    try {
+      const response = await initiateGoogleSignIn({ clientId: effectiveClientId });
+      await loginWithGoogle({ access_token: response.access_token });
+      showToast(t('oauth.googleSuccess'), 'success');
+      const redirectTo = location.state?.from || '/';
+      navigate(redirectTo, { replace: true });
+    } catch (err) {
+      if (err?.message !== 'popup_closed_by_user') {
+        const msg = err.message || t('oauth.googleFailed');
+        setErrorMessage(msg);
+        showToast(msg, 'error');
+      }
+    } finally {
+      setOauthLoading(false);
+    }
   };
 
   const inputClass =
@@ -168,7 +189,11 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <AuthOAuthSection mode="login" onOAuthClick={handleOAuthClick} />
+          <AuthOAuthSection
+            mode="login"
+            onOAuthClick={handleOAuthClick}
+            loading={oauthLoading}
+          />
 
           {registrationEnabled && (
             <p className="text-center text-xs sm:text-sm text-slate-500 pt-1">

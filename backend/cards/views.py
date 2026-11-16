@@ -1,3 +1,6 @@
+import re
+import requests
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -70,6 +73,130 @@ class LoginView(APIView):
         return Response(
             {
                 "token": token,
+                "user": UserSerializer(user).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+User = get_user_model()
+
+
+class GoogleAuthView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request) -> Response:
+        access_token = str(request.data.get("access_token") or "").strip()
+        id_token = str(
+            request.data.get("id_token") or request.data.get("credential") or ""
+        ).strip()
+
+        if not access_token and not id_token:
+            return Response(
+                {
+                    "detail": _(
+                        "Vui lòng cung cấp mã xác thực Google (access_token hoặc credential/id_token)."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        google_user_data = None
+
+        if access_token:
+            try:
+                res = requests.get(
+                    "https://www.googleapis.com/oauth2/v3/userinfo",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    timeout=10,
+                )
+                if res.status_code == 200:
+                    google_user_data = res.json()
+            except requests.RequestException:
+                pass
+
+        if not google_user_data and id_token:
+            try:
+                res = requests.get(
+                    "https://oauth2.googleapis.com/tokeninfo",
+                    params={"id_token": id_token},
+                    timeout=10,
+                )
+                if res.status_code == 200:
+                    google_user_data = res.json()
+            except requests.RequestException:
+                pass
+
+        if not google_user_data or not isinstance(google_user_data, dict):
+            return Response(
+                {
+                    "detail": _(
+                        "Xác thực Google không thành công. Mã xác thực không hợp lệ hoặc đã hết hạn."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        email = (google_user_data.get("email") or "").strip().lower()
+        is_verified = str(google_user_data.get("email_verified", "")).lower() in (
+            "true",
+            "1",
+        )
+
+        if not email or not is_verified:
+            return Response(
+                {
+                    "detail": _(
+                        "Tài khoản Google chưa xác thực email hoặc không có email."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = User.objects.filter(email__iexact=email).first()
+        if user:
+            if not user.is_active:
+                return Response(
+                    {"detail": _("Tài khoản này đã bị vô hiệu hóa.")},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        else:
+            enforce_module_enabled(
+                "auth.registration",
+                request.user,
+                custom_message=_("Chức năng đăng ký tài khoản mới hiện đang tạm đóng."),
+            )
+
+            base_username = email.split("@")[0].lower()
+            clean_username = (
+                re.sub(r"[^a-zA-Z0-9_]", "", base_username)[:25] or "user"
+            )
+            username = clean_username
+            counter = 1
+            while User.objects.filter(username__iexact=username).exists():
+                username = f"{clean_username}_{counter}"
+                counter += 1
+
+            first_name = (
+                google_user_data.get("given_name")
+                or google_user_data.get("name")
+                or ""
+            )
+            last_name = google_user_data.get("family_name") or ""
+
+            user = User.objects.create(
+                username=username,
+                email=email,
+                first_name=first_name[:150],
+                last_name=last_name[:150],
+            )
+            user.set_unusable_password()
+            user.save()
+
+        token, _created = Token.objects.get_or_create(user=user)
+        return Response(
+            {
+                "token": token.key,
                 "user": UserSerializer(user).data,
             },
             status=status.HTTP_200_OK,

@@ -1,6 +1,7 @@
 from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import MagicMock, patch
 
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
@@ -9,6 +10,7 @@ from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
+from users.models import AppModuleConfig
 from .models import Card, Course
 
 User = get_user_model()
@@ -1318,6 +1320,122 @@ class LearningContentI18nTestCase(APITestCase):
             )
             self.assertEqual(self.card_untranslated.front_text, "飲む")
             self.assertEqual(self.card_untranslated.meaning, "Uống")
+
+
+class GoogleAuthAPITestCase(APITestCase):
+    def setUp(self):
+        self.url = reverse("cards:auth_google")
+        AppModuleConfig.objects.update_or_create(
+            key="auth.registration",
+            defaults={"is_enabled": True},
+        )
+
+    def tearDown(self):
+        AppModuleConfig.objects.update_or_create(
+            key="auth.registration",
+            defaults={"is_enabled": True},
+        )
+
+    def test_missing_token_returns_400(self):
+        res = self.client.post(self.url, {}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("requests.get")
+    def test_invalid_google_token_returns_400(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        mock_get.return_value = mock_resp
+
+        res = self.client.post(self.url, {"access_token": "invalid_tok"}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("requests.get")
+    def test_unverified_email_returns_400(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "email": "test@example.com",
+            "email_verified": False,
+        }
+        mock_get.return_value = mock_resp
+
+        res = self.client.post(self.url, {"access_token": "valid_tok"}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("requests.get")
+    def test_new_user_registration_success(self, mock_get):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "email": "newlearner@example.com",
+            "email_verified": True,
+            "given_name": "Luffy",
+            "family_name": "Monkey",
+        }
+        mock_get.return_value = mock_resp
+
+        res = self.client.post(self.url, {"access_token": "valid_tok"}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn("token", res.data)
+        self.assertIn("user", res.data)
+        self.assertEqual(res.data["user"]["email"], "newlearner@example.com")
+        self.assertTrue(User.objects.filter(email="newlearner@example.com").exists())
+
+    @patch("requests.get")
+    def test_existing_user_login_success(self, mock_get):
+        existing_user = User.objects.create_user(
+            username="existing_user",
+            email="existing@example.com",
+            password="secure_password_123",
+        )
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "email": "existing@example.com",
+            "email_verified": True,
+        }
+        mock_get.return_value = mock_resp
+
+        res = self.client.post(self.url, {"credential": "id_tok_val"}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["user"]["username"], existing_user.username)
+
+    @patch("requests.get")
+    def test_inactive_user_returns_403(self, mock_get):
+        User.objects.create_user(
+            username="inactive_user",
+            email="inactive@example.com",
+            password="secure_password_123",
+            is_active=False,
+        )
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "email": "inactive@example.com",
+            "email_verified": True,
+        }
+        mock_get.return_value = mock_resp
+
+        res = self.client.post(self.url, {"access_token": "valid_tok"}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+    @patch("requests.get")
+    def test_new_user_registration_blocked_when_module_disabled(self, mock_get):
+        AppModuleConfig.objects.update_or_create(
+            key="auth.registration",
+            defaults={"is_enabled": False},
+        )
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "email": "blocked@example.com",
+            "email_verified": True,
+        }
+        mock_get.return_value = mock_resp
+
+        res = self.client.post(self.url, {"access_token": "valid_tok"}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
 
 
 

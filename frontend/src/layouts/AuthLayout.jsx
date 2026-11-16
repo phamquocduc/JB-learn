@@ -12,7 +12,6 @@ import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../components/ui/LanguageSwitcher';
 import {
   AppLogoSvg,
-  AppleLogoSvg,
   BotanicalLeavesSvg,
   GoogleLogoSvg,
   JlptStepsCloudsSvg,
@@ -213,10 +212,12 @@ export function AuthFormTopBar({ onClose, showBackLink = false }) {
   );
 }
 
-export function AuthOAuthSection({ mode = 'login', onOAuthClick }) {
+export function AuthOAuthSection({ mode = 'login', onOAuthClick, loading = false }) {
   const { t } = useTranslation('auth');
   const dividerText =
     mode === 'login' ? t('oauth.loginDivider') : t('oauth.registerDivider');
+  const buttonText =
+    mode === 'login' ? t('oauth.googleLogin') : t('oauth.googleRegister');
 
   return (
     <div className="flex flex-col gap-3">
@@ -228,25 +229,15 @@ export function AuthOAuthSection({ mode = 'login', onOAuthClick }) {
         <div className="w-full border-t border-slate-200" />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={() => onOAuthClick?.('Google')}
-          className="min-h-10 px-3 py-2 rounded-control border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
-        >
-          <GoogleLogoSvg />
-          <span>{t('oauth.google')}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onOAuthClick?.('Apple')}
-          className="min-h-10 px-3 py-2 rounded-control border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2 transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
-        >
-          <AppleLogoSvg />
-          <span>{t('oauth.apple')}</span>
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => onOAuthClick?.('Google')}
+        disabled={loading}
+        className="w-full min-h-10 px-4 py-2 rounded-control border border-slate-300 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 text-xs sm:text-sm font-medium inline-flex items-center justify-center gap-2.5 transition-colors duration-150 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        <GoogleLogoSvg />
+        <span>{loading ? t('oauth.processing') : buttonText}</span>
+      </button>
     </div>
   );
 }

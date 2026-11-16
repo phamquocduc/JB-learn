@@ -92,6 +92,17 @@ export async function login({ username, password }) {
   return data;
 }
 
+export async function googleAuth(payload) {
+  const data = await request('/auth/google/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  if (data?.token) {
+    setStoredToken(data.token);
+  }
+  return data;
+}
+
 export async function register({ username, email, password }) {
   const data = await request('/auth/register/', {
     method: 'POST',
