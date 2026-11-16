@@ -174,12 +174,36 @@ export function derivePrimaryPalette(hex) {
   };
 }
 
-function updateFaviconColor(primaryHex, softHex) {
+export function buildFaviconSvg(primaryHex, contrastHex) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="6" y="6" width="88" height="88" rx="24" fill="${primaryHex}" transform="rotate(-7 50 50)"/><g transform="translate(50, 50) rotate(-3) translate(-50, -50)"><text x="21" y="69" font-family="system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="53" font-weight="900" font-style="italic" fill="${contrastHex}">J</text><text x="47" y="69" font-family="system-ui, -apple-system, BlinkMacSystemFont, sans-serif" font-size="53" font-weight="900" font-style="italic" fill="${contrastHex}">B</text></g></svg>`;
+}
+
+function toBase64(str) {
+  if (typeof window !== 'undefined' && typeof window.btoa === 'function') {
+    return window.btoa(str);
+  }
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(str).toString('base64');
+  }
+  return '';
+}
+
+export function buildFaviconDataUri(primaryHex) {
+  const normalized = normalizeHexColor(primaryHex) || DEFAULT_PRIMARY_COLOR;
+  const contrastHex = ensureAccessibleTextColor(normalized);
+  const svg = buildFaviconSvg(normalized, contrastHex);
+  const base64 = toBase64(svg);
+  if (base64) {
+    return `data:image/svg+xml;base64,${base64}`;
+  }
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function updateFaviconColor(primaryHex) {
   if (typeof document === 'undefined') return;
   const link = document.querySelector('link[rel="icon"]');
   if (!link) return;
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='6' fill='${softHex}'/><text x='50%25' y='54%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-weight='700' font-size='26' fill='${primaryHex}'>JB</text></svg>`;
-  link.setAttribute('href', `data:image/svg+xml,${encodeURIComponent(svg)}`);
+  link.setAttribute('href', buildFaviconDataUri(primaryHex));
 }
 
 export function getCachedPrimaryColor() {
@@ -201,7 +225,7 @@ export function applyPrimaryColorTheme(rawHex, { persistCache = true } = {}) {
     const rootStyle = document.documentElement.style;
     if (normalized === DEFAULT_PRIMARY_COLOR) {
       THEME_CSS_KEYS.forEach((key) => rootStyle.removeProperty(key));
-      updateFaviconColor('#0369A1', '#E0F2FE');
+      updateFaviconColor(DEFAULT_PRIMARY_COLOR);
     } else {
       rootStyle.setProperty('--color-sky-50', palette[50]);
       rootStyle.setProperty('--color-sky-100', palette[100]);
@@ -223,7 +247,7 @@ export function applyPrimaryColorTheme(rawHex, { persistCache = true } = {}) {
       rootStyle.setProperty('--color-primary-border', palette[200]);
       rootStyle.setProperty('--color-primary-contrast', contrastColor);
       rootStyle.setProperty('--color-primary-fg', contrastColor);
-      updateFaviconColor(palette[700], palette[100]);
+      updateFaviconColor(palette[700]);
     }
   }
 

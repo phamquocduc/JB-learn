@@ -148,3 +148,55 @@ export function BilingualIconSvg({ className = 'w-4 h-4' }) {
   );
 }
 
+export function AppLogoSvg({
+  className = 'w-8 h-8 shrink-0',
+  primaryColor = 'var(--color-primary, #0369a1)',
+  contrastColor = 'var(--color-primary-contrast, #ffffff)',
+  ...props
+}) {
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      className={className}
+      fill="none"
+      aria-hidden="true"
+      {...props}
+    >
+      <rect
+        x="6"
+        y="6"
+        width="88"
+        height="88"
+        rx="24"
+        fill={primaryColor}
+        transform="rotate(-7 50 50)"
+      />
+      <g transform="translate(50, 50) rotate(-3) translate(-50, -50)">
+        <text
+          x="21"
+          y="69"
+          fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif"
+          fontSize="53"
+          fontWeight="900"
+          fontStyle="italic"
+          fill={contrastColor}
+        >
+          J
+        </text>
+        <text
+          x="47"
+          y="69"
+          fontFamily="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, sans-serif"
+          fontSize="53"
+          fontWeight="900"
+          fontStyle="italic"
+          fill={contrastColor}
+        >
+          B
+        </text>
+      </g>
+    </svg>
+  );
+}
+
+

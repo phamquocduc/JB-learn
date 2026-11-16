@@ -11,6 +11,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../components/ui/LanguageSwitcher';
 import {
+  AppLogoSvg,
   AppleLogoSvg,
   BotanicalLeavesSvg,
   GoogleLogoSvg,
@@ -107,9 +108,7 @@ export function AuthBrandPanel({ mode = 'login' }) {
           to="/"
           className="inline-flex items-center gap-2.5 rounded-control focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
         >
-          <div className="w-8 h-8 rounded-control bg-sky-700 text-white flex items-center justify-center">
-            <BookOpenIcon className="w-4 h-4" aria-hidden="true" />
-          </div>
+          <AppLogoSvg className="w-8 h-8 shrink-0" />
           <span className="text-base font-semibold text-slate-900 tracking-tight">
             {t('brand.name')}
           </span>
@@ -180,9 +179,7 @@ export function AuthFormTopBar({ onClose, showBackLink = false }) {
           to="/"
           className="inline-flex items-center gap-2 md:hidden rounded-control focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700"
         >
-          <div className="w-8 h-8 rounded-control bg-sky-700 text-white flex items-center justify-center shrink-0">
-            <BookOpenIcon className="w-4 h-4" aria-hidden="true" />
-          </div>
+          <AppLogoSvg className="w-8 h-8 shrink-0" />
           <span className="text-sm font-semibold text-slate-900">
             {t('brand.name')}
           </span>

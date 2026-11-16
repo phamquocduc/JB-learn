@@ -16,6 +16,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import Button from './ui/Button';
 import LanguageSwitcher from './ui/LanguageSwitcher';
+import { AppLogoSvg } from './ui/SvgIcons';
 import { useAuth } from '../context/useAuth';
 import { useSystemConfig } from '../context/useSystemConfig';
 import { formatDate } from '../utils/formatters';
@@ -439,9 +440,7 @@ export default function Sidebar({ isOpen, onClose }) {
           onClick={onClose}
           className="flex items-center gap-2.5 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-sky-700 rounded-control"
         >
-          <div className="w-8 h-8 rounded-control bg-primary flex items-center justify-center text-primary-contrast">
-            <BookOpenIcon className="w-4 h-4" aria-hidden="true" />
-          </div>
+          <AppLogoSvg className="w-8 h-8 shrink-0" />
           <span className="text-base font-semibold tracking-tight text-slate-900">
             {t('app.name')}
           </span>
