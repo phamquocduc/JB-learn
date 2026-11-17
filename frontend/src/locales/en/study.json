@@ -233,6 +233,8 @@
     "audioLabel": "Pronunciation audio",
     "generateAudio": "Generate audio",
     "uploadAudio": "Upload audio file",
+    "bulkUpdateCourseLabel": "Update all cards in this course",
+    "bulkUpdateCourseDesc": "Sync card type, level, visibility, and course for all cards in this course",
     "saveChangesButton": "Save changes",
     "createCardButton": "Create flashcard",
     "createSuccess": "Flashcard created",

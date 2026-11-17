@@ -1526,6 +1526,120 @@ class CardPaginationTestCase(APITestCase):
         self.assertEqual(len(res_unseen.data["results"]), 2)
 
 
+class CardBulkUpdateInCourseTestCase(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="bulk_user",
+            password="testpassword123",
+        )
+        self.client.force_authenticate(user=self.user)
+        self.course_a = Course.objects.create(
+            title="Course A",
+            level=Card.JLPTLevel.N3,
+            card_type=Card.CardType.GRAMMAR,
+            is_public=True,
+            created_by=self.user,
+        )
+        self.card_a1 = Card.objects.create(
+            course=self.course_a,
+            card_type=Card.CardType.GRAMMAR,
+            level=Card.JLPTLevel.N3,
+            lesson="Bài 1",
+            front_text="Front A1",
+            meaning="Meaning A1",
+            is_public=True,
+            created_by=self.user,
+        )
+        self.card_a2 = Card.objects.create(
+            course=self.course_a,
+            card_type=Card.CardType.GRAMMAR,
+            level=Card.JLPTLevel.N3,
+            lesson="Bài 2",
+            front_text="Front A2",
+            meaning="Meaning A2",
+            is_public=True,
+            created_by=self.user,
+        )
+        self.course_b = Course.objects.create(
+            title="Course B",
+            level=Card.JLPTLevel.N5,
+            card_type=Card.CardType.KANJI,
+            is_public=True,
+            created_by=self.user,
+        )
+        self.card_b1 = Card.objects.create(
+            course=self.course_b,
+            card_type=Card.CardType.KANJI,
+            level=Card.JLPTLevel.N5,
+            lesson="Bài 1",
+            front_text="Front B1",
+            meaning="Meaning B1",
+            is_public=True,
+            created_by=self.user,
+        )
+
+    def test_bulk_update_course_cards_when_flag_set(self):
+        url = reverse("cards:card-detail", kwargs={"pk": self.card_a1.pk})
+        payload = {
+            "level": Card.JLPTLevel.N2,
+            "card_type": Card.CardType.VOCABULARY,
+            "is_public": False,
+            "update_all_in_course": True,
+        }
+        res = self.client.patch(url, payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        # Reload cards
+        self.card_a1.refresh_from_db()
+        self.card_a2.refresh_from_db()
+        self.card_b1.refresh_from_db()
+        self.course_a.refresh_from_db()
+
+        # Both cards in course A should have updated level, card_type, is_public
+        self.assertEqual(self.card_a1.level, Card.JLPTLevel.N2)
+        self.assertEqual(self.card_a1.card_type, Card.CardType.VOCABULARY)
+        self.assertFalse(self.card_a1.is_public)
+
+        self.assertEqual(self.card_a2.level, Card.JLPTLevel.N2)
+        self.assertEqual(self.card_a2.card_type, Card.CardType.VOCABULARY)
+        self.assertFalse(self.card_a2.is_public)
+
+        # Unique card contents must be preserved
+        self.assertEqual(self.card_a1.front_text, "Front A1")
+        self.assertEqual(self.card_a2.front_text, "Front A2")
+        self.assertEqual(self.card_a1.lesson, "Bài 1")
+        self.assertEqual(self.card_a2.lesson, "Bài 2")
+
+        # Course A metadata must be synced
+        self.assertEqual(self.course_a.level, Card.JLPTLevel.N2)
+        self.assertEqual(self.course_a.card_type, Card.CardType.VOCABULARY)
+        self.assertFalse(self.course_a.is_public)
+
+        # Other courses must be unaffected
+        self.assertEqual(self.card_b1.level, Card.JLPTLevel.N5)
+        self.assertEqual(self.card_b1.card_type, Card.CardType.KANJI)
+        self.assertTrue(self.card_b1.is_public)
+
+    def test_single_card_update_when_flag_not_set(self):
+        url = reverse("cards:card-detail", kwargs={"pk": self.card_a1.pk})
+        payload = {
+            "level": Card.JLPTLevel.N1,
+            "update_all_in_course": False,
+        }
+        res = self.client.patch(url, payload, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+
+        self.card_a1.refresh_from_db()
+        self.card_a2.refresh_from_db()
+        self.course_a.refresh_from_db()
+
+        # Only card a1 updated
+        self.assertEqual(self.card_a1.level, Card.JLPTLevel.N1)
+        self.assertEqual(self.card_a2.level, Card.JLPTLevel.N3)
+        self.assertEqual(self.course_a.level, Card.JLPTLevel.N3)
+
+
+
 
 
 

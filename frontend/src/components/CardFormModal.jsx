@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
 import Button from './ui/Button';
 import Dropdown from './ui/Dropdown';
+import Checkbox from './ui/Checkbox';
 import { getCardTypeOptions, JLPT_LEVELS } from '../constants/cards';
 import { createCourse } from '../services/api';
 
@@ -93,6 +94,7 @@ export default function CardFormModal({
         ? (initialMatchedCourse.is_public ?? true)
         : true
   );
+  const [updateAllInCourse, setUpdateAllInCourse] = useState(false);
 
   // Quick inline course creation state
   const [showNewCourseForm, setShowNewCourseForm] = useState(false);
@@ -277,6 +279,7 @@ export default function CardFormModal({
       examples: examples.trim(),
       translations: nextTranslations,
       is_public: Boolean(isPublic),
+      ...(isEditing && updateAllInCourse ? { update_all_in_course: true } : {}),
     };
 
     setSubmitting(true);
@@ -583,6 +586,19 @@ export default function CardFormModal({
               />
             )}
           </div>
+
+          {/* Bulk Update Course Cards Checkbox */}
+          {isEditing && (courseId || initialCard?.course) && (
+            <div className="p-3 rounded-control bg-slate-50 border border-slate-200">
+              <Checkbox
+                id="card-bulk-update-course"
+                checked={updateAllInCourse}
+                onChange={(e) => setUpdateAllInCourse(e.target.checked)}
+                label={t('study:cardForm.bulkUpdateCourseLabel')}
+                description={t('study:cardForm.bulkUpdateCourseDesc')}
+              />
+            </div>
+          )}
 
           {/* Front Text */}
           <div>

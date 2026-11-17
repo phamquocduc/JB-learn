@@ -58,6 +58,11 @@
   rt {
     @apply text-xs font-normal text-sky-700 select-none;
   }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--color-primary, var(--color-sky-700, #0369a1));
+  }
 }
 
 /* Smooth Popup & Modal Animations */

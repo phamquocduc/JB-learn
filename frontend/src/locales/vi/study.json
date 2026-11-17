@@ -233,6 +233,8 @@
     "audioLabel": "Âm thanh phát âm",
     "generateAudio": "Tạo âm thanh",
     "uploadAudio": "Tải tệp âm thanh",
+    "bulkUpdateCourseLabel": "Cập nhật cho tất cả thẻ thuộc khoá học này",
+    "bulkUpdateCourseDesc": "Đồng bộ loại thẻ, cấp độ, quyền riêng tư và khoá học cho toàn bộ thẻ trong khoá",
     "saveChangesButton": "Lưu thay đổi",
     "createCardButton": "Tạo thẻ học",
     "createSuccess": "Đã tạo thẻ học mới",

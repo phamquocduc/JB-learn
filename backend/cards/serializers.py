@@ -262,6 +262,9 @@ class CardSerializer(serializers.ModelSerializer):
     created_by_username = serializers.SerializerMethodField()
     course_title = serializers.SerializerMethodField()
     translations = serializers.JSONField(required=False)
+    update_all_in_course = serializers.BooleanField(
+        write_only=True, required=False, default=False
+    )
 
     class Meta:
         model = Card
@@ -291,6 +294,7 @@ class CardSerializer(serializers.ModelSerializer):
             "can_manage",
             "created_at",
             "updated_at",
+            "update_all_in_course",
         ]
         read_only_fields = [
             "id",
@@ -305,6 +309,14 @@ class CardSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def create(self, validated_data):
+        validated_data.pop("update_all_in_course", None)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop("update_all_in_course", None)
+        return super().update(instance, validated_data)
 
     def validate_translations(self, value) -> dict:
         try:

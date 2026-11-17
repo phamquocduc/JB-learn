@@ -765,7 +765,10 @@ export default function HomePage({ defaultScope = 'all' }) {
 
   const handleSaveCard = async (payload, id) => {
     if (id) {
-      await updateCard(id, payload);
+      const updated = await updateCard(id, payload);
+      if (selectedDetailCard?.id === id) {
+        setSelectedDetailCard(updated || null);
+      }
       showToast(t('study:home.updateSuccess'), 'success');
     } else {
       await createCard(payload);

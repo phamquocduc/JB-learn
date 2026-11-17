@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { useTranslation } from 'react-i18next';
 import Button from './ui/Button';
+import Checkbox from './ui/Checkbox';
 import {
   AuthBrandPanel,
   AuthFormTopBar,
@@ -207,15 +208,11 @@ export default function AuthModal({ isOpen, onClose, initialTab = 'login' }) {
                   </div>
 
                   <div className="flex items-center justify-between gap-2">
-                    <label className="inline-flex items-center gap-2 text-xs font-medium text-slate-600 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        className="w-4 h-4 rounded-control border-slate-300 accent-sky-700 cursor-pointer"
-                      />
-                      <span>{t('login.rememberMe')}</span>
-                    </label>
+                    <Checkbox
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      label={t('login.rememberMe')}
+                    />
 
                     <button
                       type="button"

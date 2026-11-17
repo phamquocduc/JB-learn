@@ -569,6 +569,58 @@ class CardViewSet(ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        orig_course_id = instance.course_id
+        orig_lesson = instance.lesson
+
+        update_all_in_course = serializer.validated_data.pop(
+            "update_all_in_course", False
+        )
+        updated_card = serializer.save()
+
+        if update_all_in_course:
+            target_course_id = orig_course_id or updated_card.course_id
+            if target_course_id:
+                bulk_fields = {}
+                if "card_type" in serializer.validated_data:
+                    bulk_fields["card_type"] = updated_card.card_type
+                if "level" in serializer.validated_data:
+                    bulk_fields["level"] = updated_card.level
+                if "is_public" in serializer.validated_data:
+                    bulk_fields["is_public"] = updated_card.is_public
+                if (
+                    "lesson" in serializer.validated_data
+                    and serializer.validated_data["lesson"] != orig_lesson
+                ):
+                    bulk_fields["lesson"] = updated_card.lesson
+                if (
+                    "course" in serializer.validated_data
+                    and updated_card.course_id != orig_course_id
+                ):
+                    bulk_fields["course_id"] = updated_card.course_id
+
+                if bulk_fields:
+                    qs = Card.objects.filter(course_id=target_course_id)
+                    user = self.request.user
+                    if user.is_authenticated and not (
+                        user.has_perm_code("cards.edit") or user.is_staff
+                    ):
+                        qs = qs.filter(created_by=user)
+                    qs.update(**bulk_fields)
+
+                    # Keep the Course metadata synchronized
+                    course_sync = {}
+                    if "card_type" in bulk_fields:
+                        course_sync["card_type"] = bulk_fields["card_type"]
+                    if "level" in bulk_fields:
+                        course_sync["level"] = bulk_fields["level"]
+                    if "is_public" in bulk_fields:
+                        course_sync["is_public"] = bulk_fields["is_public"]
+                    if course_sync:
+                        sync_course_id = updated_card.course_id or target_course_id
+                        Course.objects.filter(id=sync_course_id).update(**course_sync)
+
     @action(detail=True, methods=["post"], permission_classes=[AllowAny])
     def review(self, request: Request, pk=None) -> Response:
         """Execute Anki spaced repetition step on a card and persist for authenticated users."""
