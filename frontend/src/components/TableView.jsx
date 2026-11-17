@@ -20,6 +20,10 @@ export default function TableView({
   onSelectCard,
   onEditCard,
   onDeleteCard,
+  pageSize = 30,
+  onLoadMore,
+  hasMore,
+  loadingMore = false,
 }) {
   const { t } = useTranslation(['study', 'common']);
   const getCardMeta = (card) => {
@@ -159,6 +163,11 @@ export default function TableView({
       data={cards}
       getRowKey={(card, idx) => card.id || card.front_text || card.grammar || idx}
       onRowClick={onSelectCard}
+      infiniteScroll
+      pageSize={pageSize}
+      onLoadMore={onLoadMore}
+      hasMore={hasMore}
+      loadingMore={loadingMore}
       mobileRowClassName="flex flex-col gap-2.5"
       renderMobileRow={(card) => {
         const meta = getCardMeta(card);

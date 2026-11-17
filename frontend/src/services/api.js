@@ -184,6 +184,13 @@ export async function fetchCards(params = {}) {
   if (params.mine) query.append('mine', 'true');
   if (params.due) query.append('due', 'true');
   if (params.srs_state) query.append('srs_state', params.srs_state);
+  if (params.status) query.append('status', params.status);
+  if (params.page !== undefined && params.page !== null && params.page !== '') {
+    query.append('page', String(params.page));
+  }
+  if (params.page_size !== undefined && params.page_size !== null && params.page_size !== '') {
+    query.append('page_size', String(params.page_size));
+  }
 
   const queryString = query.toString();
   return request(`/cards/${queryString ? `?${queryString}` : ''}`, {

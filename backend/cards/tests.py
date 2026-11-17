@@ -11,7 +11,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from users.models import AppModuleConfig
-from .models import Card, Course
+from .models import Card, CardReview, Course
 
 User = get_user_model()
 
@@ -1419,6 +1419,7 @@ class GoogleAuthAPITestCase(APITestCase):
         res = self.client.post(self.url, {"access_token": "valid_tok"}, format="json")
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
+
     @patch("requests.get")
     def test_new_user_registration_blocked_when_module_disabled(self, mock_get):
         AppModuleConfig.objects.update_or_create(
@@ -1435,6 +1436,96 @@ class GoogleAuthAPITestCase(APITestCase):
 
         res = self.client.post(self.url, {"access_token": "valid_tok"}, format="json")
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class CardPaginationTestCase(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="paginated_user",
+            password="testpassword123",
+        )
+        self.cards = [
+            Card.objects.create(
+                card_type=Card.CardType.VOCABULARY,
+                level=Card.JLPTLevel.N5,
+                lesson=f"Bài {i}",
+                display_order=i,
+                front_text=f"Word {i}",
+                meaning=f"Meaning {i}",
+                is_public=True,
+            )
+            for i in range(1, 6)
+        ]
+        self.url = reverse("cards:card-list")
+
+    def test_unpaginated_list_preserves_srs_summary(self):
+        res = self.client.get(self.url)
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["total"], 5)
+        self.assertEqual(len(res.data["results"]), 5)
+        self.assertIn("srs_summary", res.data)
+        self.assertNotIn("page", res.data)
+
+    def test_paginated_list_page_1(self):
+        res = self.client.get(f"{self.url}?page=1&page_size=2")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["total"], 5)
+        self.assertEqual(res.data["page"], 1)
+        self.assertEqual(res.data["page_size"], 2)
+        self.assertEqual(res.data["total_pages"], 3)
+        self.assertTrue(res.data["has_next"])
+        self.assertEqual(len(res.data["results"]), 2)
+        self.assertEqual(res.data["results"][0]["front_text"], "Word 1")
+        self.assertEqual(res.data["results"][1]["front_text"], "Word 2")
+        self.assertNotIn("srs_summary", res.data)
+
+    def test_paginated_list_page_3_last_page(self):
+        res = self.client.get(f"{self.url}?page=3&page_size=2")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertEqual(res.data["total"], 5)
+        self.assertEqual(res.data["page"], 3)
+        self.assertEqual(res.data["total_pages"], 3)
+        self.assertFalse(res.data["has_next"])
+        self.assertEqual(len(res.data["results"]), 1)
+        self.assertEqual(res.data["results"][0]["front_text"], "Word 5")
+
+    def test_paginated_list_with_authenticated_srs_states(self):
+        self.client.force_authenticate(user=self.user)
+        CardReview.objects.create(
+            user=self.user,
+            card=self.cards[0],
+            state=CardReview.ReviewState.LEARNING,
+            status=CardReview.StudyStatus.LEARNED,
+        )
+        res = self.client.get(f"{self.url}?page=1&page_size=2")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        self.assertIn(str(self.cards[0].id), res.data["srs_states"])
+        self.assertEqual(
+            res.data["srs_states"][str(self.cards[0].id)]["status"], "learned"
+        )
+
+    def test_paginated_list_with_status_filter(self):
+        self.client.force_authenticate(user=self.user)
+        CardReview.objects.create(
+            user=self.user,
+            card=self.cards[0],
+            state=CardReview.ReviewState.LEARNING,
+            status=CardReview.StudyStatus.LEARNED,
+        )
+        # Filter status=learned: only card 0 matches
+        res_learned = self.client.get(f"{self.url}?page=1&page_size=2&status=learned")
+        self.assertEqual(res_learned.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_learned.data["total"], 1)
+        self.assertEqual(len(res_learned.data["results"]), 1)
+        self.assertEqual(res_learned.data["results"][0]["id"], self.cards[0].id)
+
+        # Filter status=unseen: cards 1..4 match
+        res_unseen = self.client.get(f"{self.url}?page=1&page_size=2&status=unseen")
+        self.assertEqual(res_unseen.status_code, status.HTTP_200_OK)
+        self.assertEqual(res_unseen.data["total"], 4)
+        self.assertEqual(len(res_unseen.data["results"]), 2)
+
+
 
 
 

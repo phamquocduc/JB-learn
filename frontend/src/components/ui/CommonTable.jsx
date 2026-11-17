@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Card from './Card';
 
 const ALIGN_CLASSES = {
@@ -31,8 +31,72 @@ export default function CommonTable({
   ariaLabel,
   className = '',
   tableClassName = '',
+  infiniteScroll = false,
+  pageSize = 30,
+  onLoadMore,
+  hasMore,
+  loadingMore = false,
 }) {
-  if (!data || data.length === 0) {
+  const [prevData, setPrevData] = useState(data);
+  const [prevPageSize, setPrevPageSize] = useState(pageSize);
+  const [visibleCount, setVisibleCount] = useState(pageSize);
+  const sentinelRef = useRef(null);
+
+  if (data !== prevData || pageSize !== prevPageSize) {
+    setPrevData(data);
+    setPrevPageSize(pageSize);
+    setVisibleCount(pageSize);
+  }
+
+  const hasData = Boolean(data && data.length > 0);
+  const hasIntersectionObserver =
+    typeof window !== 'undefined' && typeof IntersectionObserver !== 'undefined';
+
+  const displayData =
+    infiniteScroll && hasData && hasIntersectionObserver && typeof onLoadMore !== 'function'
+      ? data.slice(0, visibleCount)
+      : data;
+
+  const hasMoreItems =
+    infiniteScroll && hasData && hasIntersectionObserver
+      ? hasMore !== undefined
+        ? hasMore
+        : visibleCount < data.length
+      : false;
+
+  useEffect(() => {
+    if (!infiniteScroll || !hasMoreItems) return;
+
+    const target = sentinelRef.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry && entry.isIntersecting) {
+          if (typeof onLoadMore === 'function') {
+            if (!loadingMore) {
+              onLoadMore();
+            }
+          } else {
+            setVisibleCount((prev) => Math.min(prev + pageSize, data.length));
+          }
+        }
+      },
+      {
+        root: null,
+        rootMargin: '250px',
+        threshold: 0,
+      }
+    );
+
+    observer.observe(target);
+    return () => {
+      observer.disconnect();
+    };
+  }, [infiniteScroll, hasMoreItems, onLoadMore, loadingMore, pageSize, data.length]);
+
+  if (!hasData) {
     if (!emptyState) return null;
     if (embedded) return <div className="p-4">{emptyState}</div>;
     return emptyState;
@@ -68,7 +132,7 @@ export default function CommonTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 text-sm text-slate-700">
-            {data.map((row, rowIdx) => {
+            {displayData.map((row, rowIdx) => {
               const rowKey = getRowKey(row, rowIdx);
               const extraRowCls =
                 typeof rowClassName === 'function'
@@ -127,7 +191,7 @@ export default function CommonTable({
 
       {renderMobileRow && (
         <div className="sm:hidden divide-y divide-slate-200" role="list">
-          {data.map((row, rowIdx) => {
+          {displayData.map((row, rowIdx) => {
             const rowKey = getRowKey(row, rowIdx);
             const extraMobileCls =
               typeof mobileRowClassName === 'function'
@@ -168,6 +232,16 @@ export default function CommonTable({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {infiniteScroll && (hasMoreItems || loadingMore) && (
+        <div
+          ref={sentinelRef}
+          className="w-full py-3.5 flex items-center justify-center text-xs text-slate-400 select-none"
+          aria-hidden="true"
+        >
+          <div className="w-4 h-4 border-2 border-slate-200 border-t-sky-700 rounded-full animate-spin" />
         </div>
       )}
 

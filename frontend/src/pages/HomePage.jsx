@@ -199,6 +199,10 @@ export default function HomePage({ defaultScope = 'all' }) {
   const [courses, setCourses] = useState([]);
   const [loadingCards, setLoadingCards] = useState(true);
   const [error, setError] = useState(null);
+  const [tablePage, setTablePage] = useState(1);
+  const [tableHasNext, setTableHasNext] = useState(false);
+  const [tableTotal, setTableTotal] = useState(null);
+  const [loadingMoreTable, setLoadingMoreTable] = useState(false);
 
   // Modals
   const [selectedDetailCard, setSelectedDetailCard] = useState(null);
@@ -290,14 +294,40 @@ export default function HomePage({ defaultScope = 'all' }) {
     effectiveScope,
   ]);
 
+  const buildFetchParams = useCallback(
+    (page = null, pageSize = null) => {
+      const params = buildCardParams();
+      if (page !== null && page !== undefined) {
+        params.page = page;
+        if (pageSize) params.page_size = pageSize;
+        if (!isGuest && selectedStatus) {
+          params.status = selectedStatus;
+        }
+      }
+      return params;
+    },
+    [buildCardParams, isGuest, selectedStatus]
+  );
+
   // Imperative reload for retry & post-mutation sync
   const reloadCards = useCallback(async () => {
     if (authLoading) return;
     setLoadingCards(true);
     setError(null);
     try {
-      const data = await fetchCards(buildCardParams());
+      const isTable = activeTab === 'table';
+      const data = await fetchCards(
+        isTable ? buildFetchParams(1, 30) : buildFetchParams()
+      );
       setCards(data.results || []);
+      if (isTable) {
+        setTablePage(1);
+        setTableHasNext(Boolean(data.has_next));
+        setTableTotal(data.total ?? null);
+      } else {
+        setTableHasNext(false);
+        setTableTotal(data.total ?? (data.results?.length || 0));
+      }
       if (Array.isArray(data.lessons)) {
         setLessons(data.lessons);
       }
@@ -317,20 +347,69 @@ export default function HomePage({ defaultScope = 'all' }) {
     } finally {
       setLoadingCards(false);
     }
-  }, [authLoading, buildCardParams, user, userStorageKey, t]);
+  }, [authLoading, activeTab, buildFetchParams, user, userStorageKey, t]);
 
-  const deckContextKey = `${userStorageKey}|${effectiveScope}|${effectiveCourse}|${selectedType}|${selectedLevel}|${selectedLesson}|${debouncedSearch}`;
+  const handleLoadMoreTable = useCallback(async () => {
+    if (loadingMoreTable || !tableHasNext) return;
+    setLoadingMoreTable(true);
+    try {
+      const nextPage = tablePage + 1;
+      const data = await fetchCards(buildFetchParams(nextPage, 30));
+      const nextResults = data.results || [];
+      if (nextResults.length > 0) {
+        setCards((prev) => [...prev, ...nextResults]);
+        setTablePage(nextPage);
+        setTableHasNext(Boolean(data.has_next));
+        if (data.total !== undefined) setTableTotal(data.total);
+        if (data.srs_states && typeof data.srs_states === 'object') {
+          const merged = mergeServerSrsMap(user, data.srs_states);
+          setSrsByScope((prev) => ({
+            ...prev,
+            [userStorageKey]: merged.srsMap,
+          }));
+          setStatusByScope((prev) => ({
+            ...prev,
+            [userStorageKey]: merged.statusMap,
+          }));
+        }
+      } else {
+        setTableHasNext(false);
+      }
+    } catch {
+      // non-fatal
+    } finally {
+      setLoadingMoreTable(false);
+    }
+  }, [
+    loadingMoreTable,
+    tableHasNext,
+    tablePage,
+    buildFetchParams,
+    user,
+    userStorageKey,
+  ]);
+
+  const deckContextKey = `${userStorageKey}|${effectiveScope}|${effectiveCourse}|${selectedType}|${selectedLevel}|${selectedLesson}|${debouncedSearch}|${activeTab}`;
 
   // Reactive card loader with race-condition protection & Anki SRS deck resume
   useEffect(() => {
     if (authLoading || !canViewCurrentScope) return;
     let ignore = false;
+    const isTable = activeTab === 'table';
 
-    fetchCards(buildCardParams())
+    fetchCards(isTable ? buildFetchParams(1, 30) : buildFetchParams())
       .then((data) => {
         if (!ignore) {
           const loadedCards = data.results || [];
           setCards(loadedCards);
+          if (isTable) {
+            setTablePage(1);
+            setTableHasNext(Boolean(data.has_next));
+            setTableTotal(data.total ?? null);
+          } else {
+            setTableHasNext(false);
+            setTableTotal(data.total ?? loadedCards.length);
+          }
           if (Array.isArray(data.lessons)) {
             setLessons(data.lessons);
           }
@@ -376,6 +455,7 @@ export default function HomePage({ defaultScope = 'all' }) {
 
           // Restore due-first / per-course card position whenever deck context changes
           if (
+            !isTable &&
             loadedCards.length > 0 &&
             restoredContextKeyRef.current !== deckContextKey
           ) {
@@ -431,7 +511,8 @@ export default function HomePage({ defaultScope = 'all' }) {
     user,
     userStorageKey,
     effectiveCourse,
-    buildCardParams,
+    activeTab,
+    buildFetchParams,
     deckContextKey,
     i18n.language,
     t,
@@ -871,7 +952,7 @@ export default function HomePage({ defaultScope = 'all' }) {
           lessons={lessons}
           hideScopeToggle={defaultScope === 'mine' || !personalCardsEnabled}
           currentCardNumber={filteredCards.length > 0 ? safeIndex + 1 : 0}
-          totalCount={cards.length}
+          totalCount={activeTab === 'table' && tableTotal !== null ? tableTotal : cards.length}
           learnedCount={progressStats.learnedCount}
           rememberedCount={progressStats.rememberedCount}
           masteredCount={progressStats.masteredCount}
@@ -933,6 +1014,9 @@ export default function HomePage({ defaultScope = 'all' }) {
               }}
               onEditCard={handleOpenEditCard}
               onDeleteCard={handleDeleteCard}
+              onLoadMore={handleLoadMoreTable}
+              hasMore={tableHasNext}
+              loadingMore={loadingMoreTable}
             />
           )}
         </div>

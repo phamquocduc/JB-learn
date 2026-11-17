@@ -403,12 +403,13 @@ class CardViewSet(ModelViewSet):
         search = self.request.query_params.get("search", "")
         due = self.request.query_params.get("due", "").lower() in ("true", "1", "yes")
         srs_state = self.request.query_params.get("srs_state", "").strip().lower()
+        status_param = self.request.query_params.get("status", "").strip().lower()
 
         if lesson:
             qs = qs.by_lesson(lesson)
         if search:
             qs = qs.search(search)
-        if due:
+        if due or status_param == "due":
             if self.request.user.is_authenticated:
                 qs = qs.filter(
                     Q(reviews__due_at__lte=timezone.now())
@@ -421,6 +422,26 @@ class CardViewSet(ModelViewSet):
                     ],
                 )
             else:
+                qs = qs.none()
+        if status_param == "again":
+            srs_state = "relearning"
+        if status_param in ("unseen", "learned", "remembered", "mastered"):
+            if self.request.user.is_authenticated:
+                if status_param == "unseen":
+                    qs = qs.exclude(
+                        reviews__user=self.request.user,
+                        reviews__status__in=[
+                            CardReview.StudyStatus.LEARNED,
+                            CardReview.StudyStatus.REMEMBERED,
+                            CardReview.StudyStatus.MASTERED,
+                        ],
+                    )
+                else:
+                    qs = qs.filter(
+                        reviews__user=self.request.user,
+                        reviews__status=status_param,
+                    )
+            elif status_param != "unseen":
                 qs = qs.none()
         if srs_state in ("new", "learning", "review", "relearning"):
             if self.request.user.is_authenticated:
@@ -443,8 +464,58 @@ class CardViewSet(ModelViewSet):
         return qs
 
     def list(self, request: Request, *args, **kwargs) -> Response:
-        cards = list(self.filter_queryset(self.get_queryset()))
+        page_param = request.query_params.get("page", "").strip()
+        should_paginate = bool(page_param and page_param.lower() != "all")
         now_dt = timezone.now()
+
+        if should_paginate:
+            try:
+                page = max(1, int(page_param))
+            except (ValueError, TypeError):
+                page = 1
+
+            page_size_param = request.query_params.get("page_size", "").strip()
+            try:
+                page_size = (
+                    max(1, min(100, int(page_size_param)))
+                    if page_size_param
+                    else 30
+                )
+            except (ValueError, TypeError):
+                page_size = 30
+
+            qs = self.filter_queryset(self.get_queryset())
+            total = qs.count()
+            total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+            offset = (page - 1) * page_size
+            cards = list(qs[offset : offset + page_size])
+            card_ids = [c.id for c in cards]
+            srs_states = {}
+
+            if request.user.is_authenticated and card_ids:
+                reviews = CardReview.objects.filter(
+                    user=request.user, card_id__in=card_ids
+                )
+                for rev in reviews:
+                    srs_states[str(rev.card_id)] = serialize_srs_state(
+                        rev.to_srs_dict(), now=now_dt
+                    )
+
+            serializer = self.get_serializer(cards, many=True)
+            return Response(
+                {
+                    "total": total,
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": total_pages,
+                    "has_next": (offset + len(cards)) < total,
+                    "lessons": self.get_base_queryset().distinct_lessons(),
+                    "results": serializer.data,
+                    "srs_states": srs_states,
+                }
+            )
+
+        cards = list(self.filter_queryset(self.get_queryset()))
         card_ids = [c.id for c in cards]
         srs_states = {}
         raw_reviews_by_id = {}
